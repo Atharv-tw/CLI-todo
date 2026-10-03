@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "todo": {
+      "command": "/home/YOU/.local/bin/todo",
+      "args": ["mcp"]
+    }
+  }
+}

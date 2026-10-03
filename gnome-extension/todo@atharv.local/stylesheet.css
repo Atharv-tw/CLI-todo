@@ -1,0 +1,12 @@
+.todo-item { max-width: 30em; }
+.todo-done { color: rgba(255, 255, 255, 0.5); }
+
+/* The task whose time slot is running now. */
+.todo-current {
+    background-color: #1d7f73;
+    color: #ffffff;
+    font-weight: bold;
+    border-radius: 99px;
+    padding: 0 12px;
+    margin: 4px 0;
+}

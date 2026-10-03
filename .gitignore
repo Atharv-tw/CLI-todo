@@ -1,0 +1,20 @@
+.dart_tool/
+build/
+*.iml
+.idea/
+pubspec_overrides.yaml
+config.local.json
+*.db
+*.db-wal
+*.db-shm
+.flutter-plugins*
+local.properties
+*.jks
+key.properties
+
+# Personal: your own plans, server details and local tool config
+plans/
+config.local.json
+.mcp.json
+*.apk
+build-apk.log

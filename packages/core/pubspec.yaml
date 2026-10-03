@@ -1,0 +1,14 @@
+name: todo_core
+description: Shared data layer for the to-do apps, CLI and widgets.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+dependencies:
+  http: ^1.6.0
+  path: ^1.9.1
+  sqlite3: ^3.7.0
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.32.0

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_today">Today\'s tasks</string>
+    <string name="widget_habits">Today\'s habits</string>
+    <string name="widget_focus">Focus timer</string>
+</resources>

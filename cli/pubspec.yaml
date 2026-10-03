@@ -1,0 +1,17 @@
+name: todo_cli
+description: The `todo` command and its MCP server.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+executables:
+  todo:
+dependencies:
+  args: ^2.7.0
+  http: ^1.6.0
+  todo_core:
+    path: ../packages/core
+dev_dependencies:
+  lints: ^6.1.0
