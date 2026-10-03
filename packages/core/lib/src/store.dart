@@ -333,9 +333,10 @@ class Store {
       .toSet();
 
   /// For each date in [from]..[to], how many of that day's tasks and active
-  /// habits were completed, and how many there were.
-  Map<String, ({int done, int total})> dayCompletion(String from, String to) {
-    final taskRows = db.select(
+  /// habits were completed, and how many there were. With [tasks] false,
+  /// habits only.
+  Map<String, ({int done, int total})> dayCompletion(String from, String to, {bool tasks = true}) {
+    final taskRows = !tasks ? const <Map<String, Object?>>[] : db.select(
       'SELECT date, count(*) AS total, count(done_at) AS done FROM tasks '
       'WHERE deleted_at IS NULL AND date BETWEEN ? AND ? GROUP BY date',
       [from, to],
@@ -392,11 +393,12 @@ class Store {
     return streakOf(habitDays(habitId, '0000-01-01', on), on);
   }
 
-  /// Streak of days with at least one task or habit completed, over the past year.
-  ({int current, int best}) overallStreak([String? on]) {
+  /// Streak of days with at least one task or habit completed (habits only
+  /// with [tasks] false), over the past year.
+  ({int current, int best}) overallStreak([String? on, bool tasks = true]) {
     on ??= today();
     final active = {
-      for (final e in dayCompletion(addDays(on, -365), on).entries)
+      for (final e in dayCompletion(addDays(on, -365), on, tasks: tasks).entries)
         if (e.value.done > 0) e.key,
     };
     return streakOf(active, on);

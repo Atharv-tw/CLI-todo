@@ -5,24 +5,13 @@ import 'heatmap.dart';
 import 'state.dart';
 import 'theme.dart';
 
-const _monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+String _days(int n) => '$n ${n == 1 ? 'day' : 'days'}';
 
-/// Month streak grids: one for everything, then one per habit.
-class HabitsPage extends StatefulWidget {
+/// Habits only: a streak summary, then one tile per habit to tap done.
+class HabitsPage extends StatelessWidget {
   const HabitsPage({super.key});
 
-  @override
-  State<HabitsPage> createState() => _HabitsPageState();
-}
-
-class _HabitsPageState extends State<HabitsPage> {
-  /// Months back from the current one; 0 is this month.
-  int _back = 0;
-
-  Future<void> _add() async {
+  Future<void> _add(BuildContext context) async {
     final controller = TextEditingController();
     final title = await showDialog<String>(
       context: context,
@@ -40,7 +29,7 @@ class _HabitsPageState extends State<HabitsPage> {
         ],
       ),
     );
-    if (title != null && title.trim().isNotEmpty && mounted) {
+    if (title != null && title.trim().isNotEmpty && context.mounted) {
       AppScope.of(context).change((s) => s.addHabit(title: title, startDate: today()));
     }
   }
@@ -49,235 +38,179 @@ class _HabitsPageState extends State<HabitsPage> {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final text = Theme.of(context).textTheme;
-    final nowDate = DateTime.now();
-    final now = today(nowDate);
-    final month = DateTime(nowDate.year, nowDate.month - _back, 1);
-    final from = ymd(month);
-    final to = ymd(DateTime(month.year, month.month + 1, 0));
-    // Stats cover the month up to today, not days that have not happened yet.
-    final upTo = to.compareTo(now) < 0 ? to : now;
+    final now = today();
+    final active = app.store.habits(activeOn: now);
+    final upcoming = app.store
+        .habits()
+        .where((h) => h.startDate != null && h.startDate!.compareTo(now) > 0)
+        .toList();
+    final checked = app.store.checkedHabitIds(now);
+    final doneToday = active.where((h) => checked.contains(h.id)).length;
+    final streak = app.store.overallStreak(now, false);
 
-    final completion = app.store.dayCompletion(from, to);
-    final overall = app.store.overallStreak(now);
-    var doneSum = 0, totalSum = 0;
-    for (final e in completion.entries) {
-      if (e.key.compareTo(upTo) > 0) continue;
-      doneSum += e.value.done;
-      totalSum += e.value.total;
-    }
-    final habits = app.store.habits();
-
-    return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: 'Previous month',
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () => setState(() => _back++),
-              ),
-              Expanded(
-                child: Text(
-                  '${_monthNames[month.month - 1]} ${month.year}',
-                  textAlign: TextAlign.center,
-                  style: text.titleSmall,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('All habits', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  'A day counts once at least one habit is done',
+                  style: text.bodySmall?.copyWith(color: AppColors.muted),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Next month',
-                icon: const Icon(Icons.chevron_right),
-                onPressed: _back == 0 ? null : () => setState(() => _back--),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          _StreakCard(
-            title: 'Everything',
-            subtitle: 'Tasks and habits completed each day',
-            heatmap: MonthHeatmap(
-              month: month,
-              value: (d) {
-                final c = completion[d]!;
-                return c.total == 0 ? 0 : c.done / c.total;
-              },
-            ),
-            stats: [
-              StatTile('${overall.current} ${overall.current == 1 ? 'day' : 'days'}', 'Current streak'),
-              StatTile('${overall.best} ${overall.best == 1 ? 'day' : 'days'}', 'Best streak'),
-              StatTile('${totalSum == 0 ? 0 : (doneSum * 100 / totalSum).round()}%', 'Done this month'),
-            ],
-          ),
-          if (habits.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 32),
-              child: Center(child: Text('No habits yet.', style: TextStyle(color: AppColors.muted))),
-            ),
-          for (final h in habits) ...[
-            const SizedBox(height: 12),
-            _HabitCard(habit: h, month: month, from: from, upTo: upTo, now: now),
-          ],
-          const SizedBox(height: 16),
-          Center(
-            child: FilledButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('New habit'),
-              onPressed: _add,
+                const SizedBox(height: 12),
+                Row(
+                  spacing: 8,
+                  children: [
+                    Expanded(child: StatTile(_days(streak.current), 'Current streak')),
+                    Expanded(child: StatTile(_days(streak.best), 'Best streak')),
+                    Expanded(child: StatTile('$doneToday of ${active.length}', 'Done today')),
+                  ],
+                ),
+              ],
             ),
           ),
+        ),
+        if (active.isEmpty && upcoming.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 32),
+            child: Center(child: Text('No habits yet.', style: TextStyle(color: AppColors.muted))),
+          ),
+        for (final h in active) ...[
+          const SizedBox(height: 10),
+          _HabitTile(habit: h, done: checked.contains(h.id)),
+        ],
+        if (upcoming.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 20, 4, 0),
+            child: Text('Not started yet', style: text.titleSmall?.copyWith(color: AppColors.muted)),
+          ),
+        for (final h in upcoming) ...[
+          const SizedBox(height: 10),
+          _HabitTile(habit: h, done: false, startsLater: true),
+        ],
+        const SizedBox(height: 16),
+        Center(
+          child: FilledButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('New habit'),
+            onPressed: () => _add(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tap to mark today done or not done.
+class _HabitTile extends StatelessWidget {
+  const _HabitTile({required this.habit, required this.done, this.startsLater = false});
+
+  final Habit habit;
+  final bool done;
+  final bool startsLater;
+
+  Future<void> _setTime(BuildContext context, AppState app) async {
+    final parts = (habit.time ?? '09:00').split(':').map(int.parse).toList();
+    final picked = await showTimePicker(
+      context: context,
+      helpText: 'Time of day for "${habit.title}"',
+      initialTime: TimeOfDay(hour: parts[0], minute: parts[1]),
+    );
+    if (picked != null) {
+      app.change((s) => s.setHabitTime(habit.id, hm(DateTime(2000, 1, 1, picked.hour, picked.minute))));
+    }
+  }
+
+  Future<void> _delete(BuildContext context, AppState app) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "${habit.title}"?'),
+        content: const Text('Its history goes with it.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
+    if (ok == true) app.change((s) => s.deleteHabit(habit.id));
   }
-}
-
-class _StreakCard extends StatelessWidget {
-  const _StreakCard({
-    required this.title,
-    required this.subtitle,
-    required this.heatmap,
-    required this.stats,
-    this.trailing,
-    this.footer,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget heatmap;
-  final List<Widget> stats;
-  final Widget? trailing;
-  final Widget? footer;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                      Text(subtitle, style: text.bodySmall?.copyWith(color: AppColors.muted)),
-                    ],
-                  ),
-                ),
-                ?trailing,
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 14,
-              children: [
-                heatmap,
-                Expanded(child: Column(spacing: 8, children: [...stats, ?footer])),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HabitCard extends StatelessWidget {
-  const _HabitCard({
-    required this.habit,
-    required this.month,
-    required this.from,
-    required this.upTo,
-    required this.now,
-  });
-
-  final Habit habit;
-  final DateTime month;
-  final String from, upTo, now;
-
-  bool _active(String date) =>
-      (habit.startDate == null || habit.startDate!.compareTo(date) <= 0) &&
-      (habit.endDate == null || habit.endDate!.compareTo(date) >= 0);
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final to = ymd(DateTime(month.year, month.month + 1, 0));
-    final days = app.store.habitDays(habit.id, from, to);
+    final text = Theme.of(context).textTheme;
+    final now = today();
     final streak = app.store.habitStreak(habit.id, now);
-    var due = 0;
-    for (var d = from; d.compareTo(upTo) <= 0; d = addDays(d, 1)) {
-      if (_active(d)) due++;
-    }
-    final doneToday = app.store.checkedHabitIds(now).contains(habit.id);
-    final activeToday = _active(now);
 
-    void toggle(String date) => app.change((s) => s.setHabitCheck(habit.id, date, !days.contains(date)));
+    // Share of days done since the habit began (or the last 30 days).
+    final thirtyAgo = addDays(now, -29);
+    final from = habit.startDate != null && habit.startDate!.compareTo(thirtyAgo) > 0 ? habit.startDate! : thirtyAgo;
+    final span = startsLater ? 0 : parseYmd(now).difference(parseYmd(from)).inDays + 1;
+    final hits = startsLater ? 0 : app.store.habitDays(habit.id, from, now).length;
 
-    return _StreakCard(
-      title: habit.title,
-      subtitle: [
-        ?habit.time,
-        if (!activeToday) (habit.startDate != null && habit.startDate!.compareTo(now) > 0)
-            ? 'Starts ${prettyDate(habit.startDate!)}'
-            : 'Ended',
-        if (activeToday) 'Every day',
-      ].join(' · '),
-      trailing: IconButton(
-        tooltip: 'Delete habit',
-        icon: const Icon(Icons.delete_outline, color: AppColors.muted),
-        onPressed: () async {
-          final ok = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text('Delete "${habit.title}"?'),
-              content: const Text('Its history goes with it.'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-              ],
-            ),
-          );
-          if (ok == true) app.change((s) => s.deleteHabit(habit.id));
-        },
-      ),
-      heatmap: MonthHeatmap(
-        month: month,
-        keyPrefix: 'heat-${habit.id}',
-        value: (d) => !_active(d) ? null : (days.contains(d) ? 1 : 0),
-        onTap: toggle,
-      ),
-      stats: [
-        StatTile('${streak.current} ${streak.current == 1 ? 'day' : 'days'}', 'Current streak'),
-        if (due == 0)
-          const StatTile('–', 'Not started this month')
-        else
-          StatTile(
-            '${days.length} of $due',
-            'Days done · ${(days.where((d) => d.compareTo(upTo) <= 0).length * 100 / due).round()}%',
-          ),
-      ],
-      footer: !activeToday
-          ? null
-          : SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: ValueKey('done-${habit.id}'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: doneToday ? AppColors.raised : AppColors.green,
-                  foregroundColor: doneToday ? AppColors.ink : AppColors.onLight,
+    final stats = startsLater
+        ? 'Starts ${prettyDate(habit.startDate!)}'
+        : [
+            ?habit.time,
+            '${streak.current}-day streak',
+            '$hits of last $span days',
+          ].join(' · ');
+
+    return Card(
+      color: done ? AppColors.green.withValues(alpha: 0.16) : null,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: ValueKey('habit-${habit.id}'),
+        onTap: startsLater ? null : () => app.change((s) => s.setHabitCheck(habit.id, now, !done)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+          child: Row(
+            spacing: 14,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: done ? AppColors.green : Colors.transparent,
+                  border: done ? null : Border.all(color: startsLater ? AppColors.line : AppColors.muted, width: 2),
                 ),
-                icon: Icon(doneToday ? Icons.undo : Icons.check_circle, size: 18),
-                label: Text(doneToday ? 'Undo today' : 'Done today'),
-                onPressed: () => app.change((s) => s.setHabitCheck(habit.id, now, !doneToday)),
+                child: done ? const Icon(Icons.check_rounded, size: 22, color: AppColors.onLight) : null,
               ),
-            ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      habit.title,
+                      style: text.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: startsLater ? AppColors.muted : null,
+                      ),
+                    ),
+                    Text(stats, style: text.bodySmall?.copyWith(color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'More',
+                icon: const Icon(Icons.more_vert, color: AppColors.muted),
+                onSelected: (v) => v == 'time' ? _setTime(context, app) : _delete(context, app),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'time', child: Text('Set time of day')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

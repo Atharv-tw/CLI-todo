@@ -178,6 +178,11 @@ void main() {
       expect(c['2026-10-02'], (done: 2, total: 3));
       expect(c['2026-10-03'], (done: 1, total: 2));
       expect(store.overallStreak('2026-10-03'), (current: 2, best: 2));
+      expect(store.dayCompletion('2026-10-02', '2026-10-02', tasks: false)['2026-10-02'], (done: 1, total: 1));
+      store.setHabitCheck(always.id, '2026-10-02', false);
+      expect(store.overallStreak('2026-10-03', false), (current: 1, best: 1));
+      expect(store.overallStreak('2026-10-03'), (current: 2, best: 2));
+      store.setHabitCheck(always.id, '2026-10-02', true);
       store.deleteHabit(later.id);
       expect(store.dayCompletion('2026-10-03', '2026-10-03')['2026-10-03'], (done: 0, total: 1));
     });

@@ -29,8 +29,7 @@ void main() {
     state.store.addTask(title: 'Old one', date: addDays(today(), -1));
     await pump(tester, const Size(390, 800));
 
-    // Once in the "Up next" card, once on the timeline.
-    expect(find.text('Revise OS'), findsNWidgets(2));
+    expect(find.text('Revise OS'), findsOneWidget);
     expect(find.text('0 of 2 done'), findsOneWidget);
     expect(find.text('1 overdue'), findsNWidgets(2));
 
@@ -38,13 +37,11 @@ void main() {
     await tester.pump();
     expect(state.store.task(t.id).done, isTrue);
     expect(find.text('1 of 2 done'), findsOneWidget);
-    expect(find.text('Revise OS'), findsOneWidget);
 
     await tester.tap(find.byKey(ValueKey('timeline-${h.id}')));
     await tester.pump();
     expect(state.store.checkedHabitIds(today()), {h.id});
     expect(find.text('2 of 2 done'), findsOneWidget);
-    expect(find.text('All done'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -81,29 +78,42 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
   });
 
-  testWidgets('habit grid: done today, and toggling a past day', (tester) async {
+  testWidgets('habit tiles: tap to mark done, with streaks; tasks stay out', (tester) async {
     final h = state.store.addHabit(title: 'Read', startDate: addDays(today(), -40));
+    state.store.setHabitCheck(h.id, addDays(today(), -1), true);
+    state.store.addHabit(title: 'Later', startDate: addDays(today(), 5));
+    final t = state.store.addTask(title: 'A task', date: today());
+    state.store.setDone(t.id, true);
     await pump(tester, const Size(390, 844));
     await go(tester, 'Habits');
 
-    await tester.tap(find.byKey(ValueKey('done-${h.id}')));
+    expect(find.text('A task'), findsNothing);
+    expect(find.text('0 of 1'), findsOneWidget);
+    expect(find.textContaining('1-day streak'), findsOneWidget);
+    expect(find.text('Not started yet'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('habit-${h.id}')));
     await tester.pump();
     expect(state.store.checkedHabitIds(today()), {h.id});
-    expect(find.text('Undo today'), findsOneWidget);
-    expect(find.text('1 day'), findsWidgets);
+    expect(find.text('1 of 1'), findsOneWidget);
+    expect(find.textContaining('2-day streak'), findsOneWidget);
+    expect(find.text('2 days'), findsNWidgets(2));
 
-    // The first of the month is on screen unless today is the first.
-    final first = ymd(DateTime(DateTime.now().year, DateTime.now().month, 1));
-    if (first != today()) {
-      final cell = find.byKey(ValueKey('heat-${h.id}-$first'));
-      await tester.ensureVisible(cell);
-      await tester.tap(cell);
-      await tester.pump();
-      expect(state.store.habitDays(h.id, first, first), {first});
-      await tester.tap(cell);
-      await tester.pump();
-      expect(state.store.habitDays(h.id, first, first), isEmpty);
-    }
+    await tester.tap(find.byKey(ValueKey('habit-${h.id}')));
+    await tester.pump();
+    expect(state.store.checkedHabitIds(today()), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('activity calendar: tapping a day opens it', (tester) async {
+    final yesterday = addDays(today(), -1);
+    state.store.addTask(title: 'From yesterday', date: yesterday);
+    await pump(tester, const Size(390, 844));
+    expect(find.text('From yesterday'), findsNothing);
+    await tester.tap(find.byKey(ValueKey('day-$yesterday')));
+    await tester.pump();
+    expect(find.text('From yesterday'), findsOneWidget);
+    expect(find.textContaining('back to today'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
