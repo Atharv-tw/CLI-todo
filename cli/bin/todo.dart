@@ -255,11 +255,16 @@ class RmCommand extends Cmd {
 }
 
 class ListsCommand extends Cmd {
-  ListsCommand() : super('lists', 'Show lists, or add one: todo lists add NAME');
+  ListsCommand() : super('lists', 'Show lists; add one: todo lists add NAME; rename: todo lists rename OLD NEW');
 
   @override
   void run() {
     if (rest.length >= 2 && rest.first == 'add') store.ensureList(rest.skip(1).join(' '));
+    if (rest.length == 3 && rest.first == 'rename') {
+      final list = store.findList(rest[1]);
+      if (list == null) throw TodoException('No list called "${rest[1]}"');
+      store.renameList(list.id, rest[2]);
+    }
     final lists = store.lists();
     out(
       [for (final l in lists) l.toJson()],

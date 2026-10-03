@@ -151,6 +151,38 @@ void main() {
     expect(hm(slotEnd(day, '09:00', '10:15')), '10:15');
   });
 
+  group('streaks', () {
+    test('a gap breaks a streak; today unticked does not', () {
+      final h = store.addHabit(title: 'Read');
+      for (final d in ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-05', '2026-10-06']) {
+        store.setHabitCheck(h.id, d, true);
+      }
+      expect(store.habitStreak(h.id, '2026-10-06'), (current: 2, best: 3));
+      expect(store.habitStreak(h.id, '2026-10-07'), (current: 2, best: 3));
+      expect(store.habitStreak(h.id, '2026-10-08'), (current: 0, best: 3));
+      store.setHabitCheck(h.id, '2026-10-04', true);
+      expect(store.habitStreak(h.id, '2026-10-06'), (current: 6, best: 6));
+      expect(store.habitDays(h.id, '2026-10-02', '2026-10-03'), {'2026-10-02', '2026-10-03'});
+    });
+
+    test('day completion counts tasks and habits active that day', () {
+      final a = store.addTask(title: 'a', date: '2026-10-02');
+      store.addTask(title: 'b', date: '2026-10-02');
+      final always = store.addHabit(title: 'Water');
+      final later = store.addHabit(title: 'DSA', startDate: '2026-10-03');
+      store.setDone(a.id, true);
+      store.setHabitCheck(always.id, '2026-10-02', true);
+      store.setHabitCheck(later.id, '2026-10-03', true);
+      final c = store.dayCompletion('2026-10-01', '2026-10-03');
+      expect(c['2026-10-01'], (done: 0, total: 1));
+      expect(c['2026-10-02'], (done: 2, total: 3));
+      expect(c['2026-10-03'], (done: 1, total: 2));
+      expect(store.overallStreak('2026-10-03'), (current: 2, best: 2));
+      store.deleteHabit(later.id);
+      expect(store.dayCompletion('2026-10-03', '2026-10-03')['2026-10-03'], (done: 0, total: 1));
+    });
+  });
+
   test('snapshot covers one day', () {
     final day = today();
     final t = store.addTask(title: 'now', date: day);

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_bg">#FFFFFF</color>
-    <color name="widget_ink">#0F2C36</color>
-    <color name="widget_muted">#4F6A72</color>
-    <color name="widget_tide">#1D7F73</color>
-    <color name="widget_on_tide">#F1F5F4</color>
+    <color name="widget_bg">#1C1C1F</color>
+    <color name="widget_ink">#F4F1EA</color>
+    <color name="widget_muted">#8E8E93</color>
+    <color name="widget_tide">#F2541B</color>
+    <color name="widget_on_tide">#FFFFFF</color>
 </resources>

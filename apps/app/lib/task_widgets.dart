@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:todo_core/todo_core.dart';
 
 import 'state.dart';
+import 'timeline.dart' as timeline;
 
 String timeLabel(Task t) => t.startTime == null
     ? ''
@@ -26,12 +27,7 @@ class TaskTile extends StatelessWidget {
       ?task.list,
     ].where((s) => s.isNotEmpty).join(' · ');
     // The task whose slot covers the present moment stands out as a block.
-    final now = DateTime.now();
-    final isNow = !task.done &&
-        task.date == today(now) &&
-        task.startTime != null &&
-        !now.isBefore(atTime(task.date!, task.startTime!)) &&
-        now.isBefore(slotEnd(task.date!, task.startTime!, task.endTime));
+    final isNow = task.date != null && timeline.isNow(task.date!, task.startTime, task.endTime, done: task.done);
     return Card(
       color: isNow ? scheme.primary : null,
       child: ListTile(
@@ -62,57 +58,6 @@ class TaskTile extends StatelessWidget {
                 },
               ),
         onTap: () => showTaskSheet(context, task: task),
-      ),
-    );
-  }
-}
-
-/// A habit as a row in the day's timeline.
-class HabitTile extends StatelessWidget {
-  const HabitTile({
-    super.key,
-    required this.id,
-    required this.title,
-    required this.time,
-    required this.done,
-    required this.date,
-  });
-
-  final String id;
-  final String title;
-  final String? time;
-  final bool done;
-  final String date;
-
-  @override
-  Widget build(BuildContext context) {
-    final app = AppScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.only(left: 4, right: 8),
-        leading: Checkbox(
-          value: done,
-          shape: const CircleBorder(),
-          onChanged: (v) => app.change((s) => s.setHabitCheck(id, date, v ?? false)),
-        ),
-        title: Text(
-          title,
-          style: done ? TextStyle(decoration: TextDecoration.lineThrough, color: scheme.onSurfaceVariant) : null,
-        ),
-        subtitle: Text(time == null ? 'Habit' : '$time · Habit'),
-        onTap: () => app.change((s) => s.setHabitCheck(id, date, !done)),
-        onLongPress: () async {
-          final parts = (time ?? '09:00').split(':').map(int.parse).toList();
-          final picked = await showTimePicker(
-            context: context,
-            helpText: 'Time of day for "$title"',
-            initialTime: TimeOfDay(hour: parts[0], minute: parts[1]),
-          );
-          if (picked == null) return;
-          final hm = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-          app.change((s) => s.setHabitTime(id, hm));
-        },
       ),
     );
   }

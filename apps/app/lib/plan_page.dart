@@ -41,10 +41,11 @@ class _PlanPageState extends State<PlanPage> {
     }
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: const Text('Task'),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Add task',
+        shape: const CircleBorder(),
         onPressed: () => showTaskSheet(context),
+        child: const Icon(Icons.add),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),

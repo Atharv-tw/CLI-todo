@@ -99,6 +99,11 @@ class Store {
     return findList(id)!;
   }
 
+  void renameList(String id, String title) {
+    if (title.trim().isEmpty) throw TodoException('A list needs a name');
+    _update('lists', id, {'title': title.trim()});
+  }
+
   // Tasks
 
   static const _taskSelect =
@@ -313,6 +318,88 @@ class Store {
       seconds += (s.endedAt ?? DateTime.now()).difference(s.startedAt).inSeconds;
     }
     return seconds ~/ 60;
+  }
+
+  // Streaks
+
+  /// Dates in [from]..[to] on which the habit was ticked.
+  Set<String> habitDays(String habitId, String from, String to) => db
+      .select(
+        'SELECT date FROM habit_checks WHERE habit_id = ? AND done = 1 AND deleted_at IS NULL '
+        'AND date BETWEEN ? AND ?',
+        [habitId, from, to],
+      )
+      .map((r) => r['date'] as String)
+      .toSet();
+
+  /// For each date in [from]..[to], how many of that day's tasks and active
+  /// habits were completed, and how many there were.
+  Map<String, ({int done, int total})> dayCompletion(String from, String to) {
+    final taskRows = db.select(
+      'SELECT date, count(*) AS total, count(done_at) AS done FROM tasks '
+      'WHERE deleted_at IS NULL AND date BETWEEN ? AND ? GROUP BY date',
+      [from, to],
+    );
+    final tasksByDate = {for (final r in taskRows) r['date'] as String: r};
+    final checkRows = db.select(
+      'SELECT c.date, count(*) AS done FROM habit_checks c JOIN habits h ON h.id = c.habit_id '
+      'WHERE c.done = 1 AND c.deleted_at IS NULL AND h.deleted_at IS NULL '
+      'AND c.date BETWEEN ? AND ? GROUP BY c.date',
+      [from, to],
+    );
+    final checksByDate = {for (final r in checkRows) r['date'] as String: r['done'] as int};
+    final allHabits = habits();
+    final out = <String, ({int done, int total})>{};
+    for (var date = from; date.compareTo(to) <= 0; date = addDays(date, 1)) {
+      final active = allHabits
+          .where((h) =>
+              (h.startDate == null || h.startDate!.compareTo(date) <= 0) &&
+              (h.endDate == null || h.endDate!.compareTo(date) >= 0))
+          .length;
+      final t = tasksByDate[date];
+      out[date] = (
+        done: ((t?['done'] as int?) ?? 0) + (checksByDate[date] ?? 0),
+        total: ((t?['total'] as int?) ?? 0) + active,
+      );
+    }
+    return out;
+  }
+
+  /// Current and best run of consecutive days in [days]. A run that reached
+  /// yesterday still counts as current, so today being unticked so far does
+  /// not break it.
+  static ({int current, int best}) streakOf(Set<String> days, String on) {
+    var best = 0;
+    for (final day in days) {
+      if (days.contains(addDays(day, -1))) continue;
+      var length = 1;
+      while (days.contains(addDays(day, length))) {
+        length++;
+      }
+      if (length > best) best = length;
+    }
+    var end = days.contains(on) ? on : addDays(on, -1);
+    var current = 0;
+    while (days.contains(end)) {
+      current++;
+      end = addDays(end, -1);
+    }
+    return (current: current, best: best);
+  }
+
+  ({int current, int best}) habitStreak(String habitId, [String? on]) {
+    on ??= today();
+    return streakOf(habitDays(habitId, '0000-01-01', on), on);
+  }
+
+  /// Streak of days with at least one task or habit completed, over the past year.
+  ({int current, int best}) overallStreak([String? on]) {
+    on ??= today();
+    final active = {
+      for (final e in dayCompletion(addDays(on, -365), on).entries)
+        if (e.value.done > 0) e.key,
+    };
+    return streakOf(active, on);
   }
 
   // Reminders

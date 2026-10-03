@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:todo_core/todo_core.dart';
 
 import 'state.dart';
+import 'theme.dart';
 
 class FocusPage extends StatefulWidget {
   const FocusPage({super.key});
@@ -54,7 +55,7 @@ class _FocusPageState extends State<FocusPage> {
                   value: 1 - left.inSeconds / total,
                   strokeWidth: 10,
                   strokeCap: StrokeCap.round,
-                  color: isBreak ? theme.colorScheme.secondary : null,
+                  color: isBreak ? AppColors.cream : AppColors.lavender,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 ),
                 Center(

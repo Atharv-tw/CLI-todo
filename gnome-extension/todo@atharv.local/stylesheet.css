@@ -3,7 +3,7 @@
 
 /* The task whose time slot is running now. */
 .todo-current {
-    background-color: #1d7f73;
+    background-color: #f2541b;
     color: #ffffff;
     font-weight: bold;
     border-radius: 99px;
