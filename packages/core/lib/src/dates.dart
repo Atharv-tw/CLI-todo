@@ -94,3 +94,11 @@ String _parseClock(String s) {
   if (parts.length > 2) throw FormatException('Not a time range: "$input"');
   return (_parseClock(parts[0]), parts.length == 2 ? _parseClock(parts[1]) : null);
 }
+
+/// `2h 05m`, `14m`, `40s`.
+String formatDuration(int seconds) {
+  if (seconds < 60) return '${seconds}s';
+  final m = seconds ~/ 60;
+  if (m < 60) return '${m}m';
+  return '${m ~/ 60}h ${_two(m % 60)}m';
+}

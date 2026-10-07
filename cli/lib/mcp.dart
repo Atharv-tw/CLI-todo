@@ -202,6 +202,18 @@ final _tools = <_Tool>[
     {},
     (store, a) => store.stopFocus()?.toJson() ?? {'stopped': false, 'reason': 'No session running'},
   ),
+  _Tool(
+    'screen_time',
+    'Screen time across the laptop and phone: total, per device, per day, apps ranked by time, and (for one day) minutes per hour.',
+    {
+      'from': _str('First day ($_dateHelp). Defaults to today.'),
+      'to': _str('Last day ($_dateHelp). Defaults to the first day.'),
+    },
+    (store, a) {
+      final from = _s(a, 'from') == null ? today() : parseDate(_s(a, 'from')!);
+      return store.usageSummary(from, _s(a, 'to') == null ? from : parseDate(_s(a, 'to')!));
+    },
+  ),
 ];
 
 /// Minimal MCP server: newline-delimited JSON-RPC on stdin/stdout.

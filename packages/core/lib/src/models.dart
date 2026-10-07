@@ -105,3 +105,24 @@ class FocusSession {
         'ended_at': endedAt == null ? null : utcStamp(endedAt!),
       };
 }
+
+/// Foreground time for one app over some period.
+class AppUsage {
+  AppUsage(this.app, this.name, this.seconds);
+
+  final String app;
+  final String name;
+  final int seconds;
+
+  Map<String, Object?> toJson() => {'app': app, 'name': name, 'seconds': seconds};
+}
+
+/// A foreground stretch of one app, as reported by a device.
+class UsageSpan {
+  UsageSpan(this.app, this.name, this.start, this.end);
+
+  final String app;
+  final String name;
+  final DateTime start;
+  final DateTime end;
+}

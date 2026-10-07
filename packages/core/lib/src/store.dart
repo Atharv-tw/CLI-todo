@@ -420,6 +420,172 @@ class Store {
     return out;
   }
 
+  // Screen time
+
+  /// Stable per-install id, so two devices never write the same usage rows.
+  String get deviceId {
+    var id = getMeta('device_id');
+    if (id == null) {
+      id = newId();
+      setMeta('device_id', id);
+    }
+    return id;
+  }
+
+  String get deviceName => getMeta('device_name') ?? 'device';
+
+  void setDeviceName(String name) => setMeta('device_name', name);
+
+  /// Splits [spans] at local hour boundaries into seconds per (app, date,
+  /// hour), with the app's display name alongside.
+  static Map<(String, String, int), (String, int)> _hourBuckets(Iterable<UsageSpan> spans) {
+    // Summed in milliseconds so many short stretches do not round away.
+    final millis = <(String, String, int), int>{};
+    final names = <String, String>{};
+    for (final s in spans) {
+      names[s.app] = s.name;
+      var t = s.start;
+      while (t.isBefore(s.end)) {
+        final next = DateTime(t.year, t.month, t.day, t.hour + 1);
+        final to = next.isBefore(s.end) ? next : s.end;
+        final key = (s.app, ymd(t), t.hour);
+        millis[key] = (millis[key] ?? 0) + to.difference(t).inMilliseconds;
+        t = to;
+      }
+    }
+    return {
+      for (final e in millis.entries)
+        if (e.value >= 500) e.key: (names[e.key.$1]!, (e.value / 1000).round().clamp(1, 3600)),
+    };
+  }
+
+  String _usageId(String app, String date, int hour) => '${deviceId}_${app}_${date}_$hour';
+
+  void _writeUsage(String app, String name, String date, int hour, int seconds, {required bool add}) {
+    final id = _usageId(app, date, hour);
+    final old = db.select('SELECT seconds, name, deleted_at FROM screen_usage WHERE id = ?', [id]);
+    if (old.isEmpty) {
+      _insert('screen_usage', {
+        'id': id,
+        'device_id': deviceId,
+        'device': deviceName,
+        'app': app,
+        'name': name,
+        'date': date,
+        'hour': hour,
+        'seconds': seconds,
+      });
+      return;
+    }
+    final row = old.first;
+    // An hour holds at most an hour, whatever a device reports.
+    final total = add ? ((row['seconds'] as int) + seconds).clamp(0, 3600) : seconds;
+    // Untouched rows stay clean, so a repeat run pushes nothing to the server.
+    if (total == row['seconds'] && name == row['name'] && row['deleted_at'] == null) return;
+    _update('screen_usage', id, {'seconds': total, 'name': name, 'device': deviceName, 'deleted_at': null});
+  }
+
+  void _inTransaction(void Function() body) {
+    db.execute('BEGIN');
+    try {
+      body();
+      db.execute('COMMIT');
+    } catch (_) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// Adds foreground time reported live (the laptop reports as it goes).
+  void addUsage(Iterable<UsageSpan> spans) => _inTransaction(() {
+        _hourBuckets(spans).forEach((k, v) => _writeUsage(k.$1, v.$1, k.$2, k.$3, v.$2, add: true));
+      });
+
+  /// Replaces this device's usage from [since] on with what [spans] say (the
+  /// phone re-reads its own history, so running twice changes nothing).
+  /// Anything in [spans] before [since] is ignored.
+  void replaceUsage(DateTime since, Iterable<UsageSpan> spans) {
+    final buckets = _hourBuckets([
+      for (final s in spans)
+        if (s.end.isAfter(since)) UsageSpan(s.app, s.name, s.start.isBefore(since) ? since : s.start, s.end),
+    ]);
+    _inTransaction(() {
+      final seen = <String>{};
+      buckets.forEach((k, v) {
+        _writeUsage(k.$1, v.$1, k.$2, k.$3, v.$2, add: false);
+        seen.add(_usageId(k.$1, k.$2, k.$3));
+      });
+      // [since] is a local midnight, so whole days are replaced.
+      final stale = db.select(
+        'SELECT id FROM screen_usage WHERE device_id = ? AND date >= ? AND seconds > 0 AND deleted_at IS NULL',
+        [deviceId, ymd(since)],
+      );
+      for (final r in stale) {
+        if (!seen.contains(r['id'])) _update('screen_usage', r['id'] as String, {'seconds': 0});
+      }
+    });
+  }
+
+  static const _usageWhere = 'deleted_at IS NULL AND seconds > 0 AND date BETWEEN ? AND ?';
+
+  /// Apps by time, most used first, across all devices (or just [device]).
+  List<AppUsage> usageByApp(String from, String to, {String? device}) => db
+      .select(
+        'SELECT app, max(name) AS name, sum(seconds) AS seconds FROM screen_usage '
+        'WHERE $_usageWhere ${device == null ? '' : 'AND device = ?'} '
+        'GROUP BY app ORDER BY seconds DESC',
+        [from, to, ?device],
+      )
+      .map((r) => AppUsage(r['app'] as String, r['name'] as String, r['seconds'] as int))
+      .toList();
+
+  /// Seconds for each date in [from]..[to] that has any usage.
+  Map<String, int> usageByDay(String from, String to) => {
+        for (final r in db.select(
+          'SELECT date, sum(seconds) AS seconds FROM screen_usage WHERE $_usageWhere GROUP BY date',
+          [from, to],
+        ))
+          r['date'] as String: r['seconds'] as int,
+      };
+
+  /// Seconds in each of the 24 hours of [date]; with [app], just that app.
+  List<int> usageByHour(String date, {String? app}) {
+    final hours = List.filled(24, 0);
+    for (final r in db.select(
+      'SELECT hour, sum(seconds) AS seconds FROM screen_usage WHERE $_usageWhere '
+      '${app == null ? '' : 'AND app = ?'} GROUP BY hour',
+      [date, date, ?app],
+    )) {
+      hours[r['hour'] as int] = r['seconds'] as int;
+    }
+    return hours;
+  }
+
+  /// Devices that have reported usage, with their total seconds in range.
+  Map<String, int> usageByDevice(String from, String to) => {
+        for (final r in db.select(
+          'SELECT device, sum(seconds) AS seconds FROM screen_usage WHERE $_usageWhere GROUP BY device',
+          [from, to],
+        ))
+          r['device'] as String: r['seconds'] as int,
+      };
+
+  /// Everything `todo usage` and the assistant need for a period, as JSON.
+  Map<String, Object?> usageSummary(String from, String to) {
+    final apps = usageByApp(from, to);
+    final days = usageByDay(from, to);
+    final total = days.values.fold(0, (a, b) => a + b);
+    return {
+      'from': from,
+      'to': to,
+      'total_seconds': total,
+      'by_device': usageByDevice(from, to),
+      'by_day': days,
+      'apps': [for (final a in apps) a.toJson()],
+      if (from == to) 'by_hour': usageByHour(from),
+    };
+  }
+
   // Widgets
 
   /// Everything a widget needs for one day, as plain JSON.
@@ -456,6 +622,7 @@ class Store {
       ],
       'focus': currentFocus()?.toJson(),
       'focused_min': focusedMinutes(date),
+      'screen_seconds': usageByDay(date, date)[date] ?? 0,
     };
   }
 }

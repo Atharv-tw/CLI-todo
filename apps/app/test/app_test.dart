@@ -68,9 +68,14 @@ void main() {
       listId: state.store.ensureList('Mid-sems').id,
     );
     state.store.addTask(title: 'Karpathy 1', date: addDays(today(), 5));
+    final noon = DateTime.now().copyWith(hour: 12, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+    state.store.addUsage([
+      UsageSpan('firefox', 'Firefox', noon, noon.add(const Duration(minutes: 50))),
+      UsageSpan('code', 'A very long application name that should be cut short, not overflow', noon, noon.add(const Duration(minutes: 20))),
+    ]);
     for (final size in const [Size(360, 740), Size(390, 844), Size(1200, 800)]) {
       await pump(tester, size);
-      for (final page in ['Plan', 'Habits', 'Focus', 'Today']) {
+      for (final page in ['Plan', 'Habits', 'Focus', 'Screen', 'Today']) {
         await go(tester, page);
         expect(tester.takeException(), isNull, reason: '$page at $size');
       }

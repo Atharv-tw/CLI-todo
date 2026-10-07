@@ -6,6 +6,7 @@ import 'package:todo_core/todo_core.dart';
 
 import 'background.dart';
 import 'outputs.dart';
+import 'usage_sync.dart';
 
 /// Holds the store and tells the UI when anything changed, whether from this
 /// app, from sync, or (on the laptop) from the CLI or top-bar widget.
@@ -31,10 +32,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         });
       });
     }
-    _periodic = Timer.periodic(const Duration(minutes: 2), (_) => sync());
+    _periodic = Timer.periodic(const Duration(minutes: 2), (_) => _collectThenSync());
     WidgetsBinding.instance.addObserver(this);
     refreshOutputs(store);
-    sync();
+    _collectThenSync();
+  }
+
+  /// Phone: pull in screen time first so it goes up with the next sync.
+  Future<void> _collectThenSync() async {
+    try {
+      await collectPhoneUsage(store);
+      notifyListeners();
+    } catch (_) {
+      // Screen time is optional; never block syncing on it.
+    }
+    await sync();
   }
 
   /// Widgets may have changed the database while the app was in the background.
@@ -42,7 +54,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     notifyListeners();
-    sync();
+    _collectThenSync();
   }
 
   /// Whether a sync would do anything: signed in, or (phone) a calendar chosen.

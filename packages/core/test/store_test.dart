@@ -202,4 +202,59 @@ void main() {
     expect((snap['habits'] as List).single, {'id': h.id, 'title': 'Read', 'time': null, 'done': true});
     expect(snap['focus'], isNull);
   });
+
+  group('screen time', () {
+    UsageSpan span(String app, String from, String to) =>
+        UsageSpan(app, app.toUpperCase(), DateTime.parse(from), DateTime.parse(to));
+
+    test('a span across midnight and hours splits into hour buckets', () {
+      store.addUsage([span('code', '2026-10-03 23:30:00', '2026-10-04 00:20:00')]);
+      expect(store.usageByHour('2026-10-03')[23], 30 * 60);
+      expect(store.usageByHour('2026-10-04')[0], 20 * 60);
+      expect(store.usageByDay('2026-10-03', '2026-10-04'), {'2026-10-03': 1800, '2026-10-04': 1200});
+    });
+
+    test('adding accumulates, replacing is idempotent and clears what vanished', () {
+      store.addUsage([span('a', '2026-10-03 10:00:00', '2026-10-03 10:10:00')]);
+      store.addUsage([span('a', '2026-10-03 10:20:00', '2026-10-03 10:25:00')]);
+      expect(store.usageByHour('2026-10-03')[10], 900);
+
+      final day = DateTime(2026, 10, 3);
+      final spans = [span('b', '2026-10-03 09:00:00', '2026-10-03 09:30:00')];
+      store.replaceUsage(day, spans);
+      store.replaceUsage(day, spans);
+      expect(store.usageByApp('2026-10-03', '2026-10-03').map((a) => (a.app, a.seconds)), [('b', 1800)]);
+    });
+
+    test('replacing again leaves rows clean; earlier time is clipped', () {
+      final day = DateTime(2026, 10, 3);
+      final spans = [span('b', '2026-10-02 23:50:00', '2026-10-03 00:10:00')];
+      store.replaceUsage(day, spans);
+      expect(store.usageByDay('2026-10-02', '2026-10-03'), {'2026-10-03': 600});
+      store.db.execute('UPDATE screen_usage SET dirty = 0');
+      store.replaceUsage(day, spans);
+      expect(store.db.select('SELECT 1 FROM screen_usage WHERE dirty = 1'), isEmpty);
+    });
+
+    test('short stretches add up, and an hour never exceeds an hour', () {
+      final t = DateTime(2026, 10, 3, 10);
+      store.addUsage([
+        for (var i = 0; i < 10; i++)
+          UsageSpan('a', 'A', t.add(Duration(seconds: i * 2)), t.add(Duration(seconds: i * 2, milliseconds: 400))),
+      ]);
+      expect(store.usageByHour('2026-10-03')[10], 4);
+      store.addUsage([span('a', '2026-10-03 10:00:00', '2026-10-03 11:00:00')]);
+      expect(store.usageByHour('2026-10-03')[10], 3600);
+    });
+
+    test('apps rank by time, summary has totals', () {
+      store.addUsage([
+        span('a', '2026-10-03 10:00:00', '2026-10-03 10:10:00'),
+        span('b', '2026-10-03 11:00:00', '2026-10-03 11:30:00'),
+      ]);
+      final s = store.usageSummary('2026-10-03', '2026-10-03');
+      expect(s['total_seconds'], 2400);
+      expect((s['apps'] as List).first, {'app': 'b', 'name': 'B', 'seconds': 1800});
+    });
+  });
 }

@@ -10,6 +10,7 @@ import 'focus_page.dart';
 import 'habits_page.dart';
 import 'outputs.dart';
 import 'plan_page.dart';
+import 'screen_page.dart';
 import 'state.dart';
 import 'sync_page.dart';
 import 'theme.dart';
@@ -59,6 +60,7 @@ class _ShellState extends State<Shell> {
     (icon: Icons.view_agenda_rounded, label: 'Plan', page: PlanPage()),
     (icon: Icons.grid_view_rounded, label: 'Habits', page: HabitsPage()),
     (icon: Icons.timer_rounded, label: 'Focus', page: FocusPage()),
+    (icon: Icons.phone_android_rounded, label: 'Screen', page: ScreenPage()),
   ];
 
   @override
@@ -195,17 +197,17 @@ class _NavItem extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: EdgeInsets.fromLTRB(4, 4, selected ? 16 : 4, 4),
+            padding: EdgeInsets.fromLTRB(4, 4, selected ? 12 : 4, 4),
             decoration: ShapeDecoration(
               color: selected ? AppColors.raised : Colors.transparent,
               shape: const StadiumBorder(),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: 8,
+              spacing: 6,
               children: [
                 CircleAvatar(
-                  radius: 20,
+                  radius: 16,
                   backgroundColor: selected ? AppColors.orange : Colors.transparent,
                   child: Icon(icon, size: 22, color: selected ? Colors.white : AppColors.muted),
                 ),

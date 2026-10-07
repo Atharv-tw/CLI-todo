@@ -37,7 +37,7 @@ Database openMemoryDb() {
 
 /// Tables that sync. Each has `updated_at` (client clock, used for
 /// last-write-wins), `deleted_at` (tombstone) and `dirty` (needs pushing).
-const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions'];
+const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage'];
 
 const _sync = '''
   created_at TEXT NOT NULL,
@@ -97,6 +97,21 @@ const _migrations = [
   );
   ''',
   'ALTER TABLE habits ADD COLUMN time TEXT;',
+  // One row per device, app and local hour; `seconds` is time in the foreground.
+  '''
+  CREATE TABLE screen_usage (
+    id TEXT PRIMARY KEY,
+    device_id TEXT NOT NULL,
+    device TEXT NOT NULL,
+    app TEXT NOT NULL,
+    name TEXT NOT NULL,
+    date TEXT NOT NULL,
+    hour INTEGER NOT NULL,
+    seconds INTEGER NOT NULL,
+    $_sync
+  );
+  CREATE INDEX screen_usage_date ON screen_usage(date);
+  ''',
 ];
 
 void migrate(Database db) {

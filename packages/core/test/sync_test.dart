@@ -131,4 +131,20 @@ void main() {
     expect(a, '2026-10-03T12:00:00.041000Z');
     expect(a.compareTo(b), lessThan(0));
   });
+
+  test('screen time from both devices is shared and never overwritten', () async {
+    phone.setDeviceName('phone');
+    laptop.setDeviceName('laptop');
+    UsageSpan span(String app) =>
+        UsageSpan(app, app, DateTime(2026, 10, 3, 10), DateTime(2026, 10, 3, 10, 30));
+    phone.replaceUsage(DateTime(2026, 10, 3), [span('maps')]);
+    laptop.addUsage([span('code')]);
+    await phoneSync.sync();
+    await laptopSync.sync();
+    await phoneSync.sync();
+    for (final s in [phone, laptop]) {
+      expect(s.usageByDevice('2026-10-03', '2026-10-03'), {'phone': 1800, 'laptop': 1800});
+      expect(s.usageByApp('2026-10-03', '2026-10-03', device: 'phone').single.app, 'maps');
+    }
+  });
 }

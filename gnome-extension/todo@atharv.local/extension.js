@@ -3,6 +3,7 @@ import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Shell from 'gi://Shell';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -13,6 +14,10 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 const TODO = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', 'todo']);
 const DATA_DIR = GLib.build_filenamev([GLib.get_user_data_dir(), 'todo']);
 const REFRESH_SECONDS = 30;
+const SAMPLE_SECONDS = 5;
+const FLUSH_SECONDS = 60;
+// No keyboard or mouse for this long counts as away from the screen.
+const IDLE_LIMIT_MS = 5 * 60 * 1000;
 
 function todo(args) {
     return new Promise((resolve, reject) => {
@@ -50,9 +55,94 @@ function endOf(item) {
     return end.getDate() === 1 ? hm(end) : '23:59';
 }
 
+function duration(seconds) {
+    const m = Math.floor(seconds / 60);
+    return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
 function clock(seconds) {
     const s = Math.max(0, seconds);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+
+/**
+ * Screen time: every few seconds notes which app has the focused window and
+ * hands the stretches to `todo usage-add`. Time while the screen is locked or
+ * the machine has been idle for a while is not counted.
+ */
+class UsageTracker {
+    constructor() {
+        this._current = null;
+        this._done = [];
+        this._idle = global.backend.get_core_idle_monitor();
+        this._sampleId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, SAMPLE_SECONDS, () => {
+            this._sample();
+            return GLib.SOURCE_CONTINUE;
+        });
+        this._flushId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, FLUSH_SECONDS, () => {
+            this.flush();
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _focusedApp() {
+        if (Main.screenShield?.locked || this._idle.get_idletime() > IDLE_LIMIT_MS)
+            return null;
+        const win = global.display.focus_window;
+        if (!win)
+            return null;
+        const app = Shell.WindowTracker.get_default().get_window_app(win);
+        if (app)
+            return {app: app.get_id() ?? win.get_wm_class(), name: app.get_name()};
+        const cls = win.get_wm_class();
+        return cls ? {app: cls, name: cls} : null;
+    }
+
+    _sample() {
+        const now = new Date();
+        const seen = this._focusedApp();
+        let cur = this._current;
+        // A long silence means the laptop was asleep: that time is not use.
+        if (cur && now - cur.end > 3 * SAMPLE_SECONDS * 1000) {
+            this._done.push(cur);
+            cur = null;
+        }
+        if (seen && cur && cur.app === seen.app) {
+            cur.end = now;
+            return;
+        }
+        if (cur)
+            this._done.push(cur);
+        // Switching straight from another app: no gap in between.
+        this._current = seen ? {...seen, start: cur ? cur.end : now, end: now} : null;
+    }
+
+    flush() {
+        const spans = [...this._done];
+        if (this._current) {
+            spans.push({...this._current});
+            this._current.start = this._current.end;
+        }
+        this._done = [];
+        const send = spans
+            .filter(s => s.end - s.start >= 1000)
+            .map(s => ({app: s.app, name: s.name, start: s.start.toISOString(), end: s.end.toISOString()}));
+        if (send.length === 0)
+            return;
+        todo(['usage-add', JSON.stringify(send)]).catch(e => {
+            console.error(`todo: could not record screen time: ${e.message}`);
+            // Keep them for the next flush, but never grow without bound.
+            this._done = [...spans.slice(-500), ...this._done];
+        });
+    }
+
+    destroy() {
+        GLib.source_remove(this._sampleId);
+        GLib.source_remove(this._flushId);
+        this._sample();
+        this.flush();
+    }
 }
 
 const Indicator = GObject.registerClass(
@@ -232,6 +322,10 @@ class Indicator extends PanelMenu.Button {
         }
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        if (snap.screen_seconds > 0) {
+            this.menu.addMenuItem(new PopupMenu.PopupMenuItem(
+                `Screen time today: ${duration(snap.screen_seconds)}`, {reactive: false}));
+        }
         if (snap.focus) {
             const what = snap.focus.task ? `: ${snap.focus.task}` : '';
             this.menu.addMenuItem(this._action(
@@ -267,9 +361,12 @@ export default class TodoExtension extends Extension {
     enable() {
         this._indicator = new Indicator();
         Main.panel.addToStatusArea(this.uuid, this._indicator);
+        this._usage = new UsageTracker();
     }
 
     disable() {
+        this._usage?.destroy();
+        this._usage = null;
         this._indicator?.destroy();
         this._indicator = null;
     }

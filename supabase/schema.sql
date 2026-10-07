@@ -26,7 +26,9 @@ begin
     ('habits', 'title text not null, time text, start_date text, end_date text, sort integer not null default 0'),
     ('habit_checks', 'habit_id text not null, date text not null, done integer not null'),
     ('focus_sessions', 'task_id text, kind text not null, started_at text not null,
-                        planned_min integer not null, ended_at text')
+                        planned_min integer not null, ended_at text'),
+    ('screen_usage', 'device_id text not null, device text not null, app text not null, name text not null,
+                      date text not null, hour integer not null, seconds integer not null')
   loop
     execute format('create table if not exists %I (
       id text primary key,

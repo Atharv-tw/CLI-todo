@@ -26,6 +26,7 @@ Features:
 - Daily habits with an optional time of day, shown in the same timeline as tasks
 - Focus timer (25 minutes by default) with minutes logged per day
 - Offline first: each device has a full local copy; sync is pull-then-push, newest edit wins per row
+- Screen time on both devices: which apps, for how long, and at what hour of the day (Screen tab, `todo usage`, and the assistant)
 - Reminders when a task starts: sound on the laptop, sound or vibration and a lock-screen alert on the phone
 - Two-way calendar on Android: timed tasks become events in a calendar you choose; moving or renaming such an event updates the task
 
@@ -147,6 +148,15 @@ from battery optimisation if background sync is slow.
 - Home-screen widgets need Android 12 or newer.
 - Reminders respect the phone's ringer mode: vibration on vibrate, nothing on mute or Do Not Disturb.
 - Sync resolves conflicts per row, not per field: if two devices edit the same task while offline, the later edit replaces the earlier one.
+
+## Screen time
+
+Both devices record foreground time per app per hour and sync it like everything else.
+
+- **Laptop:** the GNOME extension notes the focused window every 5 seconds and reports once a minute. Time with the screen locked or no input for 5 minutes is not counted. After pulling this update, log out and back in once so GNOME reloads the extension.
+- **Phone:** open the Screen tab and tap *Open settings* to grant usage access to Todo. The app reads Android's own history whenever it opens (Android keeps about 7 days, so open it at least weekly). The home screen is not counted.
+- Read it with `todo usage`, `todo usage yesterday`, `todo usage week`, or ask the assistant (the `screen_time` MCP tool).
+- To sync it, run the updated `supabase/schema.sql` once; it adds the `screen_usage` table.
 
 ## License
 

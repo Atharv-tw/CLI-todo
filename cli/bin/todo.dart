@@ -21,6 +21,8 @@ Future<void> main(List<String> args) async {
     ..addCommand(ListsCommand())
     ..addCommand(HabitCommand())
     ..addCommand(FocusCommand())
+    ..addCommand(UsageCommand())
+    ..addCommand(_UsageAdd())
     ..addCommand(ServerCommand())
     ..addCommand(LoginCommand())
     ..addCommand(LogoutCommand())
@@ -434,6 +436,71 @@ class _FocusStatus extends Cmd {
 
   @override
   void run() => show(this);
+}
+
+class UsageCommand extends Cmd {
+  UsageCommand() : super('usage', 'Screen time: todo usage [today|yesterday|week|DATE]');
+
+  @override
+  void run() {
+    final arg = rest.isEmpty ? 'today' : rest.first;
+    final (from, to) = arg == 'week'
+        ? (addDays(today(), -6), today())
+        : (parseDate(arg), parseDate(arg));
+    final s = store.usageSummary(from, to);
+    out(s, () {
+      final total = s['total_seconds'] as int;
+      if (total == 0) return 'No screen time recorded.';
+      final lines = [
+        '${from == to ? prettyDate(from) : '${prettyDate(from)} – ${prettyDate(to)}'}: ${formatDuration(total)}',
+        for (final e in (s['by_device'] as Map<String, int>).entries) '  ${e.key}: ${formatDuration(e.value)}',
+        '',
+      ];
+      for (final a in (s['apps'] as List).cast<Map<String, Object?>>().take(15)) {
+        lines.add('${formatDuration(a['seconds'] as int).padLeft(7)}  ${a['name']}');
+      }
+      if (from != to) {
+        lines.add('');
+        for (final e in (s['by_day'] as Map<String, int>).entries) {
+          lines.add('${prettyDate(e.key)}  ${formatDuration(e.value)}');
+        }
+      } else {
+        final hours = s['by_hour'] as List<int>;
+        final peak = hours.reduce((a, b) => a > b ? a : b);
+        lines.add('');
+        for (var h = 0; h < 24; h++) {
+          if (hours[h] == 0) continue;
+          lines.add('${h.toString().padLeft(2, '0')}:00  ${'█' * (hours[h] * 30 ~/ peak).clamp(1, 30)} ${formatDuration(hours[h])}');
+        }
+      }
+      return lines.join('\n');
+    });
+  }
+}
+
+/// Used by the GNOME extension to report which window had focus.
+class _UsageAdd extends Cmd {
+  @override
+  bool get hidden => true;
+
+  _UsageAdd() : super('usage-add', 'Record foreground time: todo usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'');
+
+  @override
+  void run() {
+    needArgs('a JSON list of spans');
+    final spans = [
+      for (final s in jsonDecode(rest.first) as List)
+        UsageSpan(
+          s['app'] as String,
+          s['name'] as String,
+          DateTime.parse(s['start'] as String).toLocal(),
+          DateTime.parse(s['end'] as String).toLocal(),
+        ),
+    ];
+    if (store.getMeta('device_name') == null) store.setDeviceName(Platform.localHostname);
+    store.addUsage(spans);
+    out({'recorded': spans.length}, () => 'Recorded ${spans.length} spans.');
+  }
 }
 
 class McpCommand extends Cmd {
