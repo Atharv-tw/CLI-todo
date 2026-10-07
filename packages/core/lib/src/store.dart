@@ -529,11 +529,12 @@ class Store {
   static const _usageWhere = 'deleted_at IS NULL AND seconds > 0 AND date BETWEEN ? AND ?';
 
   /// Apps by time, most used first, across all devices (or just [device]).
+  /// An app has a different id on each platform, so the same name is one app.
   List<AppUsage> usageByApp(String from, String to, {String? device}) => db
       .select(
-        'SELECT app, max(name) AS name, sum(seconds) AS seconds FROM screen_usage '
+        'SELECT min(app) AS app, min(name) AS name, sum(seconds) AS seconds FROM screen_usage '
         'WHERE $_usageWhere ${device == null ? '' : 'AND device = ?'} '
-        'GROUP BY app ORDER BY seconds DESC',
+        'GROUP BY lower(name) ORDER BY seconds DESC',
         [from, to, ?device],
       )
       .map((r) => AppUsage(r['app'] as String, r['name'] as String, r['seconds'] as int))

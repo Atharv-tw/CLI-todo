@@ -247,6 +247,15 @@ void main() {
       expect(store.usageByHour('2026-10-03')[10], 3600);
     });
 
+    test('one name under two ids is one app', () {
+      final t = DateTime(2026, 10, 3, 10);
+      store.addUsage([
+        UsageSpan('dev.todo', 'Todo', t, t.add(const Duration(minutes: 5))),
+        UsageSpan('dev.todo.desktop', 'todo', t, t.add(const Duration(minutes: 2))),
+      ]);
+      expect(store.usageByApp('2026-10-03', '2026-10-03').map((a) => a.seconds), [420]);
+    });
+
     test('apps rank by time, summary has totals', () {
       store.addUsage([
         span('a', '2026-10-03 10:00:00', '2026-10-03 10:10:00'),
