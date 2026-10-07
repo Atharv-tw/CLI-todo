@@ -1,5 +1,7 @@
 # CLI todo
 
+<img src="assets/logo.svg" alt="CLI todo logo" width="96">
+
 A personal to-do system: tasks, daily habits and focus timers in one store,
 reachable from a command line, a Linux desktop app, a GNOME top-bar widget, an
 Android app with home-screen widgets, and an MCP server so an AI assistant can

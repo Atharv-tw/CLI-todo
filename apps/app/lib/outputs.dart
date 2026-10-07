@@ -17,7 +17,7 @@ bool _notificationsReady = false;
 Future<void> _initNotifications() async {
   if (_notificationsReady) return;
   await _notifications.initialize(
-    settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_todo')),
   );
   _notificationsReady = true;
 }
