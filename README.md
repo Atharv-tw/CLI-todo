@@ -171,7 +171,9 @@ An assistant can act on them. On the laptop, Claude reads and writes briefs
 through the MCP server (`list_briefs`, `add_brief`). To have it happen on a
 schedule without your laptop, run a cloud session daily that follows
 [docs/briefing-agent.md](docs/briefing-agent.md); `scripts/cloud-setup.sh`
-builds the CLI there and signs in from environment variables.
+builds the CLI there and signs in from environment variables. Run just
+after midnight, it closes out the day that ended, plans the new one from
+every brief written since its last run, and leaves a one-line receipt.
 
 To sync briefs, run the updated `supabase/schema.sql` once; it adds the
 `briefs` table. Until then everything else keeps syncing and briefs wait on
