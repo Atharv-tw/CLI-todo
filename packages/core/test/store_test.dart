@@ -203,6 +203,18 @@ void main() {
     expect(snap['focus'], isNull);
   });
 
+  test('a habit group is done on a day only when every step is', () {
+    final a = store.addHabit(title: '5 meals / Breakfast', time: '08:15');
+    final b = store.addHabit(title: '5 meals / Lunch', time: '13:15');
+    expect((a.group, a.step), ('5 meals', 'Breakfast'));
+    expect(store.addHabit(title: 'Read').group, isNull);
+    store.setHabitCheck(a.id, '2026-10-03', true);
+    store.setHabitCheck(a.id, '2026-10-04', true);
+    store.setHabitCheck(b.id, '2026-10-04', true);
+    expect(store.habitGroupDays([a.id, b.id], '2026-10-01', '2026-10-05'), {'2026-10-04'});
+    expect(store.habitGroupStreak([a.id, b.id], '2026-10-04').current, 1);
+  });
+
   group('screen time', () {
     UsageSpan span(String app, String from, String to) =>
         UsageSpan(app, app.toUpperCase(), DateTime.parse(from), DateTime.parse(to));

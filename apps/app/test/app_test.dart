@@ -95,6 +95,21 @@ void main() {
     expect(find.text('Far off'), findsOneWidget);
   });
 
+  testWidgets('a habit group is one tile, done when every step is ticked', (tester) async {
+    final a = state.store.addHabit(title: '5 meals / Breakfast', time: '08:15');
+    final b = state.store.addHabit(title: '5 meals / Lunch', time: '13:15');
+    await pump(tester, const Size(390, 844));
+    await go(tester, 'Habits');
+    expect(find.text('5 meals'), findsOneWidget);
+    expect(find.text('0 of 1'), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('habit-${a.id}')));
+    await tester.pump();
+    expect(find.text('0 of 1'), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('habit-${b.id}')));
+    await tester.pump();
+    expect(find.text('1 of 1'), findsOneWidget);
+  });
+
   testWidgets('habit tiles: tap to mark done, with streaks; tasks stay out', (tester) async {
     final h = state.store.addHabit(title: 'Read', startDate: addDays(today(), -40));
     state.store.setHabitCheck(h.id, addDays(today(), -1), true);

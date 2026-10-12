@@ -24,6 +24,7 @@ Features:
 
 - Tasks with optional date, time slot, list, tag and notes
 - Daily habits with an optional time of day, shown in the same timeline as tasks
+- Habit groups: name habits `5 meals / Breakfast`, `5 meals / Lunch` and they remind separately but show as one habit, done once every step is ticked
 - Focus timer (25 minutes by default) with minutes logged per day
 - Offline first: each device has a full local copy; sync is pull-then-push, newest edit wins per row
 - Screen time on both devices: which apps, for how long, and at what hour of the day (Screen tab, `todo usage`, and the assistant)

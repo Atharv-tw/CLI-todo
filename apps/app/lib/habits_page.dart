@@ -45,7 +45,21 @@ class HabitsPage extends StatelessWidget {
         .where((h) => h.startDate != null && h.startDate!.compareTo(now) > 0)
         .toList();
     final checked = app.store.checkedHabitIds(now);
-    final doneToday = active.where((h) => checked.contains(h.id)).length;
+    // Steps of one group ("5 meals / Lunch") share a tile, placed where the
+    // group's first step falls in time order.
+    final entries = <List<Habit>>[];
+    final groups = <String, List<Habit>>{};
+    for (final h in active) {
+      final g = h.group;
+      if (g == null) {
+        entries.add([h]);
+      } else if (groups.containsKey(g)) {
+        groups[g]!.add(h);
+      } else {
+        entries.add(groups[g] = [h]);
+      }
+    }
+    final doneToday = entries.where((e) => e.every((h) => checked.contains(h.id))).length;
     final streak = app.store.overallStreak(now, false);
 
     return ListView(
@@ -68,7 +82,7 @@ class HabitsPage extends StatelessWidget {
                   children: [
                     Expanded(child: StatTile(_days(streak.current), 'Current streak')),
                     Expanded(child: StatTile(_days(streak.best), 'Best streak')),
-                    Expanded(child: StatTile('$doneToday of ${active.length}', 'Done today')),
+                    Expanded(child: StatTile('$doneToday of ${entries.length}', 'Done today')),
                   ],
                 ),
               ],
@@ -80,9 +94,12 @@ class HabitsPage extends StatelessWidget {
             padding: EdgeInsets.only(top: 32),
             child: Center(child: Text('No habits yet.', style: TextStyle(color: AppColors.muted))),
           ),
-        for (final h in active) ...[
+        for (final e in entries) ...[
           const SizedBox(height: 10),
-          _HabitTile(habit: h, done: checked.contains(h.id)),
+          if (e.first.group == null)
+            _HabitTile(habit: e.first, done: checked.contains(e.first.id))
+          else
+            _GroupTile(title: e.first.group!, steps: e, checked: checked),
         ],
         if (upcoming.isNotEmpty)
           Padding(
@@ -209,6 +226,119 @@ class _HabitTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One habit made of several timed steps: each step is ticked on its own and
+/// the habit is done for the day once all of them are.
+class _GroupTile extends StatelessWidget {
+  const _GroupTile({required this.title, required this.steps, required this.checked});
+
+  final String title;
+  final List<Habit> steps;
+  final Set<String> checked;
+
+  Future<void> _delete(BuildContext context, AppState app) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "$title"?'),
+        content: Text('All ${steps.length} steps and their history go with it.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      app.change((s) {
+        for (final h in steps) {
+          s.deleteHabit(h.id);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final text = Theme.of(context).textTheme;
+    final now = today();
+    final ids = [for (final h in steps) h.id];
+    final doneCount = steps.where((h) => checked.contains(h.id)).length;
+    final done = doneCount == steps.length;
+    final streak = app.store.habitGroupStreak(ids, now);
+
+    return Card(
+      color: done ? AppColors.green.withValues(alpha: 0.16) : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 4, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              spacing: 14,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: done ? AppColors.green : Colors.transparent,
+                    border: done ? null : Border.all(color: AppColors.muted, width: 2),
+                  ),
+                  child: done
+                      ? const Icon(Icons.check_rounded, size: 22, color: AppColors.onLight)
+                      : Text('$doneCount/${steps.length}', style: text.labelSmall?.copyWith(color: AppColors.muted)),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(
+                        '$doneCount of ${steps.length} today · ${streak.current}-day streak',
+                        style: text.bodySmall?.copyWith(color: AppColors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  icon: const Icon(Icons.more_vert, color: AppColors.muted),
+                  onSelected: (_) => _delete(context, app),
+                  itemBuilder: (context) => const [PopupMenuItem(value: 'delete', child: Text('Delete'))],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            for (final h in steps)
+              InkWell(
+                key: ValueKey('habit-${h.id}'),
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => app.change((s) => s.setHabitCheck(h.id, now, !checked.contains(h.id))),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 7, 8, 7),
+                  child: Row(
+                    spacing: 12,
+                    children: [
+                      Icon(
+                        checked.contains(h.id) ? Icons.check_circle_rounded : Icons.circle_outlined,
+                        size: 22,
+                        color: checked.contains(h.id) ? AppColors.green : AppColors.muted,
+                      ),
+                      if (h.time != null)
+                        Text(h.time!, style: text.bodyMedium?.copyWith(color: AppColors.muted)),
+                      Expanded(child: Text(h.step, style: text.bodyMedium)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

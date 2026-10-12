@@ -332,6 +332,17 @@ class Store {
       .map((r) => r['date'] as String)
       .toSet();
 
+  /// Dates in [from]..[to] on which every one of [habitIds] was ticked.
+  Set<String> habitGroupDays(List<String> habitIds, String from, String to) => db
+      .select(
+        'SELECT date FROM habit_checks WHERE done = 1 AND deleted_at IS NULL '
+        'AND habit_id IN (${List.filled(habitIds.length, '?').join(', ')}) AND date BETWEEN ? AND ? '
+        'GROUP BY date HAVING count(DISTINCT habit_id) = ?',
+        [...habitIds, from, to, habitIds.length],
+      )
+      .map((r) => r['date'] as String)
+      .toSet();
+
   /// For each date in [from]..[to], how many of that day's tasks and active
   /// habits were completed, and how many there were. With [tasks] false,
   /// habits only.
@@ -391,6 +402,11 @@ class Store {
   ({int current, int best}) habitStreak(String habitId, [String? on]) {
     on ??= today();
     return streakOf(habitDays(habitId, '0000-01-01', on), on);
+  }
+
+  ({int current, int best}) habitGroupStreak(List<String> habitIds, [String? on]) {
+    on ??= today();
+    return streakOf(habitGroupDays(habitIds, '0000-01-01', on), on);
   }
 
   /// Streak of days with at least one task or habit completed (habits only
