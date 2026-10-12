@@ -83,6 +83,18 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
   });
 
+  testWidgets('Plan shows this week and folds the rest under Later', (tester) async {
+    state.store.addTask(title: 'Soon', date: addDays(today(), 2));
+    state.store.addTask(title: 'Far off', date: addDays(today(), 30));
+    await pump(tester, const Size(390, 844));
+    await go(tester, 'Plan');
+    expect(find.text('Soon'), findsOneWidget);
+    expect(find.text('Far off'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('later')));
+    await tester.pumpAndSettle();
+    expect(find.text('Far off'), findsOneWidget);
+  });
+
   testWidgets('habit tiles: tap to mark done, with streaks; tasks stay out', (tester) async {
     final h = state.store.addHabit(title: 'Read', startDate: addDays(today(), -40));
     state.store.setHabitCheck(h.id, addDays(today(), -1), true);

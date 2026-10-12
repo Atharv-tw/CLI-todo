@@ -3,8 +3,11 @@ import 'package:todo_core/todo_core.dart';
 
 import 'state.dart';
 import 'task_widgets.dart';
+import 'theme.dart';
 
-/// Everything from today onward, grouped by day, then undated tasks.
+/// The next seven days, grouped by day. Anything further out (and undated
+/// tasks) sits folded under "Later", so the page answers "what is coming up"
+/// without listing months of deadlines.
 class PlanPage extends StatefulWidget {
   const PlanPage({super.key});
 
@@ -13,31 +16,42 @@ class PlanPage extends StatefulWidget {
 }
 
 class _PlanPageState extends State<PlanPage> {
-  String? _listId;
   bool _showDone = false;
+
+  static const _days = 7;
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final theme = Theme.of(context);
-    final lists = app.store.lists();
-    if (!lists.any((l) => l.id == _listId)) _listId = null;
-    final tasks = app.store.tasks(from: today(), undated: true, listId: _listId, includeDone: _showDone);
+    final text = Theme.of(context).textTheme;
+    final now = today();
+    final last = addDays(now, _days - 1);
+    final week = app.store.tasks(from: now, to: last, includeDone: _showDone);
+    final later = app.store.tasks(from: addDays(last, 1), undated: true, includeDone: _showDone);
 
-    final children = <Widget>[];
-    String? heading;
-    for (final t in tasks) {
-      final h = t.date == null ? 'No date' : prettyDate(t.date!);
-      if (h != heading) {
-        heading = h;
-        children.add(Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Text(h, style: theme.textTheme.titleSmall),
-        ));
+    List<Widget> grouped(List<Task> tasks) {
+      final out = <Widget>[];
+      String? heading;
+      for (final t in tasks) {
+        final h = t.date == null
+            ? 'No date'
+            : t.date == now
+                ? 'Today'
+                : t.date == addDays(now, 1)
+                    ? 'Tomorrow'
+                    : prettyDate(t.date!);
+        if (h != heading) {
+          heading = h;
+          out.add(Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Text(h, style: text.titleSmall),
+          ));
+        }
+        out
+          ..add(TaskTile(t))
+          ..add(const SizedBox(height: 8));
       }
-      children
-        ..add(TaskTile(t))
-        ..add(const SizedBox(height: 8));
+      return out;
     }
 
     return Scaffold(
@@ -50,21 +64,11 @@ class _PlanPageState extends State<PlanPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
+          Row(
             children: [
-              ChoiceChip(
-                label: const Text('All lists'),
-                selected: _listId == null,
-                onSelected: (_) => setState(() => _listId = null),
+              Expanded(
+                child: Text('Next $_days days', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               ),
-              for (final l in lists)
-                ChoiceChip(
-                  label: Text(l.title),
-                  selected: _listId == l.id,
-                  onSelected: (_) => setState(() => _listId = l.id),
-                ),
               FilterChip(
                 label: const Text('Show done'),
                 selected: _showDone,
@@ -72,9 +76,23 @@ class _PlanPageState extends State<PlanPage> {
               ),
             ],
           ),
-          if (tasks.isEmpty)
-            const Padding(padding: EdgeInsets.only(top: 32), child: Center(child: Text('Nothing ahead.'))),
-          ...children,
+          if (week.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('Nothing this week.', style: TextStyle(color: AppColors.muted))),
+            ),
+          ...grouped(week),
+          if (later.isNotEmpty)
+            ExpansionTile(
+              key: const ValueKey('later'),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+              shape: const Border(),
+              title: Text(
+                'Later  ·  ${later.length}',
+                style: text.titleSmall?.copyWith(color: AppColors.muted),
+              ),
+              children: grouped(later),
+            ),
         ],
       ),
     );
