@@ -37,7 +37,7 @@ Database openMemoryDb() {
 
 /// Tables that sync. Each has `updated_at` (client clock, used for
 /// last-write-wins), `deleted_at` (tombstone) and `dirty` (needs pushing).
-const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage'];
+const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage', 'briefs'];
 
 const _sync = '''
   created_at TEXT NOT NULL,
@@ -111,6 +111,18 @@ const _migrations = [
     $_sync
   );
   CREATE INDEX screen_usage_date ON screen_usage(date);
+  ''',
+  // Daily notes: what happened and what should change, from the user or the
+  // assistant that re-plans the day.
+  '''
+  CREATE TABLE briefs (
+    id TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    author TEXT NOT NULL,
+    body TEXT NOT NULL,
+    $_sync
+  );
+  CREATE INDEX briefs_date ON briefs(date);
   ''',
 ];
 

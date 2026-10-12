@@ -6,6 +6,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:todo_core/todo_core.dart';
 
 import 'background.dart';
+import 'briefs_page.dart';
 import 'focus_page.dart';
 import 'habits_page.dart';
 import 'outputs.dart';
@@ -103,6 +104,13 @@ class _ShellState extends State<Shell> {
               ],
             ),
           ),
+          IconButton.filled(
+            tooltip: 'Daily brief',
+            style: IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),
+            icon: const Icon(Icons.edit_note_rounded),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BriefsPage())),
+          ),
+          const SizedBox(width: 8),
           IconButton.filled(
             tooltip: 'Sync',
             style: IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),

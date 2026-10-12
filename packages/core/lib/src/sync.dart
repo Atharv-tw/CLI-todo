@@ -11,12 +11,25 @@ abstract interface class Remote {
   Future<List<Map<String, Object?>>> pull(String table, String? since);
 }
 
+/// Thrown by a [Remote] whose server has no such table yet, which happens
+/// when the app is newer than the schema installed on the server.
+class MissingTable implements Exception {
+  MissingTable(this.table);
+  final String table;
+  @override
+  String toString() => 'The sync server has no "$table" table; run the latest supabase/schema.sql';
+}
+
 class SyncResult {
-  SyncResult(this.pulled, this.pushed);
+  SyncResult(this.pulled, this.pushed, [this.missing = const []]);
   final int pulled;
   final int pushed;
 
-  Map<String, Object?> toJson() => {'pulled': pulled, 'pushed': pushed};
+  /// Tables the server does not have yet; their rows wait locally.
+  final List<String> missing;
+
+  Map<String, Object?> toJson() =>
+      {'pulled': pulled, 'pushed': pushed, if (missing.isNotEmpty) 'missing_tables': missing};
 }
 
 /// Pull then push. Conflicts resolve per row by the newer `updated_at`.
@@ -29,9 +42,17 @@ class SyncEngine {
   Future<SyncResult> sync() async {
     final db = store.db;
     var pulled = 0, pushed = 0;
+    // An older server must not stop the tables it does have from syncing.
+    final missing = <String>[];
 
     for (final table in syncedTables) {
-      final rows = await remote.pull(table, store.getMeta('pulled:$table'));
+      final List<Map<String, Object?>> rows;
+      try {
+        rows = await remote.pull(table, store.getMeta('pulled:$table'));
+      } on MissingTable {
+        missing.add(table);
+        continue;
+      }
       if (rows.isEmpty) continue;
       db.execute('BEGIN');
       try {
@@ -47,6 +68,7 @@ class SyncEngine {
     }
 
     for (final table in syncedTables) {
+      if (missing.contains(table)) continue;
       final rows = [
         for (final r in db.select('SELECT * FROM $table WHERE dirty = 1')) {...r}..remove('dirty'),
       ];
@@ -61,7 +83,7 @@ class SyncEngine {
       }
       pushed += rows.length;
     }
-    return SyncResult(pulled, pushed);
+    return SyncResult(pulled, pushed, missing);
   }
 
   bool _apply(String table, Map<String, Object?> remoteRow) {

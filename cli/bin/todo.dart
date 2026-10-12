@@ -22,6 +22,7 @@ Future<void> main(List<String> args) async {
     ..addCommand(HabitCommand())
     ..addCommand(FocusCommand())
     ..addCommand(UsageCommand())
+    ..addCommand(BriefCommand())
     ..addCommand(_UsageAdd())
     ..addCommand(ServerCommand())
     ..addCommand(LoginCommand())
@@ -438,6 +439,46 @@ class _FocusStatus extends Cmd {
   void run() => show(this);
 }
 
+class BriefCommand extends Cmd {
+  BriefCommand()
+      : super('brief', 'Daily notes: todo brief (recent ones), or todo brief Woke at 11, skipped the workout') {
+    argParser
+      ..addOption('date', abbr: 'd', help: 'Day the note is about (default today).')
+      ..addOption('as', allowed: [Brief.me, Brief.assistant], defaultsTo: Brief.me, help: 'Who is writing.')
+      ..addOption('days', defaultsTo: '7', help: 'How many days back to show.');
+  }
+
+  @override
+  void run() {
+    if (rest.isNotEmpty) {
+      final b = store.addBrief(
+        rest.join(' '),
+        date: opt('date') == null ? null : parseDate(opt('date')!),
+        author: opt('as')!,
+      );
+      out(b.toJson(), () => 'Saved brief for ${prettyDate(b.date)}.');
+      return;
+    }
+    final days = int.tryParse(opt('days')!);
+    if (days == null || days < 1) usageException('Days must be a number.');
+    final to = opt('date') == null ? today() : parseDate(opt('date')!);
+    final briefs = store.briefs(from: addDays(to, -(days - 1)), to: to);
+    out([for (final b in briefs) b.toJson()], () {
+      if (briefs.isEmpty) return 'No briefs.';
+      final lines = <String>[];
+      String? day;
+      for (final b in briefs) {
+        if (b.date != day) {
+          if (day != null) lines.add('');
+          lines.add(prettyDate(day = b.date));
+        }
+        lines.add('  ${b.author == Brief.me ? 'You' : 'Claude'}: ${b.body.replaceAll('\n', '\n    ')}');
+      }
+      return lines.join('\n');
+    });
+  }
+}
+
 class UsageCommand extends Cmd {
   UsageCommand() : super('usage', 'Screen time: todo usage [today|yesterday|week|DATE]');
 
@@ -573,6 +614,11 @@ class SyncCommand extends Cmd {
   @override
   Future<void> run() async {
     final r = await SyncEngine(store, SupabaseRemote(store)).sync();
-    out(r.toJson(), () => 'Pulled ${r.pulled}, pushed ${r.pushed}.');
+    out(
+      r.toJson(),
+      () => 'Pulled ${r.pulled}, pushed ${r.pushed}.'
+          '${r.missing.isEmpty ? '' : '\nNot synced, the server has no table for: ${r.missing.join(', ')}. '
+              'Run the latest supabase/schema.sql.'}',
+    );
   }
 }
