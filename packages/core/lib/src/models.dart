@@ -68,6 +68,19 @@ class Habit {
   final String? startDate;
   final String? endDate;
 
+  /// A title like `5 meals / Lunch` makes the habit one step of the group
+  /// `5 meals`: the steps remind separately through the day, and the group
+  /// counts as done only once every step is.
+  static const groupSeparator = ' / ';
+
+  String? get group {
+    final i = title.indexOf(groupSeparator);
+    return i <= 0 ? null : title.substring(0, i);
+  }
+
+  /// The title without its group.
+  String get step => group == null ? title : title.substring(group!.length + groupSeparator.length);
+
   Map<String, Object?> toJson() =>
       {'id': id, 'title': title, 'time': time, 'start_date': startDate, 'end_date': endDate};
 }
