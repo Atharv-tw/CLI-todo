@@ -215,6 +215,19 @@ void main() {
     expect(store.habitGroupStreak([a.id, b.id], '2026-10-04').current, 1);
   });
 
+  test('briefs: newest day first, in the order written; edit and delete', () {
+    final a = store.addBrief('woke at 11', date: '2026-10-13');
+    store.addBrief('moved DSA to 13:30', date: '2026-10-13', author: Brief.assistant);
+    store.addBrief('slept on time', date: '2026-10-14');
+    expect(store.briefs().map((b) => b.body), ['slept on time', 'woke at 11', 'moved DSA to 13:30']);
+    expect(store.briefs(from: '2026-10-14').single.author, Brief.me);
+    store.updateBrief(a.id, 'woke at noon');
+    store.deleteBrief(store.briefs(from: '2026-10-14').single.id);
+    expect(store.briefs().map((b) => b.body), ['woke at noon', 'moved DSA to 13:30']);
+    expect(() => store.addBrief('  '), throwsA(isA<TodoException>()));
+    expect(() => store.addBrief('x', author: 'bot'), throwsA(isA<TodoException>()));
+  });
+
   group('screen time', () {
     UsageSpan span(String app, String from, String to) =>
         UsageSpan(app, app.toUpperCase(), DateTime.parse(from), DateTime.parse(to));

@@ -214,6 +214,40 @@ final _tools = <_Tool>[
       return store.usageSummary(from, _s(a, 'to') == null ? from : parseDate(_s(a, 'to')!));
     },
   ),
+  _Tool(
+    'list_briefs',
+    'Daily briefs, newest day first: what the user wrote about each day (author "me") and what the assistant changed (author "claude").',
+    {
+      'from': _str('First day ($_dateHelp). Defaults to 6 days before the last day.'),
+      'to': _str('Last day ($_dateHelp). Defaults to today.'),
+    },
+    (store, a) {
+      final to = _s(a, 'to') == null ? today() : parseDate(_s(a, 'to')!);
+      final from = _s(a, 'from') == null ? addDays(to, -6) : parseDate(_s(a, 'from')!);
+      return [for (final b in store.briefs(from: from, to: to)) b.toJson()];
+    },
+  ),
+  _Tool(
+    'add_brief',
+    'Record a note for a day. Use it after re-planning to say what you changed and why, so the user can review it in the app.',
+    {
+      'text': _str('The note.'),
+      'date': _str('Day it is about ($_dateHelp). Defaults to today.'),
+      'author': {
+        'type': 'string',
+        'enum': [Brief.assistant, Brief.me],
+        'description': 'Who is writing. Defaults to "claude".',
+      },
+    },
+    required: ['text'],
+    (store, a) => store
+        .addBrief(
+          a['text'] as String,
+          date: _s(a, 'date') == null ? null : parseDate(_s(a, 'date')!),
+          author: _s(a, 'author') ?? Brief.assistant,
+        )
+        .toJson(),
+  ),
 ];
 
 /// Minimal MCP server: newline-delimited JSON-RPC on stdin/stdout.

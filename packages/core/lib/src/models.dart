@@ -139,3 +139,28 @@ class UsageSpan {
   final DateTime start;
   final DateTime end;
 }
+
+/// A note about one day: the user's own account of it, or the assistant's
+/// summary of what it changed in the plan.
+class Brief {
+  Brief.fromRow(Map<String, Object?> r)
+      : id = r['id'] as String,
+        date = r['date'] as String,
+        author = r['author'] as String,
+        body = r['body'] as String,
+        createdAt = DateTime.parse(r['created_at'] as String);
+
+  static const me = 'me';
+  static const assistant = 'claude';
+
+  final String id;
+  final String date;
+
+  /// [me] or [assistant].
+  final String author;
+  final String body;
+  final DateTime createdAt;
+
+  Map<String, Object?> toJson() =>
+      {'id': id, 'date': date, 'author': author, 'body': body, 'created_at': utcStamp(createdAt)};
+}

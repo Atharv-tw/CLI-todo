@@ -7,8 +7,12 @@ class FakeRemote implements Remote {
   var _clock = 0;
   var failPush = false;
 
+  /// Tables this server was never given, like an older schema.
+  final absent = <String>{};
+
   @override
   Future<void> push(String table, List<Map<String, Object?>> rows) async {
+    if (absent.contains(table)) throw MissingTable(table);
     if (failPush) throw SyncException('offline');
     final stored = tables.putIfAbsent(table, () => {});
     for (final row in rows) {
@@ -20,6 +24,7 @@ class FakeRemote implements Remote {
 
   @override
   Future<List<Map<String, Object?>>> pull(String table, String? since) async {
+    if (absent.contains(table)) throw MissingTable(table);
     final rows = (tables[table] ?? {}).values
         .where((r) => since == null || (r['server_at'] as String).compareTo(since) > 0)
         .toList()
@@ -146,5 +151,19 @@ void main() {
       expect(s.usageByDevice('2026-10-03', '2026-10-03'), {'phone': 1800, 'laptop': 1800});
       expect(s.usageByApp('2026-10-03', '2026-10-03', device: 'phone').single.app, 'maps');
     }
+  });
+
+  test('a server without the briefs table still syncs the rest, and briefs go up later', () async {
+    remote.absent.add('briefs');
+    laptop.addTask(title: 'revise');
+    laptop.addBrief('woke late', date: '2026-10-13');
+    final first = await laptopSync.sync();
+    expect(first.pushed, 1);
+    expect(first.missing, ['briefs']);
+    remote.absent.clear();
+    expect((await laptopSync.sync()).pushed, 1);
+    await phoneSync.sync();
+    expect(phone.briefs().single.body, 'woke late');
+    expect(phone.tasks(undated: true).single.title, 'revise');
   });
 }

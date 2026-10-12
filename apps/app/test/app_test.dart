@@ -129,6 +129,20 @@ void main() {
     expect(find.text('0 of 2 today · 0-day streak'), findsOneWidget);
   });
 
+  testWidgets('daily brief: write one, see it with the assistant\'s reply', (tester) async {
+    state.store.addBrief('Moved DSA to 13:30', author: Brief.assistant);
+    await pump(tester, const Size(390, 844));
+    await tester.tap(find.byTooltip('Daily brief'));
+    await tester.pumpAndSettle();
+    expect(find.text('Claude'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('brief-draft')), 'Woke at 11');
+    await tester.tap(find.text('Save brief'));
+    await tester.pumpAndSettle();
+    expect(state.store.briefs().map((b) => (b.author, b.body)), [('claude', 'Moved DSA to 13:30'), ('me', 'Woke at 11')]);
+    expect(find.text('You'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('habit tiles: tap to mark done, with streaks; tasks stay out', (tester) async {
     final h = state.store.addHabit(title: 'Read', startDate: addDays(today(), -40));
     state.store.setHabitCheck(h.id, addDays(today(), -1), true);

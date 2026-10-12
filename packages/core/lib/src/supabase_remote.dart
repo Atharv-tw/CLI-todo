@@ -79,6 +79,16 @@ class SupabaseRemote implements Remote {
     store.setMeta('supabase_expires_at', expires.toUtc().toIso8601String());
   }
 
+  /// PostgREST's answer for a table that is not in the schema.
+  bool _missingTable(http.Response res) {
+    try {
+      final code = (jsonDecode(res.body) as Map<String, Object?>)['code'];
+      return code == 'PGRST205' || code == '42P01';
+    } catch (_) {
+      return false;
+    }
+  }
+
   String _errorText(http.Response res) {
     try {
       final data = jsonDecode(res.body) as Map<String, Object?>;
@@ -106,9 +116,13 @@ class SupabaseRemote implements Remote {
   }
 
   /// Runs [request], retrying once with a fresh token on 401.
-  Future<http.Response> _send(Future<http.Response> Function(Map<String, String> headers) request) async {
+  Future<http.Response> _send(
+    String table,
+    Future<http.Response> Function(Map<String, String> headers) request,
+  ) async {
     var res = await request(await _headers());
     if (res.statusCode == 401) res = await request(await _headers(forceRefresh: true));
+    if (res.statusCode == 404 && _missingTable(res)) throw MissingTable(table);
     if (res.statusCode >= 300) throw SyncException('Sync failed: ${_errorText(res)}');
     return res;
   }
@@ -117,7 +131,7 @@ class SupabaseRemote implements Remote {
   Future<void> push(String table, List<Map<String, Object?>> rows) async {
     for (var i = 0; i < rows.length; i += 500) {
       final chunk = rows.sublist(i, (i + 500).clamp(0, rows.length));
-      await _send((headers) => _http.post(
+      await _send(table, (headers) => _http.post(
             Uri.parse('$url/rest/v1/$table?on_conflict=id'),
             headers: {...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal'},
             body: jsonEncode(chunk),
@@ -136,7 +150,7 @@ class SupabaseRemote implements Remote {
         'limit': '$_pageSize',
         'offset': '${rows.length}',
       });
-      final res = await _send((headers) => _http.get(uri, headers: headers));
+      final res = await _send(table, (headers) => _http.get(uri, headers: headers));
       final page = (jsonDecode(res.body) as List).cast<Map<String, Object?>>();
       rows.addAll(page);
       if (page.length < _pageSize) return rows;

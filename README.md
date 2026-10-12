@@ -27,6 +27,7 @@ Features:
 - Habit groups: name habits `5 meals / Breakfast`, `5 meals / Lunch` and they remind separately but show as one habit, done once every step is ticked
 - Focus timer (25 minutes by default) with minutes logged per day
 - Offline first: each device has a full local copy; sync is pull-then-push, newest edit wins per row
+- Daily briefs: write a note about the day in the app; a scheduled assistant can read it, re-plan the day and reply
 - Screen time on both devices: which apps, for how long, and at what hour of the day (Screen tab, `todo usage`, and the assistant)
 - Reminders when a task starts: sound on the laptop, sound or vibration and a lock-screen alert on the phone
 - Two-way calendar on Android: timed tasks become events in a calendar you choose; moving or renaming such an event updates the task
@@ -158,6 +159,23 @@ Both devices record foreground time per app per hour and sync it like everything
 - **Phone:** open the Screen tab and tap *Open settings* to grant usage access to Todo. The app reads Android's own history whenever it opens (Android keeps about 7 days, so open it at least weekly). The home screen is not counted.
 - Read it with `todo usage`, `todo usage yesterday`, `todo usage week`, or ask the assistant (the `screen_time` MCP tool).
 - To sync it, run the updated `supabase/schema.sql` once; it adds the `screen_usage` table.
+
+## Daily briefs
+
+The pencil button in the app's header opens *Daily brief*: write how the day
+went and what should change. Briefs are kept by day for later review and sync
+like everything else. From the terminal: `todo brief` shows recent ones,
+`todo brief Woke at 11, skipped the workout` adds one.
+
+An assistant can act on them. On the laptop, Claude reads and writes briefs
+through the MCP server (`list_briefs`, `add_brief`). To have it happen on a
+schedule without your laptop, run a cloud session daily that follows
+[docs/briefing-agent.md](docs/briefing-agent.md); `scripts/cloud-setup.sh`
+builds the CLI there and signs in from environment variables.
+
+To sync briefs, run the updated `supabase/schema.sql` once; it adds the
+`briefs` table. Until then everything else keeps syncing and briefs wait on
+the device.
 
 ## License
 

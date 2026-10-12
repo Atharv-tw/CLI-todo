@@ -436,6 +436,37 @@ class Store {
     return out;
   }
 
+  // Briefs
+
+  Brief addBrief(String body, {String? date, String author = Brief.me}) {
+    if (body.trim().isEmpty) throw TodoException('A brief needs some text');
+    if (author != Brief.me && author != Brief.assistant) {
+      throw TodoException('A brief is written by "${Brief.me}" or "${Brief.assistant}"');
+    }
+    final id = newId();
+    _insert('briefs', {'id': id, 'date': date ?? today(), 'author': author, 'body': body.trim()});
+    return Brief.fromRow(db.select('SELECT * FROM briefs WHERE id = ?', [id]).first);
+  }
+
+  /// Briefs dated within [from]..[to] (either end optional), newest day
+  /// first and, within a day, in the order written.
+  List<Brief> briefs({String? from, String? to}) => db
+      .select(
+        'SELECT * FROM briefs WHERE deleted_at IS NULL '
+        '${from == null ? '' : 'AND date >= ? '}${to == null ? '' : 'AND date <= ? '}'
+        'ORDER BY date DESC, created_at',
+        [?from, ?to],
+      )
+      .map(Brief.fromRow)
+      .toList();
+
+  void updateBrief(String id, String body) {
+    if (body.trim().isEmpty) throw TodoException('A brief needs some text');
+    _update('briefs', id, {'body': body.trim()});
+  }
+
+  void deleteBrief(String id) => _update('briefs', id, {'deleted_at': nowUtc()});
+
   // Screen time
 
   /// Stable per-install id, so two devices never write the same usage rows.
