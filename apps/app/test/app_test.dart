@@ -110,6 +110,25 @@ void main() {
     expect(find.text('1 of 1'), findsOneWidget);
   });
 
+  testWidgets('the New habit dialog can make a habit with steps', (tester) async {
+    await pump(tester, const Size(390, 844));
+    await go(tester, 'Habits');
+    await tester.tap(find.text('New habit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('habit-title')), 'Water');
+    await tester.tap(find.byKey(const ValueKey('add-step')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const ValueKey('step-0')), 'Morning');
+    await tester.tap(find.byKey(const ValueKey('add-step')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const ValueKey('step-1')), 'Evening');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(state.store.habits().map((h) => h.title), ['Water / Morning', 'Water / Evening']);
+    expect(find.text('Water'), findsOneWidget);
+    expect(find.text('0 of 2 today · 0-day streak'), findsOneWidget);
+  });
+
   testWidgets('habit tiles: tap to mark done, with streaks; tasks stay out', (tester) async {
     final h = state.store.addHabit(title: 'Read', startDate: addDays(today(), -40));
     state.store.setHabitCheck(h.id, addDays(today(), -1), true);
