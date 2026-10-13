@@ -123,6 +123,19 @@ both, and a test fails if they drift.
 `apps/app/tool/voice_check_test.dart` runs a recording through the on-device
 speech engine without a microphone; the top of the file says how.
 
+## The website
+
+`site/` is the website: one HTML file, one stylesheet and pictures, with no
+build step. Pushing a change to it on `main` publishes it through GitHub Pages
+(`.github/workflows/pages.yml`; in the repository's settings, Pages has to be
+set to deploy from GitHub Actions once).
+
+The pictures are drawn from made-up data, never yours:
+
+```bash
+./scripts/screenshots.sh
+```
+
 ## Releasing
 
 Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`, which builds

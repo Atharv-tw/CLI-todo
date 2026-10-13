@@ -8,7 +8,7 @@ Android app with home-screen widgets, and an MCP server so an AI assistant can
 read and edit your tasks. Everything works offline and syncs through your own
 Supabase project when online.
 
-[Quick start](#quick-start) · [With an assistant](#with-an-assistant) · [Build from source](docs/building.md)
+**[Website](https://atharv-tw.github.io/CLI-todo/)** · [Quick start](#quick-start) · [With an assistant](#with-an-assistant) · [Build from source](docs/building.md)
 
 ## Quick start
 
