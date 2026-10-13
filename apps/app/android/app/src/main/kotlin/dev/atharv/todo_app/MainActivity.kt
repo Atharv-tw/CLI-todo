@@ -1,6 +1,7 @@
 package dev.atharv.todo_app
 
 import android.app.AppOpsManager
+import android.app.KeyguardManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -15,6 +16,19 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // For the full-screen reminder: after it is answered over the lock
+        // screen, the app steps back so the lock screen shows again.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "todo/device").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isLocked" ->
+                    result.success((getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
+                "leave" -> {
+                    moveTaskToBack(true)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "todo/usage").setMethodCallHandler { call, result ->
             when (call.method) {
                 "hasAccess" -> result.success(hasUsageAccess())

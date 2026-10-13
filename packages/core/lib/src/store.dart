@@ -112,6 +112,12 @@ class Store {
   Task task(String id) =>
       Task.fromRow(db.select('$_taskSelect WHERE t.id = ?', [id]).first);
 
+  /// The task, or null if it does not exist or was deleted.
+  Task? findTask(String id) {
+    final rows = db.select('$_taskSelect WHERE t.id = ? AND t.deleted_at IS NULL', [id]);
+    return rows.isEmpty ? null : Task.fromRow(rows.first);
+  }
+
   Task addTask({
     required String title,
     String? listId,

@@ -9,8 +9,9 @@ import 'background.dart';
 import 'briefs_page.dart';
 import 'focus_page.dart';
 import 'habits_page.dart';
-import 'outputs.dart';
 import 'plan_page.dart';
+import 'reminder_page.dart';
+import 'reminders.dart';
 import 'screen_page.dart';
 import 'state.dart';
 import 'sync_page.dart';
@@ -26,7 +27,34 @@ Future<void> main() async {
   }
   final state = AppState(Store(openDb(path)))..start(watchDir: Platform.isLinux ? p.dirname(path) : null);
   runApp(TodoApp(state: state));
-  requestNotificationPermission();
+  if (Platform.isAndroid) await _watchReminders(state);
+}
+
+final _navigator = GlobalKey<NavigatorState>();
+final _reminderOpen = <String>{};
+
+/// Opens the full-screen reminder for [r], unless it is already up or the
+/// item has been ticked in the meantime.
+Future<void> _showReminder(AppState state, Reminder r) async {
+  final navigator = _navigator.currentState;
+  if (navigator == null) return;
+  if (r.isHandled(state.store)) return clearReminder(r);
+  if (!_reminderOpen.add(r.key)) return;
+  await navigator.push(MaterialPageRoute<void>(fullscreenDialog: true, builder: (_) => ReminderPage(r)));
+  _reminderOpen.remove(r.key);
+}
+
+/// Shows a reminder when one is tapped or raised full screen by the system,
+/// including when that is what started the app.
+Future<void> _watchReminders(AppState state) async {
+  onReminderOpened = (r) => _showReminder(state, r);
+  await initNotifications();
+  final launch = await notifications.getNotificationAppLaunchDetails();
+  final first = launch?.didNotificationLaunchApp == true
+      ? Reminder.fromPayload(launch!.notificationResponse?.payload)
+      : null;
+  if (first != null) WidgetsBinding.instance.addPostFrameCallback((_) => _showReminder(state, first));
+  await requestNotificationPermission(state.store);
 }
 
 class TodoApp extends StatelessWidget {
@@ -39,6 +67,7 @@ class TodoApp extends StatelessWidget {
         state: state,
         child: MaterialApp(
           title: 'Todo',
+          navigatorKey: _navigator,
           debugShowCheckedModeBanner: false,
           theme: appTheme(),
           home: const Shell(),
