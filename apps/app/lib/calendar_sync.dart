@@ -13,6 +13,7 @@ class CalendarSync {
   final _cal = DeviceCalendar.instance;
 
   static const _done = '✓ ';
+  static const _madeKey = 'calev:';
   static const _defaultLength = Duration(minutes: 30);
 
   String? get calendarId => store.getMeta('calendar_id');
@@ -42,10 +43,19 @@ class CalendarSync {
     if (calId == null) return 0;
     if (await _cal.hasPermissions() != CalendarPermissionStatus.granted) return 0;
 
+    // Events this device made, by task id. The task row also carries the event
+    // id, but an edit made on another device before it had pulled that id
+    // wins the row and wipes it; without this record the event would be
+    // orphaned and a second one created.
+    final made = {
+      for (final r in store.db.select("SELECT key, value FROM meta WHERE key LIKE 'calev:%' AND value IS NOT NULL"))
+        (r['key'] as String).substring(_madeKey.length): r['value'] as String,
+    };
     final rows = store.db.select(
       'SELECT * FROM tasks WHERE '
       '(calendar_event_id IS NOT NULL AND (deleted_at IS NOT NULL OR date IS NULL OR date >= ?1)) '
-      'OR (deleted_at IS NULL AND date >= ?2 AND start_time IS NOT NULL)',
+      'OR (deleted_at IS NULL AND date >= ?2 AND start_time IS NOT NULL) '
+      '${made.isEmpty ? '' : "OR id IN (${made.keys.map((k) => "'$k'").join(', ')})"}',
       [addDays(today(), -14), addDays(today(), -1)],
     );
     var changed = 0;
@@ -57,15 +67,17 @@ class CalendarSync {
       final start = row['start_time'] as String?;
       final end = row['end_time'] as String?;
       final done = row['done_at'] != null;
-      final eventId = row['calendar_event_id'] as String?;
+      final rowEventId = row['calendar_event_id'] as String?;
+      final eventId = rowEventId ?? made[id];
       final sigKey = 'cal:$id';
       final agreed = store.getMeta(sigKey);
 
       void link(String? newEventId, String? sig) {
-        if (newEventId != eventId) {
+        if (newEventId != rowEventId) {
           store.updateTask(id, {'calendar_event_id': newEventId});
           changed++;
         }
+        store.setMeta('$_madeKey$id', newEventId);
         store.setMeta(sigKey, sig);
       }
 
@@ -108,6 +120,7 @@ class CalendarSync {
         if (sig == agreed) {
           // Deleted in the calendar: keep the task, drop its time slot.
           store.updateTask(id, {'start_time': null, 'end_time': null, 'calendar_event_id': null});
+          store.setMeta('$_madeKey$id', null);
           store.setMeta(sigKey, null);
           changed++;
         } else {
@@ -123,9 +136,13 @@ class CalendarSync {
           startDate: startAt,
           endDate: endAt,
         );
-        store.setMeta(sigKey, sig);
+        link(eventId, sig);
         continue;
       }
+
+      // Put the event id back on a row that lost it, and start remembering
+      // events made before this record existed.
+      if (rowEventId == null || made[id] == null) link(eventId, sig);
 
       // The task is as agreed; see whether the event was moved or renamed.
       if (event.isAllDay) continue;
