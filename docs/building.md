@@ -11,10 +11,12 @@ or to bake your own sync server into the apps.
 | `packages/core` | Pure Dart: SQLite store, sync engine, Supabase client |
 | `cli` | The `todo` command, including `todo mcp` (MCP server over stdio) |
 | `apps/app` | Flutter app for Linux desktop and Android |
-| `apps/app/android` | Android home-screen widgets (Today, Habits, Focus) |
+| `apps/app/android` | Android home-screen widgets (Today, Habits, Focus, Diary) |
 | `gnome-extension` | GNOME Shell top-bar widget |
 | `supabase/schema.sql` | Server tables, row-level security, last-write-wins trigger |
-| `scripts` | Toolchain setup and install scripts |
+| `plugin` | Claude Code plugin: the tool server entry and the skills (Codex reads the same skills) |
+| `site` | The website |
+| `scripts` | Toolchain setup, install and release helpers |
 
 ## Requirements
 
@@ -113,7 +115,8 @@ the connected phone.
 
 ```bash
 (cd packages/core && dart test)
-(cd cli && dart analyze && dart test)\n(cd apps/app && flutter analyze && flutter test)
+(cd cli && dart analyze && dart test)
+(cd apps/app && flutter analyze && flutter test)
 ```
 
 After changing a skill in `plugin/skills` or `supabase/schema.sql`, run
