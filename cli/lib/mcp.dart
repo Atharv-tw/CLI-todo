@@ -215,38 +215,70 @@ final _tools = <_Tool>[
     },
   ),
   _Tool(
-    'list_briefs',
-    'Daily briefs, newest day first: what the user wrote about each day (author "me") and what the assistant changed (author "claude").',
+    'list_diary',
+    'The diary, newest day first: what the user logged through each day (author "me": ideas, decisions, how things went, sometimes about one task or habit) and notes the assistant left (author "claude"). `created_at` is when it was logged.',
     {
       'from': _str('First day ($_dateHelp). Defaults to 6 days before the last day.'),
       'to': _str('Last day ($_dateHelp). Defaults to today.'),
+      'task': _str('Only entries about this task (id or unique prefix).'),
+      'unfiled': {
+        'type': 'boolean',
+        'description': 'Only the user\'s entries not yet filed into their vault, however old.',
+      },
     },
     (store, a) {
+      final unfiled = a['unfiled'] == true;
       final to = _s(a, 'to') == null ? today() : parseDate(_s(a, 'to')!);
-      final from = _s(a, 'from') == null ? addDays(to, -6) : parseDate(_s(a, 'from')!);
-      return [for (final b in store.briefs(from: from, to: to)) b.toJson()];
+      final from = _s(a, 'from') == null ? (unfiled ? null : addDays(to, -6)) : parseDate(_s(a, 'from')!);
+      final entries = store.diary(
+        from: from,
+        to: to,
+        taskId: _s(a, 'task') == null ? null : store.resolveId('tasks', _s(a, 'task')!),
+        author: unfiled ? DiaryEntry.me : null,
+        unfiledOnly: unfiled,
+      );
+      return [for (final e in entries) e.toJson()];
     },
   ),
   _Tool(
-    'add_brief',
-    'Record a note for a day. Use it after re-planning to say what you changed and why, so the user can review it in the app.',
+    'add_diary_entry',
+    'Write a diary entry. As the assistant, use it to note what you changed in the plan and why. Pass author "me" only to record something the user said in their own words.',
     {
-      'text': _str('The note.'),
+      'text': _str('The entry.'),
       'date': _str('Day it is about ($_dateHelp). Defaults to today.'),
+      'task': _str('A task it is about (id or unique prefix).'),
       'author': {
         'type': 'string',
-        'enum': [Brief.assistant, Brief.me],
+        'enum': [DiaryEntry.assistant, DiaryEntry.me],
         'description': 'Who is writing. Defaults to "claude".',
       },
     },
     required: ['text'],
     (store, a) => store
-        .addBrief(
+        .addDiary(
           a['text'] as String,
           date: _s(a, 'date') == null ? null : parseDate(_s(a, 'date')!),
-          author: _s(a, 'author') ?? Brief.assistant,
+          author: _s(a, 'author') ?? DiaryEntry.assistant,
+          taskId: _s(a, 'task') == null ? null : store.resolveId('tasks', _s(a, 'task')!),
         )
         .toJson(),
+  ),
+  _Tool(
+    'mark_diary_filed',
+    'Record that diary entries have been filed into the user\'s vault, so they are not filed twice.',
+    {
+      'ids': {
+        'type': 'array',
+        'items': {'type': 'string'},
+        'description': 'Entry ids or unique prefixes.',
+      },
+    },
+    required: ['ids'],
+    (store, a) {
+      final ids = [for (final ref in (a['ids'] as List).cast<String>()) store.resolveId('diary', ref)];
+      store.markDiaryFiled(ids);
+      return {'filed': ids};
+    },
   ),
 ];
 

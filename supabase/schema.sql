@@ -14,6 +14,15 @@ begin
   return new;
 end $$;
 
+-- The diary was first released as "briefs": carry an existing table over.
+do $$
+begin
+  if to_regclass('public.briefs') is not null and to_regclass('public.diary') is null then
+    alter table briefs rename to diary;
+    alter index if exists briefs_pull rename to diary_pull;
+  end if;
+end $$;
+
 do $$
 declare
   t text;
@@ -29,7 +38,8 @@ begin
                         planned_min integer not null, ended_at text'),
     ('screen_usage', 'device_id text not null, device text not null, app text not null, name text not null,
                       date text not null, hour integer not null, seconds integer not null'),
-    ('briefs', 'date text not null, author text not null, body text not null')
+    ('diary', 'date text not null, author text not null, body text not null,
+               task_id text, habit_id text, filed_at text')
   loop
     execute format('create table if not exists %I (
       id text primary key,
@@ -53,3 +63,6 @@ end $$;
 
 -- Added after the first release.
 alter table habits add column if not exists time text;
+alter table diary add column if not exists task_id text;
+alter table diary add column if not exists habit_id text;
+alter table diary add column if not exists filed_at text;

@@ -22,7 +22,10 @@ Future<void> main(List<String> args) async {
     ..addCommand(HabitCommand())
     ..addCommand(FocusCommand())
     ..addCommand(UsageCommand())
-    ..addCommand(BriefCommand())
+    ..addCommand(DiaryCommand())
+    ..addCommand(DiaryCommand('brief'))
+    ..addCommand(_DiaryRm())
+    ..addCommand(_DiaryFiled())
     ..addCommand(_UsageAdd())
     ..addCommand(ServerCommand())
     ..addCommand(LoginCommand())
@@ -439,43 +442,97 @@ class _FocusStatus extends Cmd {
   void run() => show(this);
 }
 
-class BriefCommand extends Cmd {
-  BriefCommand()
-      : super('brief', 'Daily notes: todo brief (recent ones), or todo brief Woke at 11, skipped the workout') {
+/// `todo diary`: what was written, and a way to write more.
+class DiaryCommand extends Cmd {
+  DiaryCommand([String name = 'diary'])
+      : super(name, 'Diary: todo diary (recent entries), or todo diary Finally got hash maps --task 6e495e') {
     argParser
-      ..addOption('date', abbr: 'd', help: 'Day the note is about (default today).')
-      ..addOption('as', allowed: [Brief.me, Brief.assistant], defaultsTo: Brief.me, help: 'Who is writing.')
-      ..addOption('days', defaultsTo: '7', help: 'How many days back to show.');
+      ..addOption('date', abbr: 'd', help: 'Day the entry is about (default today).')
+      ..addOption('task', help: 'A task the entry is about (id or prefix).')
+      ..addOption('habit', help: 'A habit the entry is about (title or id).')
+      ..addOption('as',
+          allowed: [DiaryEntry.me, DiaryEntry.assistant], defaultsTo: DiaryEntry.me, help: 'Who is writing.')
+      ..addOption('days', defaultsTo: '7', help: 'How many days back to show.')
+      ..addFlag('unfiled', negatable: false, help: 'Only your entries not yet filed into the vault.');
   }
+
+  // `todo brief` still works: the nightly routine was written against it.
+  @override
+  bool get hidden => name != 'diary';
 
   @override
   void run() {
+    final taskId = opt('task') == null ? null : store.resolveId('tasks', opt('task')!);
+    final habitId = opt('habit') == null ? null : store.resolveHabit(opt('habit')!);
     if (rest.isNotEmpty) {
-      final b = store.addBrief(
+      final e = store.addDiary(
         rest.join(' '),
         date: opt('date') == null ? null : parseDate(opt('date')!),
         author: opt('as')!,
+        taskId: taskId,
+        habitId: habitId,
       );
-      out(b.toJson(), () => 'Saved brief for ${prettyDate(b.date)}.');
+      out(e.toJson(), () => 'Saved to the diary for ${prettyDate(e.date)}${e.about == null ? '' : ', on "${e.about}"'}.');
       return;
     }
+    final unfiled = argResults!.flag('unfiled');
     final days = int.tryParse(opt('days')!);
     if (days == null || days < 1) usageException('Days must be a number.');
     final to = opt('date') == null ? today() : parseDate(opt('date')!);
-    final briefs = store.briefs(from: addDays(to, -(days - 1)), to: to);
-    out([for (final b in briefs) b.toJson()], () {
-      if (briefs.isEmpty) return 'No briefs.';
+    final entries = store.diary(
+      // Unfiled entries are wanted however old they are.
+      from: unfiled ? null : addDays(to, -(days - 1)),
+      to: to,
+      taskId: taskId,
+      habitId: habitId,
+      author: unfiled ? DiaryEntry.me : null,
+      unfiledOnly: unfiled,
+    );
+    out([for (final e in entries) e.toJson()], () {
+      if (entries.isEmpty) return unfiled ? 'Nothing waiting to be filed.' : 'No diary entries.';
       final lines = <String>[];
       String? day;
-      for (final b in briefs) {
-        if (b.date != day) {
+      for (final e in entries) {
+        if (e.date != day) {
           if (day != null) lines.add('');
-          lines.add(prettyDate(day = b.date));
+          lines.add(prettyDate(day = e.date));
         }
-        lines.add('  ${b.author == Brief.me ? 'You' : 'Claude'}: ${b.body.replaceAll('\n', '\n    ')}');
+        final who = e.author == DiaryEntry.me ? '' : 'Claude: ';
+        final about = e.about == null ? '' : '[${e.about}] ';
+        lines.add('  ${short(e.id)}  ${hm(e.createdAt)}  $who$about${e.body.replaceAll('\n', '\n                 ')}');
       }
       return lines.join('\n');
     });
+  }
+}
+
+class _DiaryRm extends Cmd {
+  _DiaryRm() : super('diary-rm', 'Delete diary entries: todo diary-rm ID...');
+
+  @override
+  void run() {
+    needArgs('at least one entry id');
+    final ids = [for (final ref in rest) store.resolveId('diary', ref)];
+    for (final id in ids) {
+      store.deleteDiary(id);
+    }
+    out({'deleted': ids}, () => 'Deleted ${ids.length} ${ids.length == 1 ? 'entry' : 'entries'}.');
+  }
+}
+
+/// Used by an assistant once it has filed entries into the vault.
+class _DiaryFiled extends Cmd {
+  _DiaryFiled() : super('diary-filed', 'Mark diary entries as filed into the vault: todo diary-filed ID...');
+
+  @override
+  bool get hidden => true;
+
+  @override
+  void run() {
+    needArgs('at least one entry id');
+    final ids = [for (final ref in rest) store.resolveId('diary', ref)];
+    store.markDiaryFiled(ids);
+    out({'filed': ids}, () => 'Marked ${ids.length} as filed.');
   }
 }
 
