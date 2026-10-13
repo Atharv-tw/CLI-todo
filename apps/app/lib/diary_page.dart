@@ -4,8 +4,7 @@ import 'package:todo_core/todo_core.dart';
 import 'state.dart';
 import 'theme.dart';
 import 'voice.dart';
-
-const _voiceLanguageKey = 'voice_locale';
+import 'voice_sheet.dart';
 
 /// Opens the composer as a sheet, for an entry about [task] or [habit], or
 /// about nothing in particular. With [listen] it starts hearing at once.
@@ -58,7 +57,9 @@ class DiaryComposer extends StatefulWidget {
 
 class _DiaryComposerState extends State<DiaryComposer> {
   final _text = TextEditingController();
-  final _dictation = Dictation();
+
+  /// The speech engine last used here; made when the mic is first pressed.
+  Dictation? _dictation;
 
   /// What was in the box when the mic was pressed; speech is added after it.
   String _before = '';
@@ -66,39 +67,61 @@ class _DiaryComposerState extends State<DiaryComposer> {
   @override
   void initState() {
     super.initState();
-    _dictation.addListener(_heard);
     if (widget.listen && voiceSupported) WidgetsBinding.instance.addPostFrameCallback((_) => _toggleMic());
   }
 
   @override
   void dispose() {
     _dictation
-      ..removeListener(_heard)
+      ?..removeListener(_heard)
       ..dispose();
     _text.dispose();
     super.dispose();
   }
 
   void _heard() {
-    if (!mounted) return;
-    final said = _dictation.text;
-    if (_dictation.listening || said.isNotEmpty) {
+    final dictation = _dictation;
+    if (!mounted || dictation == null) return;
+    final said = dictation.text;
+    if (said.isNotEmpty) {
       final joined = [_before, said].where((s) => s.isNotEmpty).join(_before.endsWith('\n') ? '' : ' ');
-      _text.value = TextEditingValue(text: joined, selection: TextSelection.collapsed(offset: joined.length));
+      if (joined != _text.text) {
+        _text.value = TextEditingValue(text: joined, selection: TextSelection.collapsed(offset: joined.length));
+      }
     }
     setState(() {});
   }
 
   Future<void> _toggleMic() async {
-    if (_dictation.listening) return _dictation.stop();
+    final current = _dictation;
+    if (current != null && current.listening) return current.stop();
+    if (current != null && current.finishing) return;
     FocusScope.of(context).unfocus();
+    final store = AppScope.of(context).store;
+    var next = await dictationFor(store);
+    if (next == null) {
+      // Nothing to listen with yet: choose an engine first.
+      if (!mounted) return;
+      await showVoiceSettings(context);
+      next = await dictationFor(store);
+      if (next == null) return;
+    }
+    if (!mounted) return next.dispose();
+    if (current != null && current.setup == next.setup) {
+      next.dispose();
+      next = current;
+    } else {
+      current
+        ?..removeListener(_heard)
+        ..dispose();
+      _dictation = next..addListener(_heard);
+    }
     _before = _text.text.trimRight();
-    _dictation.localeId = AppScope.of(context).store.getMeta(_voiceLanguageKey);
-    await _dictation.start();
+    await next.start();
   }
 
   Future<void> _save() async {
-    await _dictation.stop();
+    await _dictation?.stop();
     final body = _text.text.trim();
     if (body.isEmpty || !mounted) return;
     AppScope.of(context).change((s) => s.addDiary(body, taskId: widget.taskId, habitId: widget.habitId));
@@ -111,7 +134,10 @@ class _DiaryComposerState extends State<DiaryComposer> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final listening = _dictation.listening;
+    final dictation = _dictation;
+    final listening = dictation?.listening ?? false;
+    final finishing = dictation?.finishing ?? false;
+    final status = dictation?.status;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,12 +157,12 @@ class _DiaryComposerState extends State<DiaryComposer> {
           minLines: 3,
           maxLines: 8,
           textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(
-            hintText: listening ? 'Listening…' : 'An idea, a decision, how it went. Anything.',
-          ),
+          decoration: const InputDecoration(hintText: 'An idea, a decision, how it went. Anything.'),
         ),
-        if (_dictation.problem != null)
-          Text(_dictation.problem!, style: text.bodySmall?.copyWith(color: AppColors.red)),
+        if (dictation?.problem case final problem?)
+          Text(problem, style: text.bodySmall?.copyWith(color: AppColors.red))
+        else if (status != null)
+          Text(status, style: text.bodySmall?.copyWith(color: AppColors.muted)),
         Row(
           spacing: 12,
           children: [
@@ -146,7 +172,7 @@ class _DiaryComposerState extends State<DiaryComposer> {
                 style: listening
                     ? FilledButton.styleFrom(backgroundColor: AppColors.orange, foregroundColor: Colors.white)
                     : null,
-                onPressed: _toggleMic,
+                onPressed: finishing ? null : _toggleMic,
                 icon: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded),
                 label: Text(listening ? 'Stop' : 'Speak'),
               ),
@@ -262,34 +288,6 @@ class DiaryEntryCard extends StatelessWidget {
 class DiaryPage extends StatelessWidget {
   const DiaryPage({super.key});
 
-  Future<void> _pickLanguage(BuildContext context, AppState app) async {
-    final languages = await Dictation.languages();
-    if (!context.mounted) return;
-    final current = app.store.getMeta(_voiceLanguageKey);
-    final picked = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Language to listen for'),
-        children: [
-          if (languages.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Text('Speech recognition is not available on this phone.'),
-            ),
-          for (final (id, name) in [('', "The phone's language"), ...languages])
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, id),
-              child: Text(
-                name,
-                style: (current ?? '') == id ? const TextStyle(fontWeight: FontWeight.w800) : null,
-              ),
-            ),
-        ],
-      ),
-    );
-    if (picked != null) app.store.setMeta(_voiceLanguageKey, picked.isEmpty ? null : picked);
-  }
-
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
@@ -339,9 +337,10 @@ class DiaryPage extends StatelessWidget {
         actions: [
           if (voiceSupported)
             IconButton(
-              tooltip: 'Language to listen for',
-              icon: const Icon(Icons.translate_rounded),
-              onPressed: () => _pickLanguage(context, app),
+              key: const ValueKey('voice-settings'),
+              tooltip: 'Voice',
+              icon: const Icon(Icons.settings_voice_rounded),
+              onPressed: () => showVoiceSettings(context),
             ),
         ],
       ),

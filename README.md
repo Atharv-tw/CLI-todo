@@ -165,7 +165,7 @@ Both devices record foreground time per app per hour and sync it like everything
 ## Diary
 
 The pencil button in the app's header opens the *Diary*. Write an entry, or
-press *Speak* on the phone and say it: an idea, a decision, how the day went.
+press *Speak* and say it: an idea, a decision, how the day went.
 Entries are kept by day with the time they were logged, and sync like
 everything else.
 
@@ -173,9 +173,15 @@ everything else.
   menu has *Add diary entry*; the widget's details card has *Diary note*.
 - **Quick capture:** the *Diary* home-screen widget opens the composer already
   listening.
-- **Voice** uses the phone's own speech recognition, so there is no key or
-  account. Pick the language with the button at the top of the Diary. It is
-  phone only: Linux has no recogniser.
+- **Voice** is written down on the device by an open-source Whisper model,
+  on the phone and on Linux: no key, no account, no connection, and nothing
+  you say leaves the device. The first time you press *Speak*, pick a model
+  to download (100 to 375 MB, once): one that writes any language, or one
+  for mixed Hindi and English in Roman letters. The words appear each time
+  you pause. Change the model or language with the button at the top of the
+  Diary. On Linux the microphone needs `parecord` (`sudo apt install
+  pulseaudio-utils`). On a phone you can use Android's own recogniser
+  instead, which needs no download but stops at every pause on some phones.
 - **Terminal:** `todo diary` shows recent entries, `todo diary Finally got
   hash maps --task 6e495e` adds one, `todo diary-rm ID` deletes one.
 

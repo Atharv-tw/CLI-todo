@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:todo_app/main.dart';
 import 'package:todo_app/reminder_page.dart';
 import 'package:todo_app/reminders.dart';
+import 'package:todo_app/speech_models.dart';
 import 'package:todo_app/state.dart';
+import 'package:todo_app/voice_sheet.dart';
 import 'package:todo_core/todo_core.dart';
 
 void main() {
@@ -208,6 +212,55 @@ void main() {
     expect(mine.map((e) => e.body), ['Finally got hash maps', 'Decided to park Onyx']);
     expect(find.text('Decided to park Onyx'), findsOneWidget);
     expect(find.text(hm(mine.last.createdAt)), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('voice: Speak asks for a speech model first, and a downloaded one can be chosen', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('speech');
+    final library = SpeechLibrary.override = SpeechLibrary(dir);
+    addTearDown(() {
+      SpeechLibrary.override = null;
+      dir.deleteSync(recursive: true);
+    });
+    void keep(SpeechModel model) {
+      File(library.detectorPath).createSync(recursive: true);
+      for (final f in model.files) {
+        File(library.pathOf(model, f.name)).createSync(recursive: true);
+      }
+    }
+
+    await pump(tester, const Size(360, 740));
+    await tester.tap(find.byTooltip('Diary'));
+    await tester.pumpAndSettle();
+
+    // Nothing to listen with yet, so the mic opens the choice of models.
+    await tester.tap(find.byKey(const ValueKey('diary-mic')));
+    await tester.pumpAndSettle();
+    expect(find.text('Voice'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-language')), findsNothing);
+    for (final model in speechModels) {
+      // The list is longer than a phone screen.
+      await tester.scrollUntilVisible(find.text(model.name), 80, scrollable: find.byType(Scrollable).last);
+      expect(find.byKey(ValueKey('voice-get-${model.id}')), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    Navigator.pop(tester.element(find.byType(VoiceSettings)));
+    await tester.pumpAndSettle();
+
+    // With two models on the device, the first is used until another is picked.
+    final base = speechModels.firstWhere((m) => m.id == 'base');
+    final hinglish = speechModels.firstWhere((m) => m.id == 'hinglish');
+    keep(base);
+    keep(hinglish);
+    await tester.tap(find.byKey(const ValueKey('voice-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text(base.size), findsNothing);
+    expect(find.byTooltip('Remove from this device'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('voice-language')), findsOneWidget); // base writes any language
+    await tester.tap(find.text(hinglish.name));
+    await tester.pumpAndSettle();
+    expect(state.store.getMeta('voice_engine'), 'hinglish');
+    expect(find.byKey(const ValueKey('voice-language')), findsNothing); // this one always writes Hinglish
     expect(tester.takeException(), isNull);
   });
 

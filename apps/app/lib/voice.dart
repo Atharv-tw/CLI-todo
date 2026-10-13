@@ -6,9 +6,9 @@ import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// Whether this device can turn speech into text. The phone uses Android's
-/// own recogniser; Linux has none, so there is no mic button there.
-bool get voiceSupported => Platform.isAndroid;
+/// Whether this device can turn speech into text: with a Whisper model kept
+/// on the device, or on a phone with Android's own recogniser.
+bool get voiceSupported => Platform.isAndroid || Platform.isLinux;
 
 // Build with --dart-define=VOICE_TRACE=true to log what the recogniser sends
 // (kinds and lengths only, never the words) when chasing a problem.
@@ -19,19 +19,48 @@ void _trace(String event) {
 }
 
 /// Speech to text for as long as the user wants to keep talking.
+abstract class Dictation extends ChangeNotifier {
+  /// Why listening could not start or stopped early, in plain words.
+  String? problem;
+
+  /// Which engine, model and language this is, to tell when the user has
+  /// changed them.
+  String get setup;
+
+  bool get listening;
+
+  /// The mic is off, and the last words are still being written down.
+  bool get finishing => false;
+
+  /// What is going on, for a line under the box; null when there is nothing to say.
+  String? get status => null;
+
+  /// Everything recognised since [start], including the words still coming.
+  String get text;
+
+  Future<void> start();
+
+  /// Stops listening. Completes once [text] holds everything that was said.
+  Future<void> stop();
+}
+
+/// Android's own recogniser. It needs no download, and for some languages a
+/// connection.
 ///
-/// Android's recogniser works in rounds: it listens, and when the speaker
-/// pauses it hands back that round's words and stops. This starts the next
-/// round as soon as the last has finished and keeps everything said so far,
-/// until [stop] is called or several rounds pass in silence.
-class Dictation extends ChangeNotifier {
+/// It works in rounds: it listens, and when the speaker pauses it hands back
+/// that round's words and stops. This starts the next round as soon as the
+/// last has finished and keeps everything said so far, until [stop] is called
+/// or several rounds pass in silence. Some phones refuse the next round.
+class SystemDictation extends Dictation {
+  SystemDictation({this.localeId});
+
   // The plugin keeps the listeners from its first `initialize`, so they are
   // static and hand events to whichever dictation is running.
   static final _speech = SpeechToText();
-  static Dictation? _active;
+  static SystemDictation? _active;
 
   /// Language to listen for, such as `en_IN` or `hi_IN`; null is the phone's.
-  String? localeId;
+  final String? localeId;
 
   bool _wanted = false;
 
@@ -51,12 +80,16 @@ class Dictation extends ChangeNotifier {
   int _faults = 0;
   Timer? _next;
 
-  /// Why listening could not start or stopped early, in plain words.
-  String? problem;
+  @override
+  String get setup => 'system:$localeId';
 
+  @override
   bool get listening => _wanted;
 
-  /// Everything recognised since [start], including the words still coming.
+  @override
+  String? get status => _wanted ? 'Listening…' : null;
+
+  @override
   String get text => [_kept, _join(_settled, _live)].where((s) => s.isNotEmpty).join(' ');
 
   static String _plain(String s) => s.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ').trim();
@@ -75,6 +108,7 @@ class Dictation extends ChangeNotifier {
     return '$soFar $more';
   }
 
+  @override
   Future<void> start() async {
     problem = null;
     _kept = _settled = _live = '';
@@ -166,6 +200,7 @@ class Dictation extends ChangeNotifier {
     d.stop();
   }
 
+  @override
   Future<void> stop() async {
     if (!_wanted) return;
     _wanted = false;
