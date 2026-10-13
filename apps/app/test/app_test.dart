@@ -30,18 +30,40 @@ void main() {
     await pump(tester, const Size(390, 800));
 
     expect(find.text('Revise OS'), findsOneWidget);
-    expect(find.text('0 of 2 done'), findsOneWidget);
-    expect(find.text('1 overdue'), findsNWidgets(2));
+    expect(find.text('0/2'), findsOneWidget);
+    expect(find.textContaining('1 overdue'), findsNWidgets(2));
 
     await tester.tap(find.byKey(ValueKey('timeline-${t.id}')));
     await tester.pump();
     expect(state.store.task(t.id).done, isTrue);
-    expect(find.text('1 of 2 done'), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
 
     await tester.tap(find.byKey(ValueKey('timeline-${h.id}')));
     await tester.pump();
     expect(state.store.checkedHabitIds(today()), {h.id});
-    expect(find.text('2 of 2 done'), findsOneWidget);
+    expect(find.text('2/2'), findsOneWidget);
+    expect(find.text('All done'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Now card shows the task on now, and its tick marks it done', (tester) async {
+    final soon = DateTime.now().add(const Duration(hours: 1));
+    final late = soon.hour < DateTime.now().hour; // within an hour of midnight
+    final t = state.store.addTask(title: 'On now', date: today(), startTime: '00:00', endTime: '23:59', tag: 'DSA');
+    if (!late) state.store.addTask(title: 'Up next', date: today(), startTime: hm(soon));
+    await pump(tester, const Size(390, 800));
+    final card = find.byKey(const ValueKey('now-card'));
+    expect(find.descendant(of: card, matching: find.text('NOW')), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('On now')), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('until 23:59')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('now-done')));
+    await tester.pump();
+    expect(state.store.task(t.id).done, isTrue);
+    if (!late) {
+      expect(find.descendant(of: card, matching: find.text('NEXT')), findsOneWidget);
+      expect(find.descendant(of: card, matching: find.text('Up next')), findsOneWidget);
+    }
     expect(tester.takeException(), isNull);
   });
 

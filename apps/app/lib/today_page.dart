@@ -44,7 +44,6 @@ class _TodayPageState extends State<TodayPage> {
     final tasks = {for (final t in app.store.tasks(from: date, to: date)) t.id: t};
     final items = (app.store.snapshot(date)['items'] as List).cast<Map<String, Object?>>();
     final overdue = date == now ? app.store.tasks(overdueBefore: now) : const <Task>[];
-    final done = items.where((i) => i['done'] == true).length;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -82,7 +81,7 @@ class _TodayPageState extends State<TodayPage> {
           const SizedBox(height: 4),
           _ActivityCard(selected: date, onPick: (d) => setState(() => _picked = d == now ? null : d)),
           const SizedBox(height: 12),
-          _ProgressCard(done: done, total: items.length, overdue: overdue.length),
+          _NowCard(date: date, items: items, tasks: tasks, overdue: overdue.length),
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 24, 4, 4),
             child: Text(
@@ -169,68 +168,179 @@ class _ActivityCard extends StatelessWidget {
   }
 }
 
-/// Cream card: how much of the day is done, with a ring.
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.done, required this.total, required this.overdue});
+/// Cream card: a ring with how much of the day is done and, beside it, the
+/// task to be on right now (or the next one, when nothing is on).
+class _NowCard extends StatelessWidget {
+  const _NowCard({required this.date, required this.items, required this.tasks, required this.overdue});
 
-  final int done, total, overdue;
+  final String date;
+
+  /// The day's timeline, in time order (`Store.snapshot()['items']`).
+  final List<Map<String, Object?>> items;
+  final Map<String, Task> tasks;
+  final int overdue;
 
   @override
   Widget build(BuildContext context) {
+    final app = AppScope.of(context);
     final text = Theme.of(context).textTheme;
-    final fraction = total == 0 ? 0.0 : done / total;
     const dark = AppColors.onLight;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(cardRadius)),
-      child: Row(
-        spacing: 14,
-        children: [
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: AppColors.orange,
-            child: Icon(Icons.check_rounded, color: Colors.white),
+    final done = items.where((i) => i['done'] == true).length;
+    final total = items.length;
+    final onToday = date == today();
+
+    // The unticked task whose slot covers this moment (the latest-starting
+    // one if they overlap), else the next one still to come today.
+    Map<String, Object?>? current, next;
+    if (onToday) {
+      final now = DateTime.now();
+      for (final i in items) {
+        final time = i['time'] as String?;
+        if (i['kind'] != 'task' || i['done'] == true || time == null) continue;
+        if (isNow(date, time, i['end_time'] as String?, done: false)) {
+          current = i;
+        } else if (atTime(date, time).isAfter(now)) {
+          next ??= i;
+        }
+      }
+    }
+    final shown = current ?? next;
+    final task = shown == null ? null : tasks[shown['id']];
+
+    final String? pill;
+    final String label;
+    final String title;
+    if (current != null) {
+      pill = 'NOW';
+      label = 'until ${hm(slotEnd(date, current['time'] as String, current['end_time'] as String?))}';
+      title = current['title'] as String;
+    } else if (next != null) {
+      pill = 'NEXT';
+      label = 'at ${next['time']}';
+      title = next['title'] as String;
+    } else {
+      pill = null;
+      label = onToday ? 'Today' : prettyDate(date);
+      title = total == 0
+          ? 'Nothing scheduled'
+          : done == total
+              ? 'All done'
+              : onToday
+                  ? 'Nothing on right now'
+                  : '${total - done} left undone';
+    }
+    final details = [?task?.tag, ?task?.list].join(' · ');
+
+    return Material(
+      key: const ValueKey('now-card'),
+      color: AppColors.cream,
+      borderRadius: BorderRadius.circular(cardRadius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: task == null ? null : () => showTaskSheet(context, task: task),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+          child: Row(
+            spacing: 14,
+            children: [
+              SizedBox.square(
+                dimension: 66,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: total == 0 ? 0 : done / total,
+                      strokeWidth: 6,
+                      strokeCap: StrokeCap.round,
+                      color: AppColors.orange,
+                      backgroundColor: dark.withValues(alpha: 0.12),
+                    ),
+                    Center(
+                      child: Text(
+                        '$done/$total',
+                        semanticsLabel: '$done of $total done',
+                        style: text.titleSmall?.copyWith(
+                          color: dark,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      spacing: 8,
+                      children: [
+                        if (pill != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: ShapeDecoration(
+                              color: current != null ? AppColors.orange : dark,
+                              shape: const StadiumBorder(),
+                            ),
+                            child: Text(
+                              pill,
+                              style: text.labelSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.labelLarge?.copyWith(color: dark.withValues(alpha: 0.65)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleMedium?.copyWith(color: dark, fontWeight: FontWeight.w700, height: 1.2),
+                    ),
+                    if (details.isNotEmpty || overdue > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text.rich(
+                          TextSpan(children: [
+                            if (details.isNotEmpty) TextSpan(text: details),
+                            if (details.isNotEmpty && overdue > 0) const TextSpan(text: '  ·  '),
+                            if (overdue > 0)
+                              TextSpan(
+                                text: '$overdue overdue',
+                                style: const TextStyle(color: Color(0xFFB3261E), fontWeight: FontWeight.w600),
+                              ),
+                          ]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodySmall?.copyWith(color: dark.withValues(alpha: 0.6)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (current != null)
+                IconButton.filled(
+                  key: const ValueKey('now-done'),
+                  tooltip: 'Mark done',
+                  style: IconButton.styleFrom(backgroundColor: dark, foregroundColor: AppColors.cream),
+                  icon: const Icon(Icons.check_rounded),
+                  onPressed: () => app.change((s) => s.setDone(current!['id'] as String, true)),
+                ),
+            ],
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  total == 0 ? 'Nothing scheduled' : '$done of $total done',
-                  style: text.titleLarge?.copyWith(color: dark, fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  overdue > 0 ? '$overdue overdue' : 'Nothing overdue',
-                  style: text.bodySmall?.copyWith(
-                    color: overdue > 0 ? const Color(0xFFB3261E) : dark.withValues(alpha: 0.6),
-                    fontWeight: overdue > 0 ? FontWeight.w600 : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox.square(
-            dimension: 52,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CircularProgressIndicator(
-                  value: fraction,
-                  strokeWidth: 5,
-                  strokeCap: StrokeCap.round,
-                  color: AppColors.orange,
-                  backgroundColor: dark.withValues(alpha: 0.12),
-                ),
-                Center(
-                  child: Text(
-                    '${(fraction * 100).round()}%',
-                    style: text.labelMedium?.copyWith(color: dark, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
