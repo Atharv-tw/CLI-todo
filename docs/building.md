@@ -151,18 +151,21 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-**Sign the Android app with your own key, once.** Without one, each release is
-signed with a throwaway key and cannot be installed over the last. Make a key
-and keep the file and its password somewhere safe; losing them means users
-have to uninstall before they can update.
+**Sign the Android app with your own key, once, before the first release.**
+Without one, each release is signed with a throwaway key and cannot be
+installed over the last.
 
 ```bash
-keytool -genkey -v -keystore ~/todo-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias todo
-base64 -w0 ~/todo-release.jks   # the value for ANDROID_KEYSTORE_BASE64
+./scripts/make-signing-key.sh
 ```
 
-Add four repository secrets under *Settings > Secrets and variables > Actions*:
-`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`
-(`todo` above) and `ANDROID_KEY_PASSWORD`. To sign local builds with the same
-key, put the four values in `apps/app/android/key.properties` as `storeFile`,
-`storePassword`, `keyAlias` and `keyPassword`.
+It asks you to choose a password, makes the key at `~/todo-release.jks`, and
+stores it as four repository secrets (`ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`) that
+the release workflow reads. Keep the file and the password somewhere safe;
+losing either means users have to uninstall before they can update.
+
+Builds made on your own machine are still signed with that machine's key. To
+sign those with the release key too, put `storeFile`, `storePassword`,
+`keyAlias` and `keyPassword` in `apps/app/android/key.properties`; a phone
+can only switch from one key to the other by uninstalling the app.
