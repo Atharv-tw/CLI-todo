@@ -63,6 +63,15 @@
                 <action android:name="es.antonborri.home_widget.action.BACKGROUND" />
             </intent-filter>
         </receiver>
+        <!-- A task from a widget: tap its text for details and actions. Also
+             the landing point for a tap on its tick, which it passes on. -->
+        <activity
+            android:name=".TaskPopupActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/PopupTheme" />
         <!-- "Doing it" and "Snooze" on a reminder run Dart code in the background. -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
         <!-- Scheduled reminders and the "focus finished" alert (flutter_local_notifications). -->

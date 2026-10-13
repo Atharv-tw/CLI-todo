@@ -29,7 +29,7 @@ Features:
 - Offline first: each device has a full local copy; sync is pull-then-push, newest edit wins per row
 - Daily briefs: write a note about the day in the app; a scheduled assistant can read it, re-plan the day and reply
 - Screen time on both devices: which apps, for how long, and at what hour of the day (Screen tab, `todo usage`, and the assistant)
-- Reminders when a task starts: sound on the laptop, sound or vibration and a lock-screen alert on the phone
+- Reminders when a task starts: sound on the laptop; on the phone a full-screen reminder if it is locked and a banner if it is in use, each with *Doing it* (ticks it) and *Snooze 10 min*
 - Two-way calendar on Android: timed tasks become events in a calendar you choose; moving or renaming such an event updates the task
 
 ## Requirements
@@ -147,7 +147,9 @@ from battery optimisation if background sync is slow.
 ## Known limits
 
 - Calendar sync runs on the phone only, so a laptop edit reaches the calendar after the phone next syncs (every 15 minutes in the background).
-- Home-screen widgets need Android 12 or newer.
+- Home-screen widgets need Android 12 or newer. In a list widget, tap a row's tick to tick it and its text for a card with the details and actions. Android does not pass a long-press on a widget to the app, so there is no hold gesture.
+- On Samsung phones the banner shown while the phone is in use is a one-line pill unless *Settings > Notifications > Notification pop-up style* is set to *Detailed*; the buttons are behind its arrow otherwise.
+- The app removes the calendar's own default alert from the events it creates, so a task alerts once, from the app. An event made less than the default lead time before it starts can still alert from the calendar once.
 - Reminders respect the phone's ringer mode: vibration on vibrate, nothing on mute or Do Not Disturb.
 - Sync resolves conflicts per row, not per field: if two devices edit the same task while offline, the later edit replaces the earlier one.
 
