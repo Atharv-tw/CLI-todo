@@ -1,18 +1,29 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 /// Whether this device can turn speech into text. The phone uses Android's
 /// own recogniser; Linux has none, so there is no mic button there.
 bool get voiceSupported => Platform.isAndroid;
 
+// Build with --dart-define=VOICE_TRACE=true to log what the recogniser sends
+// (kinds and lengths only, never the words) when chasing a problem.
+const _tracing = bool.fromEnvironment('VOICE_TRACE');
+
+void _trace(String event) {
+  if (_tracing) debugPrint('dictation: $event');
+}
+
 /// Speech to text for as long as the user wants to keep talking.
 ///
-/// Android's recogniser stops by itself at each pause. This restarts it and
-/// joins the pieces, until [stop] is called or nothing has been said for a
-/// couple of rounds.
+/// Android's recogniser works in rounds: it listens, and when the speaker
+/// pauses it hands back that round's words and stops. This starts the next
+/// round as soon as the last has finished and keeps everything said so far,
+/// until [stop] is called or several rounds pass in silence.
 class Dictation extends ChangeNotifier {
   // The plugin keeps the listeners from its first `initialize`, so they are
   // static and hand events to whichever dictation is running.
@@ -23,9 +34,22 @@ class Dictation extends ChangeNotifier {
   String? localeId;
 
   bool _wanted = false;
-  String _said = '';
-  String _hearing = '';
+
+  /// What earlier rounds produced.
+  String _kept = '';
+
+  /// The round under way. Google's recogniser splits a long round into
+  /// pieces: it settles one piece ([_settled] grows), then starts reporting
+  /// the next from scratch ([_live] is replaced as it is refined). Other
+  /// recognisers report the whole round every time. [_join] copes with both,
+  /// and a round is folded into [_kept] only when the next one begins, so
+  /// nothing is lost whether or not it is ever marked final.
+  String _settled = '';
+  String _live = '';
+  bool _heardThisRound = false;
   int _silentRounds = 0;
+  int _faults = 0;
+  Timer? _next;
 
   /// Why listening could not start or stopped early, in plain words.
   String? problem;
@@ -33,12 +57,28 @@ class Dictation extends ChangeNotifier {
   bool get listening => _wanted;
 
   /// Everything recognised since [start], including the words still coming.
-  String get text => [_said, _hearing].where((s) => s.isNotEmpty).join(' ');
+  String get text => [_kept, _join(_settled, _live)].where((s) => s.isNotEmpty).join(' ');
+
+  static String _plain(String s) => s.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ').trim();
+
+  /// [more] added to [soFar], unless one already contains the other: a
+  /// recogniser that repeats the whole round each time must not double it.
+  @visibleForTesting
+  static String joinForTest(String soFar, String more) => _join(soFar, more);
+
+  static String _join(String soFar, String more) {
+    if (soFar.isEmpty) return more;
+    if (more.isEmpty) return soFar;
+    final a = _plain(soFar), b = _plain(more);
+    if (b.startsWith(a)) return more;
+    if (a.endsWith(b)) return soFar;
+    return '$soFar $more';
+  }
 
   Future<void> start() async {
     problem = null;
-    _said = _hearing = '';
-    _silentRounds = 0;
+    _kept = _settled = _live = '';
+    _silentRounds = _faults = 0;
     final ready = await _speech.initialize(onStatus: _status, onError: _error);
     if (!ready) {
       problem = 'Speech recognition is not available. Check that the app may use the microphone.';
@@ -48,67 +88,92 @@ class Dictation extends ChangeNotifier {
     _active = this;
     _wanted = true;
     notifyListeners();
-    await _listen();
+    await _beginRound();
   }
 
-  Future<void> _listen() => _speech.listen(
-        onResult: (result) {
-          if (_active != this) return;
-          if (result.finalResult) {
-            _said = [_said, result.recognizedWords].where((s) => s.isNotEmpty).join(' ');
-            _hearing = '';
-          } else {
-            _hearing = result.recognizedWords;
-          }
-          if (result.recognizedWords.isNotEmpty) _silentRounds = 0;
-          notifyListeners();
-        },
-        listenOptions: SpeechListenOptions(
-          listenMode: ListenMode.dictation,
-          partialResults: true,
-          autoPunctuation: true,
-          localeId: localeId,
-          listenFor: const Duration(minutes: 2),
-          pauseFor: const Duration(seconds: 6),
-        ),
-      );
+  Future<void> _beginRound() async {
+    if (!_wanted || _active != this) return;
+    // The recogniser has not let go of the last round yet: look again shortly.
+    if (_speech.isListening) return _later(const Duration(milliseconds: 250));
+    _kept = text;
+    _settled = _live = '';
+    _heardThisRound = false;
+    await _speech.listen(
+      onResult: (result) {
+        final words = result.recognizedWords;
+        _trace('${result.resultTypeValue.name} ${words.length} chars');
+        if (_active != this || !_wanted || words.isEmpty) return;
+        if (result.resultTypeValue == ResultType.partial) {
+          _live = words;
+        } else {
+          // A piece, or the round, is settled.
+          _settled = _join(_settled, words);
+          _live = '';
+        }
+        _heardThisRound = true;
+        _silentRounds = _faults = 0;
+        notifyListeners();
+      },
+      listenOptions: SpeechListenOptions(
+        listenMode: ListenMode.dictation,
+        partialResults: true,
+        localeId: localeId,
+        listenFor: const Duration(minutes: 5),
+      ),
+    );
+  }
+
+  void _later(Duration delay) {
+    _next?.cancel();
+    _next = Timer(delay, _beginRound);
+  }
 
   static void _status(String status) {
+    _trace('status $status');
     final d = _active;
-    // The recogniser ended a round. Carry on while the user still wants to
-    // talk, but give up after two rounds of silence.
+    // A round is over. Carry on while the user still wants to talk, but stop
+    // after a few rounds in which nothing was said.
     if (d == null || status != SpeechToText.doneStatus || !d._wanted) return;
-    if (++d._silentRounds > 2) {
+    if (!d._heardThisRound && ++d._silentRounds >= 3) {
       d.stop();
     } else {
-      d._listen();
+      d._later(const Duration(milliseconds: 150));
     }
   }
 
   static void _error(SpeechRecognitionError error) {
+    _trace('error ${error.errorMsg}');
     final d = _active;
-    if (d == null) return;
-    // Hearing nothing is not a fault; the status handler deals with it.
-    if (error.errorMsg == 'error_no_match' || error.errorMsg == 'error_speech_timeout') return;
-    d.problem = switch (error.errorMsg) {
-      'error_permission' || 'error_insufficient_permissions' => 'Allow the microphone for this app to speak entries.',
-      'error_network' || 'error_network_timeout' || 'error_server' =>
-        'Speech recognition needs a connection for this language.',
-      'error_language_not_supported' || 'error_language_unavailable' =>
-        'This phone cannot recognise that language. Pick another in the Diary menu.',
-      _ => 'Could not hear that (${error.errorMsg}).',
-    };
+    if (d == null || !d._wanted) return;
+    switch (error.errorMsg) {
+      // Hearing nothing is not a fault; the round simply ends.
+      case 'error_no_match' || 'error_speech_timeout':
+        return;
+      // The recogniser was not ready for the next round. Give it a moment and
+      // try again; only give up if it keeps happening.
+      case 'error_client' || 'error_busy' || 'error_server_disconnected' || 'error_too_many_requests':
+        if (++d._faults <= 4) return d._later(const Duration(milliseconds: 600));
+        d.problem = 'Speech recognition keeps stopping. Try again in a moment.';
+      case 'error_permission':
+        d.problem = 'Allow the microphone for this app to speak entries.';
+      case 'error_network' || 'error_network_timeout' || 'error_server':
+        d.problem = 'Speech recognition needs a connection for this language.';
+      case 'error_language_not_supported' || 'error_language_unavailable':
+        d.problem = 'This phone cannot recognise that language. Pick another with the button at the top.';
+      default:
+        d.problem = 'Speech recognition stopped (${error.errorMsg}).';
+    }
     d.stop();
   }
 
   Future<void> stop() async {
     if (!_wanted) return;
     _wanted = false;
-    // Keep the words that were still arriving.
-    _said = text;
-    _hearing = '';
+    _next?.cancel();
     notifyListeners();
-    await _speech.stop();
+    // Only ask a recogniser that is actually listening; otherwise Android
+    // reports a client error.
+    if (_speech.isListening) await _speech.stop();
   }
 
   /// Languages the phone can recognise, as (id, name), for the picker.
@@ -121,9 +186,10 @@ class Dictation extends ChangeNotifier {
 
   @override
   void dispose() {
+    _next?.cancel();
     if (_active == this) {
       _active = null;
-      if (_wanted) _speech.stop();
+      if (_wanted && _speech.isListening) _speech.stop();
     }
     super.dispose();
   }
