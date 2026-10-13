@@ -1,6 +1,6 @@
 name: todo_cli
 description: The `todo` command and its MCP server.
-version: 0.1.0
+version: 0.1.1
 publish_to: none
 
 environment:
