@@ -9,7 +9,7 @@ import 'package:todo_core/todo_core.dart';
 
 import 'reminders.dart';
 
-const _widgets = ['TodayWidget', 'HabitsWidget', 'FocusWidget'];
+const _widgets = ['TodayWidget', 'HabitsWidget', 'FocusWidget', 'DiaryWidget'];
 const _ongoingId = 1;
 const _finishedId = 2;
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:todo_core/todo_core.dart';
 
+import 'diary_page.dart';
 import 'state.dart';
+import 'theme.dart';
 import 'timeline.dart' as timeline;
 
 String timeLabel(Task t) => t.startTime == null
@@ -231,6 +233,7 @@ class _TaskSheetState extends State<_TaskSheet> {
               maxLines: 4,
               decoration: const InputDecoration(labelText: 'Notes'),
             ),
+            if (task != null) _TaskDiary(task),
             Row(
               children: [
                 if (task != null)
@@ -250,6 +253,55 @@ class _TaskSheetState extends State<_TaskSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// What has been logged in the diary about one task, and a way to add more.
+class _TaskDiary extends StatelessWidget {
+  const _TaskDiary(this.task);
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final text = Theme.of(context).textTheme;
+    final entries = app.store.diary(taskId: task.id);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                entries.isEmpty ? 'Diary' : 'Diary · ${entries.length}',
+                style: text.titleSmall?.copyWith(color: AppColors.muted),
+              ),
+            ),
+            TextButton.icon(
+              key: const ValueKey('task-diary-add'),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add entry'),
+              onPressed: () => showDiaryComposer(context, task: task),
+            ),
+          ],
+        ),
+        for (final e in entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                  text: '${e.date == today() ? '' : '${prettyDate(e.date)} '}${hm(e.createdAt)}  ',
+                  style: text.bodySmall?.copyWith(color: AppColors.muted, fontWeight: FontWeight.w700),
+                ),
+                TextSpan(text: e.body),
+              ]),
+              style: text.bodyMedium,
+            ),
+          ),
+      ],
     );
   }
 }

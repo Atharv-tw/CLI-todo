@@ -27,7 +27,7 @@ Features:
 - Habit groups: name habits `5 meals / Breakfast`, `5 meals / Lunch` and they remind separately but show as one habit, done once every step is ticked
 - Focus timer (25 minutes by default) with minutes logged per day
 - Offline first: each device has a full local copy; sync is pull-then-push, newest edit wins per row
-- Daily briefs: write a note about the day in the app; a scheduled assistant can read it, re-plan the day and reply
+- Diary: write or speak an entry at any time, about anything, optionally attached to a task or habit; each is stamped with when it was logged. A scheduled assistant can read it and re-plan the day
 - Screen time on both devices: which apps, for how long, and at what hour of the day (Screen tab, `todo usage`, and the assistant)
 - Reminders when a task starts: sound on the laptop; on the phone a full-screen reminder if it is locked and a banner if it is in use, each with *Doing it* (ticks it) and *Snooze 10 min*
 - Two-way calendar on Android: timed tasks become events in a calendar you choose; moving or renaming such an event updates the task
@@ -162,24 +162,35 @@ Both devices record foreground time per app per hour and sync it like everything
 - Read it with `todo usage`, `todo usage yesterday`, `todo usage week`, or ask the assistant (the `screen_time` MCP tool).
 - To sync it, run the updated `supabase/schema.sql` once; it adds the `screen_usage` table.
 
-## Daily briefs
+## Diary
 
-The pencil button in the app's header opens *Daily brief*: write how the day
-went and what should change. Briefs are kept by day for later review and sync
-like everything else. From the terminal: `todo brief` shows recent ones,
-`todo brief Woke at 11, skipped the workout` adds one.
+The pencil button in the app's header opens the *Diary*. Write an entry, or
+press *Speak* on the phone and say it: an idea, a decision, how the day went.
+Entries are kept by day with the time they were logged, and sync like
+everything else.
 
-An assistant can act on them. On the laptop, Claude reads and writes briefs
-through the MCP server (`list_briefs`, `add_brief`). To have it happen on a
-schedule without your laptop, run a cloud session daily that follows
+- **About a task or habit:** a task's sheet has a Diary section; a habit's
+  menu has *Add diary entry*; the widget's details card has *Diary note*.
+- **Quick capture:** the *Diary* home-screen widget opens the composer already
+  listening.
+- **Voice** uses the phone's own speech recognition, so there is no key or
+  account. Pick the language with the button at the top of the Diary. It is
+  phone only: Linux has no recogniser.
+- **Terminal:** `todo diary` shows recent entries, `todo diary Finally got
+  hash maps --task 6e495e` adds one, `todo diary-rm ID` deletes one.
+
+An assistant can act on the diary. On the laptop, Claude reads and writes it
+through the MCP server (`list_diary`, `add_diary_entry`). To have it happen on
+a schedule without your laptop, run a cloud session daily that follows
 [docs/briefing-agent.md](docs/briefing-agent.md); `scripts/cloud-setup.sh`
-builds the CLI there and signs in from environment variables. Run just
-after midnight, it closes out the day that ended, plans the new one from
-every brief written since its last run, and leaves a one-line receipt.
+builds the CLI there and signs in from environment variables. Run just after
+midnight, it closes out the day that ended, plans the new one from every
+entry written since its last run that bears on the schedule, and leaves a
+one-line receipt.
 
-To sync briefs, run the updated `supabase/schema.sql` once; it adds the
-`briefs` table. Until then everything else keeps syncing and briefs wait on
-the device.
+To sync the diary, run the updated `supabase/schema.sql` once. It creates the
+`diary` table, carrying over a `briefs` table from an earlier version. Until
+then everything else keeps syncing and entries wait on the device.
 
 ## License
 

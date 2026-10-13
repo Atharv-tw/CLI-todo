@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:todo_core/todo_core.dart';
 
+import 'diary_page.dart';
 import 'heatmap.dart';
 import 'state.dart';
 import 'theme.dart';
@@ -327,8 +328,13 @@ class _HabitTile extends StatelessWidget {
               PopupMenuButton<String>(
                 tooltip: 'More',
                 icon: const Icon(Icons.more_vert, color: AppColors.muted),
-                onSelected: (v) => v == 'time' ? _setTime(context, app) : _delete(context, app),
+                onSelected: (v) => switch (v) {
+                  'time' => _setTime(context, app),
+                  'diary' => showDiaryComposer(context, habit: habit),
+                  _ => _delete(context, app),
+                },
                 itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'diary', child: Text('Add diary entry')),
                   PopupMenuItem(value: 'time', child: Text('Set time of day')),
                   PopupMenuItem(value: 'delete', child: Text('Delete')),
                 ],

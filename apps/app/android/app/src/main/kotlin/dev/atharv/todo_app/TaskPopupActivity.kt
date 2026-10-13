@@ -8,6 +8,7 @@ import android.text.method.ScrollingMovementMethod
 import android.view.View
 import android.widget.TextView
 import es.antonborri.home_widget.HomeWidgetBackgroundIntent
+import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetPlugin
 import org.json.JSONArray
 import org.json.JSONObject
@@ -61,11 +62,19 @@ class TaskPopupActivity : Activity() {
     button(R.id.popup_done, if (done) "Mark not done" else "Mark done") {
       run(Uri.parse("todo://$kind/toggle?id=$id"))
     }
-    val forOpenTask = if (kind == "task" && !done) View.VISIBLE else View.GONE
-    findViewById<View>(R.id.popup_focus).visibility = forOpenTask
-    findViewById<View>(R.id.popup_tomorrow).visibility = forOpenTask
+    findViewById<View>(R.id.popup_task_row).visibility =
+        if (kind == "task" && !done) View.VISIBLE else View.GONE
     button(R.id.popup_focus, null) { run(Uri.parse("todo://focus/start?id=$id")) }
     button(R.id.popup_tomorrow, null) { run(Uri.parse("todo://task/tomorrow?id=$id")) }
+    // Opens the app on the diary composer, already about this item.
+    button(R.id.popup_note, null) {
+      startActivity(
+          Intent(this, MainActivity::class.java)
+              .setAction(HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION)
+              .setData(Uri.parse("todo://diary/new?$kind=$id"))
+              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      )
+    }
     button(R.id.popup_open, null) {
       startActivity(
           Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

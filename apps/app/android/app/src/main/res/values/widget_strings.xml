@@ -3,4 +3,5 @@
     <string name="widget_today">Today\'s tasks</string>
     <string name="widget_habits">Today\'s habits</string>
     <string name="widget_focus">Focus timer</string>
+    <string name="widget_diary">Diary: speak or write an entry</string>
 </resources>
