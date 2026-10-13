@@ -117,10 +117,11 @@ Both devices record foreground time per app per hour and sync it like everything
 
 ## Diary
 
-The pencil button in the app's header opens the *Diary*. Write an entry, or
-press *Speak* and say it: an idea, a decision, how the day went.
-Entries are kept by day with the time they were logged, and sync like
-everything else.
+The *Diary* tab is where you log anything: an idea, a decision, how the day
+went. Write it in the box at the bottom, or tap the mic and say it. Entries
+are kept by day with the time they were logged, and sync like everything
+else. Today's entries stay open; each day that is over folds into one line
+you can open again, ten days at a time.
 
 - **About a task or habit:** a task's sheet has a Diary section; a habit's
   menu has *Add diary entry*; the widget's details card has *Diary note*.
@@ -128,7 +129,7 @@ everything else.
   listening.
 - **Voice** is written down on the device by an open-source Whisper model,
   on the phone and on Linux: no key, no account, no connection, and nothing
-  you say leaves the device. The first time you press *Speak*, pick a model
+  you say leaves the device. The first time you tap the mic, pick a model
   to download (100 to 375 MB, once): one that writes any language, or one
   for mixed Hindi and English in Roman letters. The words appear each time
   you pause. Change the model or language with the button at the top of the

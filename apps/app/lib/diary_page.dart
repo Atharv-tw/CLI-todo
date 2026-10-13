@@ -141,7 +141,7 @@ class _DiaryComposerState extends State<DiaryComposer> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: 12,
+      spacing: 8,
       children: [
         if (widget.about != null)
           Text(
@@ -150,37 +150,40 @@ class _DiaryComposerState extends State<DiaryComposer> {
             overflow: TextOverflow.ellipsis,
             style: text.labelLarge?.copyWith(color: AppColors.lavender, fontWeight: FontWeight.w700),
           ),
-        TextField(
-          key: const ValueKey('diary-draft'),
-          controller: _text,
-          autofocus: widget.autofocus,
-          minLines: 3,
-          maxLines: 8,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'An idea, a decision, how it went. Anything.'),
-        ),
         if (dictation?.problem case final problem?)
           Text(problem, style: text.bodySmall?.copyWith(color: AppColors.red))
         else if (status != null)
           Text(status, style: text.bodySmall?.copyWith(color: AppColors.muted)),
         Row(
-          spacing: 12,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          spacing: 8,
           children: [
+            Expanded(
+              child: TextField(
+                key: const ValueKey('diary-draft'),
+                controller: _text,
+                autofocus: widget.autofocus,
+                minLines: 1,
+                maxLines: 6,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(hintText: 'Write or speak an entry'),
+              ),
+            ),
             if (voiceSupported)
-              FilledButton.tonalIcon(
+              IconButton.filledTonal(
                 key: const ValueKey('diary-mic'),
+                tooltip: listening ? 'Stop listening' : 'Speak',
                 style: listening
-                    ? FilledButton.styleFrom(backgroundColor: AppColors.orange, foregroundColor: Colors.white)
+                    ? IconButton.styleFrom(backgroundColor: AppColors.orange, foregroundColor: Colors.white)
                     : null,
                 onPressed: finishing ? null : _toggleMic,
                 icon: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded),
-                label: Text(listening ? 'Stop' : 'Speak'),
               ),
-            const Spacer(),
-            FilledButton(
+            IconButton.filled(
               key: const ValueKey('diary-save'),
+              tooltip: 'Save',
               onPressed: _save,
-              child: const Text('Save'),
+              icon: const Icon(Icons.arrow_upward_rounded),
             ),
           ],
         ),
@@ -284,71 +287,175 @@ class DiaryEntryCard extends StatelessWidget {
   }
 }
 
-/// The diary: write or speak an entry at any time, and read back every day.
-class DiaryPage extends StatelessWidget {
+/// The diary, as a tab: today's entries open, each earlier day folded into
+/// one tile, ten days at a time, and the box to write or speak in at the
+/// bottom, where the thumb is.
+class DiaryPage extends StatefulWidget {
   const DiaryPage({super.key});
+
+  @override
+  State<DiaryPage> createState() => _DiaryPageState();
+}
+
+class _DiaryPageState extends State<DiaryPage> {
+  static const _step = 10;
+
+  /// How many earlier days are listed.
+  int _shown = _step;
+
+  /// The earlier days that have been opened.
+  final _open = <String>{};
+
+  /// On the newest of today's entries, to bring it into view once saved.
+  final _latest = GlobalKey();
+
+  void _showLatest() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        final latest = _latest.currentContext;
+        if (latest != null) {
+          Scrollable.ensureVisible(latest, alignment: 1, duration: const Duration(milliseconds: 200));
+        }
+      });
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final text = Theme.of(context).textTheme;
     final now = today();
-    final entries = app.store.diary(from: addDays(now, -90));
 
-    final children = <Widget>[
-      const Card(
-        child: Padding(padding: EdgeInsets.all(16), child: DiaryComposer()),
-      ),
-      if (entries.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 32),
-          child: Text(
-            'Nothing written yet. Log anything, any time: it is kept by day, with the time you wrote it.',
-            textAlign: TextAlign.center,
-            style: text.bodyMedium?.copyWith(color: AppColors.muted),
+    // Newest day first; within a day, in the order written.
+    final byDay = <String, List<DiaryEntry>>{};
+    for (final e in app.store.diary()) {
+      byDay.putIfAbsent(e.date, () => []).add(e);
+    }
+    final todays = [for (final day in byDay.keys.toList().reversed) if (day.compareTo(now) >= 0) ...byDay[day]!];
+    final earlier = [for (final day in byDay.keys) if (day.compareTo(now) < 0) day];
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                child: Text('Today', style: text.titleSmall),
+              ),
+              if (todays.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  child: Text(
+                    'Nothing written today. Log anything, any time: it is kept with the time you wrote it.',
+                    style: text.bodyMedium?.copyWith(color: AppColors.muted),
+                  ),
+                ),
+              for (final e in todays)
+                Padding(
+                  key: e == todays.last ? _latest : null,
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: DiaryEntryCard(e),
+                ),
+              if (earlier.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+                  child: Text('Earlier', style: text.titleSmall),
+                ),
+              for (final day in earlier.take(_shown)) ...[
+                _DayTile(
+                  key: ValueKey('diary-day-$day'),
+                  label: day == addDays(now, -1) ? 'Yesterday' : prettyDate(day),
+                  entries: byDay[day]!,
+                  open: _open.contains(day),
+                  onTap: () => setState(() => _open.contains(day) ? _open.remove(day) : _open.add(day)),
+                ),
+                if (_open.contains(day))
+                  for (final e in byDay[day]!)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, bottom: 8),
+                      child: DiaryEntryCard(e),
+                    ),
+              ],
+              if (earlier.length > _shown)
+                Align(
+                  child: TextButton(
+                    key: const ValueKey('diary-more'),
+                    onPressed: () => setState(() => _shown += _step),
+                    child: Text(switch ((earlier.length - _shown).clamp(1, _step)) {
+                      1 => 'Show 1 more day',
+                      final n => 'Show $n more days',
+                    }),
+                  ),
+                ),
+            ],
           ),
         ),
-    ];
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: DiaryComposer(onSaved: _showLatest),
+        ),
+      ],
+    );
+  }
+}
 
-    String? day;
-    for (final e in entries) {
-      if (e.date != day) {
-        day = e.date;
-        children.add(Padding(
-          padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-          child: Text(
-            e.date == now
-                ? 'Today'
-                : e.date == addDays(now, -1)
-                    ? 'Yesterday'
-                    : prettyDate(e.date),
-            style: text.titleSmall,
-          ),
-        ));
-      }
-      children
-        ..add(DiaryEntryCard(e))
-        ..add(const SizedBox(height: 8));
-    }
+/// A day that is over, folded into one tile: which day, how much was
+/// written, and how it began. Tapping it shows the entries beneath.
+class _DayTile extends StatelessWidget {
+  const _DayTile({
+    super.key,
+    required this.label,
+    required this.entries,
+    required this.open,
+    required this.onTap,
+  });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Diary'),
-        actions: [
-          if (voiceSupported)
-            IconButton(
-              key: const ValueKey('voice-settings'),
-              tooltip: 'Voice',
-              icon: const Icon(Icons.settings_voice_rounded),
-              onPressed: () => showVoiceSettings(context),
+  final String label;
+  final List<DiaryEntry> entries;
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    // What the person wrote says more about the day than the assistant's note.
+    final first = entries.firstWhere((e) => e.author == DiaryEntry.me, orElse: () => entries.first);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      Row(
+                        spacing: 8,
+                        children: [
+                          Text(label, style: text.titleSmall),
+                          Text(
+                            entries.length == 1 ? '1 entry' : '${entries.length} entries',
+                            style: text.labelMedium?.copyWith(color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                      if (!open)
+                        Text(
+                          first.body.replaceAll('\n', ' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodySmall?.copyWith(color: AppColors.muted),
+                        ),
+                    ],
+                  ),
+                ),
+                Icon(open ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: AppColors.muted),
+              ],
             ),
-        ],
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: children),
           ),
         ),
       ),
