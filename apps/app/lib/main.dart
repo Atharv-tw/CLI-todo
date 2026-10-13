@@ -6,7 +6,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:todo_core/todo_core.dart';
 
 import 'background.dart';
-import 'briefs_page.dart';
+import 'diary_page.dart';
 import 'focus_page.dart';
 import 'habits_page.dart';
 import 'plan_page.dart';
@@ -27,7 +27,35 @@ Future<void> main() async {
   }
   final state = AppState(Store(openDb(path)))..start(watchDir: Platform.isLinux ? p.dirname(path) : null);
   runApp(TodoApp(state: state));
-  if (Platform.isAndroid) await _watchReminders(state);
+  if (Platform.isAndroid) {
+    _watchWidgetLaunches(state);
+    await _watchReminders(state);
+  }
+}
+
+/// A widget asked for the diary composer: `todo://diary/new`, optionally
+/// `?voice=1` to start listening and `?task=ID` or `?habit=ID` for what the
+/// entry is about.
+void _openFromWidget(AppState state, Uri? uri) {
+  if (uri == null || uri.host != 'diary') return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final context = _navigator.currentState?.overlay?.context;
+    if (context == null) return;
+    final q = uri.queryParameters;
+    final habitId = q['habit'];
+    showDiaryComposer(
+      context,
+      task: q['task'] == null ? null : state.store.findTask(q['task']!),
+      habit: habitId == null ? null : state.store.habits().where((h) => h.id == habitId).firstOrNull,
+      listen: q['voice'] == '1',
+    );
+  });
+  WidgetsBinding.instance.scheduleFrame();
+}
+
+Future<void> _watchWidgetLaunches(AppState state) async {
+  HomeWidget.widgetClicked.listen((uri) => _openFromWidget(state, uri));
+  _openFromWidget(state, await HomeWidget.initiallyLaunchedFromHomeWidget());
 }
 
 final _navigator = GlobalKey<NavigatorState>();
@@ -134,10 +162,10 @@ class _ShellState extends State<Shell> {
             ),
           ),
           IconButton.filled(
-            tooltip: 'Daily brief',
+            tooltip: 'Diary',
             style: IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),
             icon: const Icon(Icons.edit_note_rounded),
-            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BriefsPage())),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const DiaryPage())),
           ),
           const SizedBox(width: 8),
           IconButton.filled(

@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- Diary: speaking an entry uses the phone's own speech recognition. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Screen time: usage access is granted by the user in system settings;
          seeing every app's name needs the package list. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
@@ -57,6 +59,12 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/focus_widget" />
         </receiver>
+        <receiver android:name=".DiaryWidget" android:label="@string/widget_diary" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/diary_widget" />
+        </receiver>
         <!-- Widget taps run Dart code in the background (home_widget). -->
         <receiver android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver" android:exported="true">
             <intent-filter>
@@ -95,6 +103,9 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

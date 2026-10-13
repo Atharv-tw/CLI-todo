@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:todo_app/main.dart';
 import 'package:todo_app/reminder_page.dart';
 import 'package:todo_app/reminders.dart';
+import 'package:todo_app/speech_models.dart';
 import 'package:todo_app/state.dart';
+import 'package:todo_app/sync_page.dart';
+import 'package:todo_app/voice_sheet.dart';
 import 'package:todo_core/todo_core.dart';
 
 void main() {
@@ -190,17 +195,123 @@ void main() {
     expect(find.text('0 of 2 today · 0-day streak'), findsOneWidget);
   });
 
-  testWidgets('daily brief: write one, see it with the assistant\'s reply', (tester) async {
-    state.store.addBrief('Moved DSA to 13:30', author: Brief.assistant);
-    await pump(tester, const Size(390, 844));
-    await tester.tap(find.byTooltip('Daily brief'));
+  testWidgets('diary: write an entry, see it with its time, what it is about and Claude\'s note', (tester) async {
+    final t = state.store.addTask(title: 'DSA: Two Sum', date: today());
+    state.store.addDiary('Moved DSA to 13:30', author: DiaryEntry.assistant);
+    state.store.addDiary('Finally got hash maps', taskId: t.id);
+    await pump(tester, const Size(360, 740));
+    await tester.tap(find.byTooltip('Diary'));
     await tester.pumpAndSettle();
     expect(find.text('Claude'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('brief-draft')), 'Woke at 11');
-    await tester.tap(find.text('Save brief'));
+    expect(find.text('DSA: Two Sum'), findsOneWidget); // the chip on the entry about the task
+    expect(find.text('Today'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'Decided to park Onyx');
+    await tester.tap(find.byKey(const ValueKey('diary-save')));
     await tester.pumpAndSettle();
-    expect(state.store.briefs().map((b) => (b.author, b.body)), [('claude', 'Moved DSA to 13:30'), ('me', 'Woke at 11')]);
-    expect(find.text('You'), findsOneWidget);
+    final mine = state.store.diary(author: DiaryEntry.me);
+    expect(mine.map((e) => e.body), ['Finally got hash maps', 'Decided to park Onyx']);
+    expect(find.text('Decided to park Onyx'), findsOneWidget);
+    expect(find.text(hm(mine.last.createdAt)), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sync: a build with no server asks for one before signing in', (tester) async {
+    await pump(tester, const Size(360, 740));
+    await tester.tap(find.byTooltip('Sync'));
+    await tester.pumpAndSettle();
+    expect(state.remote.configured, isFalse);
+    expect(find.byKey(const ValueKey('sync-url')), findsOneWidget);
+
+    // Signing in without them says what is missing and sets nothing.
+    final signIn = find.text('Sign in');
+    // The page's own list, not the scrolling inside a text field.
+    final page = find.descendant(of: find.byType(SyncPage), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(signIn, 80, scrollable: page);
+    await tester.tap(signIn);
+    await tester.pump();
+    expect(find.textContaining('starts with https://'), findsOneWidget);
+    expect(state.remote.configured, isFalse);
+
+    await tester.enterText(find.byKey(const ValueKey('sync-url')), 'https://example.supabase.co/');
+    await tester.enterText(find.byKey(const ValueKey('sync-key')), 'sb_publishable_test');
+    await tester.scrollUntilVisible(signIn, 80, scrollable: page);
+    await tester.tap(signIn);
+    await tester.pumpAndSettle();
+    expect(state.remote.url, 'https://example.supabase.co');
+    expect(state.remote.anonKey, 'sb_publishable_test');
+    // The server is kept, and can still be changed.
+    expect(find.text('Server: example.supabase.co'), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('voice: Speak asks for a speech model first, and a downloaded one can be chosen', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('speech');
+    final library = SpeechLibrary.override = SpeechLibrary(dir);
+    addTearDown(() {
+      SpeechLibrary.override = null;
+      dir.deleteSync(recursive: true);
+    });
+    void keep(SpeechModel model) {
+      File(library.detectorPath).createSync(recursive: true);
+      for (final f in model.files) {
+        File(library.pathOf(model, f.name)).createSync(recursive: true);
+      }
+    }
+
+    await pump(tester, const Size(360, 740));
+    await tester.tap(find.byTooltip('Diary'));
+    await tester.pumpAndSettle();
+
+    // Nothing to listen with yet, so the mic opens the choice of models.
+    await tester.tap(find.byKey(const ValueKey('diary-mic')));
+    await tester.pumpAndSettle();
+    expect(find.text('Voice'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-language')), findsNothing);
+    for (final model in speechModels) {
+      // The list is longer than a phone screen.
+      await tester.scrollUntilVisible(find.text(model.name), 80, scrollable: find.byType(Scrollable).last);
+      expect(find.byKey(ValueKey('voice-get-${model.id}')), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    Navigator.pop(tester.element(find.byType(VoiceSettings)));
+    await tester.pumpAndSettle();
+
+    // With two models on the device, the first is used until another is picked.
+    final base = speechModels.firstWhere((m) => m.id == 'base');
+    final hinglish = speechModels.firstWhere((m) => m.id == 'hinglish');
+    keep(base);
+    keep(hinglish);
+    await tester.tap(find.byKey(const ValueKey('voice-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text(base.size), findsNothing);
+    expect(find.byTooltip('Remove from this device'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('voice-language')), findsOneWidget); // base writes any language
+    await tester.tap(find.text(hinglish.name));
+    await tester.pumpAndSettle();
+    expect(state.store.getMeta('voice_engine'), 'hinglish');
+    expect(find.byKey(const ValueKey('voice-language')), findsNothing); // this one always writes Hinglish
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a task\'s sheet shows its diary and adds to it', (tester) async {
+    final t = state.store.addTask(title: 'Karpathy 1', date: today(), startTime: '00:00', endTime: '23:59');
+    state.store.addDiary('Watched up to manual backprop', taskId: t.id);
+    await pump(tester, const Size(390, 844));
+    await tester.tap(find.byKey(const ValueKey('now-card')));
+    await tester.pumpAndSettle();
+    expect(find.text('Diary · 1'), findsOneWidget);
+    expect(find.textContaining('Watched up to manual backprop'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('task-diary-add')));
+    await tester.pumpAndSettle();
+    expect(find.text('About: Karpathy 1'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'Chain rule clicked');
+    await tester.tap(find.byKey(const ValueKey('diary-save')));
+    await tester.pumpAndSettle();
+    expect(state.store.diary(taskId: t.id).map((e) => e.body), ['Watched up to manual backprop', 'Chain rule clicked']);
+    expect(find.text('Diary · 2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

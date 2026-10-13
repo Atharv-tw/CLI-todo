@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CLI todo: plan the day, then re-plan it when the day happens</title>
+  <meta name="description" content="Tasks, habits, focus timers and a spoken diary in one store on your own devices, with an AI assistant that fits the plan to the day you are actually having. Free and open source.">
+  <meta property="og:title" content="CLI todo: plan the day, then re-plan it when the day happens">
+  <meta property="og:description" content="Tasks, habits, focus timers and a spoken diary on your own devices, with an assistant that re-plans your day. Free and open source.">
+  <meta property="og:image" content="https://atharv-tw.github.io/CLI-todo/img/desktop.png">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0E0E10">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="#top"><img src="logo.svg" alt="" width="32" height="32">CLI todo</a>
+  <nav aria-label="Sections">
+    <a href="#features">What it does</a>
+    <a href="#assistant">Assistant</a>
+    <a href="#vault">Vault</a>
+    <a href="#start">Quick start</a>
+    <a class="pill" href="https://github.com/Atharv-tw/CLI-todo">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">Free and open source · Linux and Android</p>
+    <h1>Plan the day. Then re-plan it when the day happens.</h1>
+    <p class="lead">Tasks, habits, focus timers and a diary you can speak, in one store on your own devices. Connect an AI assistant and it reads what actually happened, moves what you missed, and has tomorrow ready before you wake.</p>
+    <div class="install">
+      <code id="install-line">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/CLI-todo/main/scripts/install.sh | sh -s -- --app</code>
+      <button type="button" data-copy="install-line">Copy</button>
+    </div>
+    <p class="fine">One line on 64-bit Linux: no sudo, nothing to build. <a href="https://github.com/Atharv-tw/CLI-todo/releases/latest">Android app and other downloads</a></p>
+  </div>
+  <div class="hero-art">
+    <img class="screen" src="img/desktop.png" alt="The desktop app: an activity grid, a card for the task on now, and today's timeline" width="1280" height="800">
+    <div class="phone hero-phone"><img src="img/today.png" alt="The same day on the phone" width="390" height="844"></div>
+  </div>
+</section>
+
+<section class="ways" aria-labelledby="ways-title">
+  <h2 id="ways-title">One store, five ways in</h2>
+  <p class="sub">Everything lives in one small database on each device. Whichever way you reach it, you see the same day.</p>
+  <ul class="cards five">
+    <li><h3>Terminal</h3><p><code>todo add</code>, <code>todo today</code>, <code>todo done</code>. Every command also speaks JSON.</p></li>
+    <li><h3>Desktop</h3><p>A Linux app with the full picture, sharing the terminal's data.</p></li>
+    <li><h3>Phone</h3><p>An Android app, with home-screen widgets for today, habits, focus and a quick diary note.</p></li>
+    <li><h3>Top bar</h3><p>A GNOME widget: the task on now, the focus countdown, a tick from the menu.</p></li>
+    <li><h3>Assistant</h3><p>Claude Code or Codex can read and change it all, through tools that ship with it.</p></li>
+  </ul>
+  <pre class="term" aria-label="Example terminal session"><span class="p">$</span> todo add Read two papers on graph sampling -d today -t 14:00-15:30 -l Thesis
+Added [ ] 3f9a1c  Tue 13 Oct 14:00–15:30 Read two papers on graph sampling  (Thesis)
+<span class="p">$</span> todo today
+Tue 13 Oct: 7 of 16 done
+[x] 8b21d0  07:00–07:45  Morning run, 5 km  #Fitness
+[x] 5bb889  09:00–11:00  Write the methods section  #Writing  (Thesis)
+[ ] 3f9a1c  14:00–15:30  Read two papers on graph sampling  (Thesis)
+[ ] c07e44  16:00–16:30  Groceries for the week  (Home)
+…
+<span class="p">$</span> todo done 3f9a1c</pre>
+</section>
+
+<section id="features" aria-labelledby="features-title">
+  <h2 id="features-title">What it does</h2>
+
+  <article class="feature">
+    <div class="phone"><img loading="lazy" src="img/today.png" alt="Today page: activity grid, the task on now with a progress ring, and the timeline" width="390" height="844"></div>
+    <div>
+      <h3>A day you can see at a glance</h3>
+      <p>Tasks and habits sit on one timeline. The card on top always shows the task you should be on right now, with a ring for how much of the day is done. The grid above it fills in as the weeks go by.</p>
+      <ul>
+        <li>Tasks take a date, a time slot, a list, a tag and notes. All optional.</li>
+        <li>Timed tasks can appear in your phone's calendar, and moving the event moves the task.</li>
+        <li>The Plan page shows the next seven days and folds the rest away.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="feature flip">
+    <div class="phone"><img loading="lazy" src="img/reminder.png" alt="A full-screen reminder with Doing it, Snooze 10 min and Dismiss buttons" width="390" height="844"></div>
+    <div>
+      <h3>Reminders you answer, not swipe away</h3>
+      <p>When a task starts and the phone is locked, the reminder takes the whole screen: what it is, until when, and your notes. One tap on <em>Doing it</em> ticks it. <em>Snooze</em> brings it back in ten minutes.</p>
+      <ul>
+        <li>While you are using the phone it is a banner with the same two buttons.</li>
+        <li>It follows the ringer: sound, vibration, or nothing on silent.</li>
+        <li>On the laptop the top-bar widget rings instead.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="feature">
+    <div class="phone"><img loading="lazy" src="img/habits.png" alt="Habits page: streaks, and habits made of timed steps such as three meals" width="390" height="844"></div>
+    <div>
+      <h3>Habits that can have steps</h3>
+      <p>Some habits are one tick. Others are a day's worth of small ones: three meals, three litres of water. Name them <code>Water 3 L / 1 L down</code> and each step reminds you at its own time, while the habit counts as done only when every step is.</p>
+      <ul>
+        <li>Streaks, and how many of the last thirty days you kept each one.</li>
+        <li>Habits with a time sit in the day's timeline beside your tasks.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="feature flip">
+    <div class="phone"><img loading="lazy" src="img/focus.png" alt="Focus page with a 25 minute countdown" width="390" height="844"></div>
+    <div>
+      <h3>A focus timer that knows the task</h3>
+      <p>Start 15, 25 or 50 minutes on a task from the app, a widget, the top bar or the terminal. The countdown shows everywhere, and the minutes are logged against the day.</p>
+    </div>
+  </article>
+
+  <article class="feature">
+    <div class="phone"><img loading="lazy" src="img/screen.png" alt="Screen time page: total for the day, split by laptop and phone, by hour and by app" width="390" height="844"></div>
+    <div>
+      <h3>Screen time, on both devices</h3>
+      <p>Which apps, for how long, and at what hour, for the laptop and the phone together. The same app on both is one line. Ask your assistant where Tuesday afternoon went and it can tell you.</p>
+      <ul>
+        <li>The phone reads Android's own record. The laptop notes the focused window.</li>
+        <li>Locked or idle time is not counted.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="feature flip two-phones">
+    <div class="pair">
+      <div class="phone"><img loading="lazy" src="img/diary.png" alt="Diary page: entries with times, one attached to a task, one left by the assistant" width="390" height="844"></div>
+      <div class="phone"><img loading="lazy" src="img/voice.png" alt="Voice sheet: speech models to download, including one for mixed Hindi and English" width="390" height="844"></div>
+    </div>
+    <div>
+      <h3>A diary you can just say</h3>
+      <p>Log anything, any time: when you woke, an idea, a decision, how a task went. Type it, or press <em>Speak</em>. Every entry carries the time you logged it and can be attached to a task or a habit.</p>
+      <ul>
+        <li>Speech is written down <strong>on the device</strong> by an open-source Whisper model. No account, no connection, and nothing you say is sent anywhere.</li>
+        <li>Pick the model once: any single language, or one tuned for mixed Hindi and English that writes in Roman letters.</li>
+        <li>It works on the phone and on the Linux desktop.</li>
+      </ul>
+    </div>
+  </article>
+</section>
+
+<section id="assistant" class="band" aria-labelledby="assistant-title">
+  <h2 id="assistant-title">An assistant that plans with you</h2>
+  <p class="sub">The program contains no AI and needs no key. It gives your own assistant, Claude Code or Codex, the tools to read and change your day, and two skills that tell it how to do the bigger jobs.</p>
+
+  <div class="split">
+    <div class="chat" aria-label="An example conversation">
+      <p class="label">For example</p>
+      <p class="me">I woke at ten and skipped the run. Re-plan my day.</p>
+      <div class="it">
+        <p>Done. I started from now and kept your order:</p>
+        <pre>10:45–12:45  Write the methods section
+13:30–15:00  Read two papers on graph sampling
+16:00–16:30  Groceries for the week
+17:00–18:00  Guitar: practise the new piece</pre>
+        <p>The run moved to tomorrow at 07:00. I did not squeeze it in. Must-dos: the methods section, the two papers, groceries.</p>
+      </div>
+    </div>
+    <div>
+      <h3>Ask in your own words</h3>
+      <p>"What is on today?" "Move the review to Friday." "Where did my afternoon go?" The assistant uses the same store as the apps, so a change shows up on your phone a moment later.</p>
+      <h3>Or let it run while you sleep</h3>
+      <p>A scheduled session in the cloud can read the diary every night, move what was missed, time the new day around when you actually wake, and leave a one-line receipt. Your laptop can be off. You read the report over breakfast.</p>
+    </div>
+  </div>
+
+  <ol class="flow" aria-label="The nightly loop">
+    <li><strong>Through the day</strong><span>You tick tasks and log the diary, by typing or speaking.</span></li>
+    <li><strong>At night</strong><span>The assistant reads every entry it has not handled yet.</span></li>
+    <li><strong>It re-plans</strong><span>Missed tasks move forward. A skipped course slides a day; it never stacks.</span></li>
+    <li><strong>In the morning</strong><span>The new day is in your apps, with a short report of what moved and why.</span></li>
+  </ol>
+  <p class="fine center">It never deletes a task, never ticks one for you, and treats a diary entry as a note, not an order.</p>
+</section>
+
+<section id="vault" aria-labelledby="vault-title">
+  <h2 id="vault-title">A memory of your own, filed for you</h2>
+  <p class="sub">Optional. A vault is a folder of plain Markdown notes that you open in <a href="https://obsidian.md">Obsidian</a>. You keep logging the diary; the assistant puts each entry where it belongs. You never sort anything.</p>
+
+  <div class="filing">
+    <div class="from">
+      <p class="label">What you said</p>
+      <p class="said"><time>11:05</time> Took the full two hours. The sampling part needs a diagram. <span>on: Write the methods section</span></p>
+      <p class="said"><time>12:20</time> Idea: record a two-minute summary after every paper, so the literature review writes itself.</p>
+      <p class="said"><time>13:40</time> Decided to drop the second experiment. One done well beats two rushed.</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="to">
+      <p class="label">Where it went</p>
+      <ul class="tree">
+        <li><b>Daily/2026-10-13.md</b><span>all three, in order, with their times</span></li>
+        <li><b>Ideas.md</b><span>the two-minute summaries</span></li>
+        <li><b>Decisions.md</b><span>dropping the second experiment, and why</span></li>
+        <li><b>Projects/Thesis.md</b><span>the methods section needs a diagram</span></li>
+        <li class="quiet"><b>Learning/</b><span>one note per topic, added to over time</span></li>
+        <li class="quiet"><b>Me.md</b><span>your goals, and how you like your day planned</span></li>
+      </ul>
+    </div>
+  </div>
+  <ul class="cards three">
+    <li><h3>The rules are yours</h3><p>A note in the vault says what goes where and how each note looks. Edit it and the filing follows.</p></li>
+    <li><h3>It only ever adds</h3><p>Nothing you wrote is reworded or removed, and an entry is never filed twice.</p></li>
+    <li><h3>It informs the plan</h3><p><code>Me.md</code> is what the assistant reads before it times your day. Change your routine by editing a note.</p></li>
+  </ul>
+</section>
+
+<section class="band" aria-labelledby="yours-title">
+  <h2 id="yours-title">It is yours</h2>
+  <ul class="cards four">
+    <li><h3>Works offline</h3><p>Each device holds a full copy. Nothing waits on a server.</p></li>
+    <li><h3>Your own sync</h3><p>Devices sync through a free Supabase project that you create. Nobody else holds your data.</p></li>
+    <li><h3>Speech stays put</h3><p>Voice is written down on the device. No audio leaves it.</p></li>
+    <li><h3>Open source</h3><p>MIT licensed. No account with us, because there is no us: read it, change it, run it.</p></li>
+  </ul>
+</section>
+
+<section id="start" aria-labelledby="start-title">
+  <h2 id="start-title">Quick start</h2>
+  <ol class="steps">
+    <li>
+      <h3>Install</h3>
+      <p>On 64-bit Linux, one line installs the <code>todo</code> command and the desktop app into your home folder.</p>
+      <div class="install">
+        <code id="install-line-2">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/CLI-todo/main/scripts/install.sh | sh -s -- --app</code>
+        <button type="button" data-copy="install-line-2">Copy</button>
+      </div>
+      <p>For the phone, download the APK from the <a href="https://github.com/Atharv-tw/CLI-todo/releases/latest">latest release</a>. It needs Android 12 or newer.</p>
+    </li>
+    <li>
+      <h3>Answer three questions</h3>
+      <p>The installer ends with <code>todo init</code>. Each answer is optional, and you can run it again to change one.</p>
+      <table>
+        <tr><th>Sync between devices?</th><td>It walks you through a free Supabase project of your own.</td></tr>
+        <tr><th>Connect Claude Code or Codex?</th><td>It registers the tools and installs the two skills.</td></tr>
+        <tr><th>Keep a vault?</th><td>It creates the folder and its starter notes, in a private GitHub repo if you want one.</td></tr>
+      </table>
+    </li>
+    <li>
+      <h3>Use it</h3>
+      <pre class="term"><span class="p">$</span> todo add Revise unit 2 -d tomorrow -t 18:00-20:45
+<span class="p">$</span> todo habit add Read 20 min --time 22:15
+<span class="p">$</span> todo today</pre>
+      <p>Or say it to your assistant: "what is on today?", "I woke at ten, re-plan my day", "file my diary".</p>
+    </li>
+  </ol>
+</section>
+
+<section class="limits" aria-labelledby="limits-title">
+  <h2 id="limits-title">What it does not do</h2>
+  <ul>
+    <li>The ready-made programs are for 64-bit Linux and Android 12 or newer. There is no iPhone, Windows or Mac build. The desktop pieces are built and used on GNOME.</li>
+    <li>ChatGPT and other chat apps are not supported: they need a tool server on the internet, and this one runs on your machine.</li>
+    <li>Sync and the nightly planner take some setting up: a Supabase project of your own, and for the planner a Claude subscription that can run scheduled sessions.</li>
+    <li>Speech models are a one-time download of 100 to 375 MB, and words appear when you pause, not as you speak.</li>
+    <li>Reading the vault on a phone needs Obsidian and a way to sync the folder, which this does not provide.</li>
+    <li>I built it for my own days. Expect rough edges, and <a href="https://github.com/Atharv-tw/CLI-todo/issues">tell me about them</a>.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <p><a href="https://github.com/Atharv-tw/CLI-todo">Source on GitHub</a> · <a href="https://github.com/Atharv-tw/CLI-todo/releases/latest">Downloads</a> · <a href="https://github.com/Atharv-tw/CLI-todo/issues">Report a problem</a></p>
+  <p class="fine">MIT licensed. Made by <a href="https://github.com/Atharv-tw">Atharv Tiwari</a>. The pictures on this page show made-up data.</p>
+</footer>
+
+<script>
+  // The Copy buttons beside commands.
+  for (const button of document.querySelectorAll('[data-copy]')) {
+    button.addEventListener('click', async () => {
+      const text = document.getElementById(button.dataset.copy).textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = 'Select it';
+      }
+      setTimeout(() => (button.textContent = 'Copy'), 1600);
+    });
+  }
+</script>
+</body>
+</html>

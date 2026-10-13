@@ -15,6 +15,6 @@ key.properties
 # Personal: your own plans, server details and local tool config
 plans/
 config.local.json
-.mcp.json
+/.mcp.json
 *.apk
 build-apk.log

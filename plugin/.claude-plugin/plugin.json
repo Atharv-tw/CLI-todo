@@ -1,0 +1,13 @@
+{
+  "name": "todo",
+  "version": "0.1.0",
+  "description": "Your tasks, habits, diary and screen time from the Todo app, as tools your assistant can read and change, with skills for a daily briefing and for filing the diary into a vault of notes.",
+  "author": {
+    "name": "Atharv Tiwari",
+    "url": "https://github.com/Atharv-tw"
+  },
+  "homepage": "https://github.com/Atharv-tw/CLI-todo",
+  "repository": "https://github.com/Atharv-tw/CLI-todo",
+  "license": "MIT",
+  "keywords": ["todo", "tasks", "habits", "diary", "obsidian", "planning"]
+}

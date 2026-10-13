@@ -442,36 +442,82 @@ class Store {
     return out;
   }
 
-  // Briefs
+  // Diary
 
-  Brief addBrief(String body, {String? date, String author = Brief.me}) {
-    if (body.trim().isEmpty) throw TodoException('A brief needs some text');
-    if (author != Brief.me && author != Brief.assistant) {
-      throw TodoException('A brief is written by "${Brief.me}" or "${Brief.assistant}"');
+  static const _diarySelect = 'SELECT d.*, t.title AS task_title, h.title AS habit_title FROM diary d '
+      'LEFT JOIN tasks t ON t.id = d.task_id LEFT JOIN habits h ON h.id = d.habit_id';
+
+  DiaryEntry _diaryEntry(String id) => DiaryEntry.fromRow(db.select('$_diarySelect WHERE d.id = ?', [id]).first);
+
+  /// Adds an entry dated [date] (today if not given), optionally about one
+  /// task or one habit. The time it was logged is recorded with it.
+  DiaryEntry addDiary(
+    String body, {
+    String? date,
+    String author = DiaryEntry.me,
+    String? taskId,
+    String? habitId,
+  }) {
+    if (body.trim().isEmpty) throw TodoException('A diary entry needs some text');
+    if (author != DiaryEntry.me && author != DiaryEntry.assistant) {
+      throw TodoException('A diary entry is written by "${DiaryEntry.me}" or "${DiaryEntry.assistant}"');
     }
+    if (taskId != null && habitId != null) throw TodoException('An entry is about a task or a habit, not both');
+    if (taskId != null && findTask(taskId) == null) throw TodoException('No such task');
+    if (habitId != null && !habits().any((h) => h.id == habitId)) throw TodoException('No such habit');
     final id = newId();
-    _insert('briefs', {'id': id, 'date': date ?? today(), 'author': author, 'body': body.trim()});
-    return Brief.fromRow(db.select('SELECT * FROM briefs WHERE id = ?', [id]).first);
+    _insert('diary', {
+      'id': id,
+      'date': date ?? today(),
+      'author': author,
+      'body': body.trim(),
+      'task_id': taskId,
+      'habit_id': habitId,
+    });
+    return _diaryEntry(id);
   }
 
-  /// Briefs dated within [from]..[to] (either end optional), newest day
-  /// first and, within a day, in the order written.
-  List<Brief> briefs({String? from, String? to}) => db
-      .select(
-        'SELECT * FROM briefs WHERE deleted_at IS NULL '
-        '${from == null ? '' : 'AND date >= ? '}${to == null ? '' : 'AND date <= ? '}'
-        'ORDER BY date DESC, created_at',
-        [?from, ?to],
-      )
-      .map(Brief.fromRow)
-      .toList();
+  /// Entries dated within [from]..[to] (either end optional), newest day
+  /// first and, within a day, in the order written. Narrow with [taskId],
+  /// [habitId] or [author]; [unfiledOnly] keeps those not yet filed into the
+  /// vault.
+  List<DiaryEntry> diary({
+    String? from,
+    String? to,
+    String? taskId,
+    String? habitId,
+    String? author,
+    bool unfiledOnly = false,
+  }) =>
+      db
+          .select(
+            '$_diarySelect WHERE d.deleted_at IS NULL '
+            '${from == null ? '' : 'AND d.date >= ? '}'
+            '${to == null ? '' : 'AND d.date <= ? '}'
+            '${taskId == null ? '' : 'AND d.task_id = ? '}'
+            '${habitId == null ? '' : 'AND d.habit_id = ? '}'
+            '${author == null ? '' : 'AND d.author = ? '}'
+            '${unfiledOnly ? 'AND d.filed_at IS NULL ' : ''}'
+            'ORDER BY d.date DESC, d.created_at',
+            [?from, ?to, ?taskId, ?habitId, ?author],
+          )
+          .map(DiaryEntry.fromRow)
+          .toList();
 
-  void updateBrief(String id, String body) {
-    if (body.trim().isEmpty) throw TodoException('A brief needs some text');
-    _update('briefs', id, {'body': body.trim()});
+  void updateDiary(String id, String body) {
+    if (body.trim().isEmpty) throw TodoException('A diary entry needs some text');
+    _update('diary', id, {'body': body.trim()});
   }
 
-  void deleteBrief(String id) => _update('briefs', id, {'deleted_at': nowUtc()});
+  void deleteDiary(String id) => _update('diary', id, {'deleted_at': nowUtc()});
+
+  /// Records that the entries have been filed into the vault.
+  void markDiaryFiled(Iterable<String> ids) {
+    final now = nowUtc();
+    for (final id in ids) {
+      _update('diary', id, {'filed_at': now});
+    }
+  }
 
   // Screen time
 

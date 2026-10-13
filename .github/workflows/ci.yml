@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+          cache: true
+
+      - name: Core
+        working-directory: packages/core
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+
+      - name: CLI
+        working-directory: cli
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+
+      - name: App
+        working-directory: apps/app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Plugin files are well formed
+        run: |
+          python3 -c "
+          import json, pathlib
+          for f in ['.claude-plugin/marketplace.json', 'plugin/.claude-plugin/plugin.json', 'plugin/.mcp.json']:
+              json.loads(pathlib.Path(f).read_text())
+          for skill in pathlib.Path('plugin/skills').iterdir():
+              text = (skill / 'SKILL.md').read_text()
+              assert text.startswith('---\nname: ' + skill.name + '\ndescription: '), skill
+          "

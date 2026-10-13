@@ -208,3 +208,20 @@ class FocusWidget : HomeWidgetProvider() {
     appWidgetIds.forEach { appWidgetManager.updateAppWidget(it, views) }
   }
 }
+
+/** Quick capture: the mic opens the diary composer listening; the label opens it for typing. */
+class DiaryWidget : HomeWidgetProvider() {
+  override fun onUpdate(
+      context: Context,
+      appWidgetManager: AppWidgetManager,
+      appWidgetIds: IntArray,
+      widgetData: SharedPreferences,
+  ) {
+    val views = RemoteViews(context.packageName, R.layout.widget_diary)
+    fun open(uri: String) =
+        HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse(uri))
+    views.setOnClickPendingIntent(R.id.diary_mic, open("todo://diary/new?voice=1"))
+    views.setOnClickPendingIntent(R.id.diary_write, open("todo://diary/new"))
+    appWidgetIds.forEach { appWidgetManager.updateAppWidget(it, views) }
+  }
+}

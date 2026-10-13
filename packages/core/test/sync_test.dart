@@ -153,17 +153,18 @@ void main() {
     }
   });
 
-  test('a server without the briefs table still syncs the rest, and briefs go up later', () async {
-    remote.absent.add('briefs');
-    laptop.addTask(title: 'revise');
-    laptop.addBrief('woke late', date: '2026-10-13');
+  test('a server without the diary table still syncs the rest, and the diary goes up later', () async {
+    remote.absent.add('diary');
+    final task = laptop.addTask(title: 'revise');
+    laptop.addDiary('woke late', date: '2026-10-13', taskId: task.id);
     final first = await laptopSync.sync();
     expect(first.pushed, 1);
-    expect(first.missing, ['briefs']);
+    expect(first.missing, ['diary']);
     remote.absent.clear();
     expect((await laptopSync.sync()).pushed, 1);
     await phoneSync.sync();
-    expect(phone.briefs().single.body, 'woke late');
+    expect(phone.diary().single.body, 'woke late');
+    expect(phone.diary().single.taskTitle, 'revise');
     expect(phone.tasks(undated: true).single.title, 'revise');
   });
 }

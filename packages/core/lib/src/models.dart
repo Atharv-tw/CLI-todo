@@ -140,27 +140,60 @@ class UsageSpan {
   final DateTime end;
 }
 
-/// A note about one day: the user's own account of it, or the assistant's
-/// summary of what it changed in the plan.
-class Brief {
-  Brief.fromRow(Map<String, Object?> r)
+/// One diary entry: anything the user wants to keep (an idea, a decision, how
+/// the day went), or the assistant's note of what it changed in the plan.
+class DiaryEntry {
+  DiaryEntry.fromRow(Map<String, Object?> r)
       : id = r['id'] as String,
         date = r['date'] as String,
         author = r['author'] as String,
         body = r['body'] as String,
-        createdAt = DateTime.parse(r['created_at'] as String);
+        taskId = r['task_id'] as String?,
+        taskTitle = r['task_title'] as String?,
+        habitId = r['habit_id'] as String?,
+        habitTitle = r['habit_title'] as String?,
+        createdAt = DateTime.parse(r['created_at'] as String).toLocal(),
+        filedAt = r['filed_at'] == null ? null : DateTime.parse(r['filed_at'] as String).toLocal();
 
   static const me = 'me';
   static const assistant = 'claude';
 
   final String id;
+
+  /// The day the entry is about, which is the day it was written unless said
+  /// otherwise.
   final String date;
 
   /// [me] or [assistant].
   final String author;
   final String body;
+
+  /// The task or habit the entry is about, if any, with its current title.
+  final String? taskId;
+  final String? taskTitle;
+  final String? habitId;
+  final String? habitTitle;
+
+  /// When it was logged, in local time.
   final DateTime createdAt;
 
-  Map<String, Object?> toJson() =>
-      {'id': id, 'date': date, 'author': author, 'body': body, 'created_at': utcStamp(createdAt)};
+  /// When an assistant filed it into the vault; null until then.
+  final DateTime? filedAt;
+
+  /// The title of whatever the entry is about.
+  String? get about => taskTitle ?? habitTitle;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'date': date,
+        'author': author,
+        'body': body,
+        'created_at': utcStamp(createdAt),
+        'time': hm(createdAt),
+        'task_id': taskId,
+        'task': taskTitle,
+        'habit_id': habitId,
+        'habit': habitTitle,
+        'filed_at': filedAt == null ? null : utcStamp(filedAt!),
+      };
 }

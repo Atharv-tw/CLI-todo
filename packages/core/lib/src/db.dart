@@ -37,7 +37,7 @@ Database openMemoryDb() {
 
 /// Tables that sync. Each has `updated_at` (client clock, used for
 /// last-write-wins), `deleted_at` (tombstone) and `dirty` (needs pushing).
-const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage', 'briefs'];
+const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage', 'diary'];
 
 const _sync = '''
   created_at TEXT NOT NULL,
@@ -124,11 +124,25 @@ const _migrations = [
   );
   CREATE INDEX briefs_date ON briefs(date);
   ''',
+  // Briefs became the diary: entries at any time of day, optionally about one
+  // task or habit. `filed_at` is set once an assistant has filed the entry
+  // into the user's vault.
+  '''
+  ALTER TABLE briefs RENAME TO diary;
+  DROP INDEX briefs_date;
+  CREATE INDEX diary_date ON diary(date);
+  ALTER TABLE diary ADD COLUMN task_id TEXT;
+  ALTER TABLE diary ADD COLUMN habit_id TEXT;
+  ALTER TABLE diary ADD COLUMN filed_at TEXT;
+  UPDATE meta SET key = 'pulled:diary' WHERE key = 'pulled:briefs';
+  ''',
 ];
 
-void migrate(Database db) {
+/// Brings [db] up to the current schema, or (for tests of a migration) only
+/// as far as schema version [upTo].
+void migrate(Database db, {int? upTo}) {
   var version = db.select('PRAGMA user_version').first.values.first as int;
-  while (version < _migrations.length) {
+  while (version < (upTo ?? _migrations.length)) {
     db.execute('BEGIN');
     db.execute(_migrations[version]);
     version++;

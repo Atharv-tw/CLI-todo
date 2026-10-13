@@ -1,3 +1,4 @@
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:todo_core/todo_core.dart';
 
@@ -215,17 +216,62 @@ void main() {
     expect(store.habitGroupStreak([a.id, b.id], '2026-10-04').current, 1);
   });
 
-  test('briefs: newest day first, in the order written; edit and delete', () {
-    final a = store.addBrief('woke at 11', date: '2026-10-13');
-    store.addBrief('moved DSA to 13:30', date: '2026-10-13', author: Brief.assistant);
-    store.addBrief('slept on time', date: '2026-10-14');
-    expect(store.briefs().map((b) => b.body), ['slept on time', 'woke at 11', 'moved DSA to 13:30']);
-    expect(store.briefs(from: '2026-10-14').single.author, Brief.me);
-    store.updateBrief(a.id, 'woke at noon');
-    store.deleteBrief(store.briefs(from: '2026-10-14').single.id);
-    expect(store.briefs().map((b) => b.body), ['woke at noon', 'moved DSA to 13:30']);
-    expect(() => store.addBrief('  '), throwsA(isA<TodoException>()));
-    expect(() => store.addBrief('x', author: 'bot'), throwsA(isA<TodoException>()));
+  group('diary', () {
+    test('newest day first, in the order written; edit and delete', () {
+      final a = store.addDiary('woke at 11', date: '2026-10-13');
+      store.addDiary('moved DSA to 13:30', date: '2026-10-13', author: DiaryEntry.assistant);
+      store.addDiary('slept on time', date: '2026-10-14');
+      expect(store.diary().map((e) => e.body), ['slept on time', 'woke at 11', 'moved DSA to 13:30']);
+      expect(store.diary(from: '2026-10-14').single.author, DiaryEntry.me);
+      expect(store.diary(author: DiaryEntry.assistant).single.body, 'moved DSA to 13:30');
+      store.updateDiary(a.id, 'woke at noon');
+      store.deleteDiary(store.diary(from: '2026-10-14').single.id);
+      expect(store.diary().map((e) => e.body), ['woke at noon', 'moved DSA to 13:30']);
+      expect(() => store.addDiary('  '), throwsA(isA<TodoException>()));
+      expect(() => store.addDiary('x', author: 'bot'), throwsA(isA<TodoException>()));
+    });
+
+    test('an entry can be about a task or a habit, and carries when it was logged', () {
+      final t = store.addTask(title: 'DSA: Two Sum', date: '2026-10-13');
+      final h = store.addHabit(title: 'Read 20 min');
+      final before = DateTime.now().subtract(const Duration(seconds: 1));
+      final onTask = store.addDiary('finally got hash maps', taskId: t.id);
+      store.addDiary('new book', habitId: h.id);
+      store.addDiary('just a thought');
+
+      expect((onTask.taskTitle, onTask.about, onTask.habitId), ('DSA: Two Sum', 'DSA: Two Sum', null));
+      expect(onTask.createdAt.isAfter(before), isTrue);
+      expect(store.diary(taskId: t.id).single.body, 'finally got hash maps');
+      expect(store.diary(habitId: h.id).single.about, 'Read 20 min');
+      expect(store.diary().length, 3);
+      expect(() => store.addDiary('x', taskId: 'nope'), throwsA(isA<TodoException>()));
+      expect(() => store.addDiary('x', taskId: t.id, habitId: h.id), throwsA(isA<TodoException>()));
+    });
+
+    test('filing marks entries, and unfiled-only leaves them out', () {
+      final a = store.addDiary('an idea');
+      final b = store.addDiary('a decision');
+      expect(store.diary(unfiledOnly: true).length, 2);
+      store.markDiaryFiled([a.id]);
+      expect(store.diary(unfiledOnly: true).single.id, b.id);
+      expect(store.diary().firstWhere((e) => e.id == a.id).filedAt, isNotNull);
+    });
+
+    test('a database from before the diary keeps its briefs as entries', () {
+      final db = sqlite3.openInMemory();
+      migrate(db, upTo: 4);
+      db.execute(
+        "INSERT INTO briefs (id, date, author, body, created_at, updated_at, dirty) "
+        "VALUES ('b1', '2026-10-13', 'me', 'woke late', '2026-10-13T05:00:00.000000Z', '2026-10-13T05:00:00.000000Z', 0)",
+      );
+      db.execute("INSERT INTO meta (key, value) VALUES ('pulled:briefs', '2026-10-13T05:00:01Z')");
+      migrate(db);
+      final old = Store(db);
+      expect(old.diary().single.body, 'woke late');
+      expect(old.getMeta('pulled:diary'), '2026-10-13T05:00:01Z');
+      expect(old.getMeta('pulled:briefs'), isNull);
+      expect(old.addDiary('and a new one').taskId, isNull);
+    });
   });
 
   group('screen time', () {

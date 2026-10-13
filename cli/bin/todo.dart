@@ -3,7 +3,10 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:http/http.dart' as http;
+import 'package:todo_cli/embedded.g.dart';
 import 'package:todo_cli/mcp.dart';
+import 'package:todo_cli/setup.dart';
+import 'package:todo_cli/vault.dart';
 import 'package:todo_core/todo_core.dart';
 
 final Store store = Store(openDb());
@@ -11,6 +14,7 @@ final Store store = Store(openDb());
 Future<void> main(List<String> args) async {
   final runner = CommandRunner<void>('todo', 'Tasks, habits and focus sessions.')
     ..argParser.addFlag('json', negatable: false, help: 'Print JSON instead of text.')
+    ..addCommand(InitCommand())
     ..addCommand(AddCommand())
     ..addCommand(ListCommand())
     ..addCommand(TodayCommand())
@@ -22,8 +26,13 @@ Future<void> main(List<String> args) async {
     ..addCommand(HabitCommand())
     ..addCommand(FocusCommand())
     ..addCommand(UsageCommand())
-    ..addCommand(BriefCommand())
+    ..addCommand(VaultCommand())
+    ..addCommand(DiaryCommand())
+    ..addCommand(DiaryCommand('brief'))
+    ..addCommand(_DiaryRm())
+    ..addCommand(_DiaryFiled())
     ..addCommand(_UsageAdd())
+    ..addCommand(SchemaCommand())
     ..addCommand(ServerCommand())
     ..addCommand(LoginCommand())
     ..addCommand(LogoutCommand())
@@ -439,41 +448,168 @@ class _FocusStatus extends Cmd {
   void run() => show(this);
 }
 
-class BriefCommand extends Cmd {
-  BriefCommand()
-      : super('brief', 'Daily notes: todo brief (recent ones), or todo brief Woke at 11, skipped the workout') {
+/// `todo diary`: what was written, and a way to write more.
+class DiaryCommand extends Cmd {
+  DiaryCommand([String name = 'diary'])
+      : super(name, 'Diary: todo diary (recent entries), or todo diary Finally got hash maps --task 6e495e') {
     argParser
-      ..addOption('date', abbr: 'd', help: 'Day the note is about (default today).')
-      ..addOption('as', allowed: [Brief.me, Brief.assistant], defaultsTo: Brief.me, help: 'Who is writing.')
-      ..addOption('days', defaultsTo: '7', help: 'How many days back to show.');
+      ..addOption('date', abbr: 'd', help: 'Day the entry is about (default today).')
+      ..addOption('task', help: 'A task the entry is about (id or prefix).')
+      ..addOption('habit', help: 'A habit the entry is about (title or id).')
+      ..addOption('as',
+          allowed: [DiaryEntry.me, DiaryEntry.assistant], defaultsTo: DiaryEntry.me, help: 'Who is writing.')
+      ..addOption('days', defaultsTo: '7', help: 'How many days back to show.')
+      ..addFlag('unfiled', negatable: false, help: 'Only your entries not yet filed into the vault.');
+  }
+
+  // `todo brief` still works: the nightly routine was written against it.
+  @override
+  bool get hidden => name != 'diary';
+
+  @override
+  void run() {
+    final taskId = opt('task') == null ? null : store.resolveId('tasks', opt('task')!);
+    final habitId = opt('habit') == null ? null : store.resolveHabit(opt('habit')!);
+    if (rest.isNotEmpty) {
+      final e = store.addDiary(
+        rest.join(' '),
+        date: opt('date') == null ? null : parseDate(opt('date')!),
+        author: opt('as')!,
+        taskId: taskId,
+        habitId: habitId,
+      );
+      out(e.toJson(), () => 'Saved to the diary for ${prettyDate(e.date)}${e.about == null ? '' : ', on "${e.about}"'}.');
+      return;
+    }
+    final unfiled = argResults!.flag('unfiled');
+    final days = int.tryParse(opt('days')!);
+    if (days == null || days < 1) usageException('Days must be a number.');
+    final to = opt('date') == null ? today() : parseDate(opt('date')!);
+    final entries = store.diary(
+      // Unfiled entries are wanted however old they are.
+      from: unfiled ? null : addDays(to, -(days - 1)),
+      to: to,
+      taskId: taskId,
+      habitId: habitId,
+      author: unfiled ? DiaryEntry.me : null,
+      unfiledOnly: unfiled,
+    );
+    out([for (final e in entries) e.toJson()], () {
+      if (entries.isEmpty) return unfiled ? 'Nothing waiting to be filed.' : 'No diary entries.';
+      final lines = <String>[];
+      String? day;
+      for (final e in entries) {
+        if (e.date != day) {
+          if (day != null) lines.add('');
+          lines.add(prettyDate(day = e.date));
+        }
+        final who = e.author == DiaryEntry.me ? '' : 'Claude: ';
+        final about = e.about == null ? '' : '[${e.about}] ';
+        lines.add('  ${short(e.id)}  ${hm(e.createdAt)}  $who$about${e.body.replaceAll('\n', '\n                 ')}');
+      }
+      return lines.join('\n');
+    });
+  }
+}
+
+class _DiaryRm extends Cmd {
+  _DiaryRm() : super('diary-rm', 'Delete diary entries: todo diary-rm ID...');
+
+  @override
+  void run() {
+    needArgs('at least one entry id');
+    final ids = [for (final ref in rest) store.resolveId('diary', ref)];
+    for (final id in ids) {
+      store.deleteDiary(id);
+    }
+    out({'deleted': ids}, () => 'Deleted ${ids.length} ${ids.length == 1 ? 'entry' : 'entries'}.');
+  }
+}
+
+/// Used by an assistant once it has filed entries into the vault.
+class _DiaryFiled extends Cmd {
+  _DiaryFiled() : super('diary-filed', 'Mark diary entries as filed into the vault: todo diary-filed ID...');
+
+  @override
+  bool get hidden => true;
+
+  @override
+  void run() {
+    needArgs('at least one entry id');
+    final ids = [for (final ref in rest) store.resolveId('diary', ref)];
+    store.markDiaryFiled(ids);
+    out({'filed': ids}, () => 'Marked ${ids.length} as filed.');
+  }
+}
+
+class VaultCommand extends Cmd {
+  VaultCommand() : super('vault', 'An optional folder of notes that your diary is filed into (opens in Obsidian).') {
+    addSubcommand(_VaultInit());
+    addSubcommand(_VaultUse());
+    addSubcommand(_VaultStatus());
+  }
+}
+
+String _vaultLine(Map<String, Object?> s) {
+  if (s['path'] == null) return 'No vault on this device. Create one with: todo vault init';
+  if (s['exists'] != true) return 'The vault is set to ${s['path']}, but that folder is missing.';
+  final where = s['remote'] == null ? '' : '  (${s['remote']})';
+  final waiting = s['unfiled'] as int;
+  return 'Vault: ${s['path']}$where\n'
+      '${waiting == 0 ? 'Nothing waiting to be filed.' : '$waiting diary ${waiting == 1 ? 'entry' : 'entries'} waiting to be filed.'}';
+}
+
+class _VaultStatus extends Cmd {
+  _VaultStatus() : super('status', 'Where the vault is and how many diary entries are waiting to be filed.');
+
+  @override
+  void run() {
+    final s = vaultStatus(store);
+    out(s, () => _vaultLine(s));
+  }
+}
+
+class _VaultUse extends Cmd {
+  _VaultUse() : super('use', 'Point this device at a vault that already exists: todo vault use PATH');
+
+  @override
+  void run() {
+    if (rest.length != 1) usageException('Give the folder of the vault.');
+    final path = Directory(rest.first).absolute.path;
+    if (!Directory(path).existsSync()) throw TodoException('There is no folder at $path');
+    store.setMeta(vaultPathKey, path);
+    final s = vaultStatus(store);
+    out(s, () => _vaultLine(s));
+  }
+}
+
+class _VaultInit extends Cmd {
+  _VaultInit() : super('init', 'Create a vault: todo vault init [PATH] [--github [NAME]]') {
+    argParser.addOption(
+      'github',
+      help: 'Also keep it in a new private GitHub repo with this name, so an assistant in the cloud can file into it.',
+    );
   }
 
   @override
   void run() {
-    if (rest.isNotEmpty) {
-      final b = store.addBrief(
-        rest.join(' '),
-        date: opt('date') == null ? null : parseDate(opt('date')!),
-        author: opt('as')!,
-      );
-      out(b.toJson(), () => 'Saved brief for ${prettyDate(b.date)}.');
-      return;
-    }
-    final days = int.tryParse(opt('days')!);
-    if (days == null || days < 1) usageException('Days must be a number.');
-    final to = opt('date') == null ? today() : parseDate(opt('date')!);
-    final briefs = store.briefs(from: addDays(to, -(days - 1)), to: to);
-    out([for (final b in briefs) b.toJson()], () {
-      if (briefs.isEmpty) return 'No briefs.';
-      final lines = <String>[];
-      String? day;
-      for (final b in briefs) {
-        if (b.date != day) {
-          if (day != null) lines.add('');
-          lines.add(prettyDate(day = b.date));
-        }
-        lines.add('  ${b.author == Brief.me ? 'You' : 'Claude'}: ${b.body.replaceAll('\n', '\n    ')}');
-      }
+    if (rest.length > 1) usageException('Give at most one folder.');
+    final path = Directory(rest.isEmpty ? defaultVaultPath() : rest.first).absolute.path;
+    final written = scaffoldVault(path);
+    store.setMeta(vaultPathKey, path);
+
+    final notes = <String>[];
+    final repo = opt('github');
+    if (repo != null) notes.addAll(vaultToGitHub(path, repo));
+
+    out({...vaultStatus(store), 'created': written}, () {
+      final lines = [
+        written.isEmpty
+            ? 'The vault at $path already had every starter note; nothing was changed.'
+            : 'Created the vault at $path (${written.where((f) => f.endsWith('.md')).join(', ')}).',
+        ...notes,
+        'Open that folder as a vault in Obsidian. Start by filling in Me.md.',
+      ];
       return lines.join('\n');
     });
   }
@@ -545,7 +681,7 @@ class _UsageAdd extends Cmd {
 }
 
 class McpCommand extends Cmd {
-  McpCommand() : super('mcp', 'Run the MCP server on stdin/stdout (for Claude).');
+  McpCommand() : super('mcp', 'Run the tool server for an assistant (MCP on stdin/stdout).');
 
   @override
   Future<void> run() => serveMcp(store);
@@ -560,6 +696,166 @@ String prompt(String label, {bool secret = false}) {
   } finally {
     stdin.echoMode = true;
     stderr.writeln();
+  }
+}
+
+/// Asks a yes-or-no question; Enter takes [fallback].
+bool confirm(String question, {required bool fallback}) {
+  final answer = prompt('$question [${fallback ? 'Y/n' : 'y/N'}]').toLowerCase();
+  return answer.isEmpty ? fallback : answer.startsWith('y');
+}
+
+/// Asks for a line; Enter takes [fallback].
+String ask(String label, String fallback) {
+  final answer = prompt('$label [$fallback]');
+  return answer.isEmpty ? fallback : answer;
+}
+
+String _expandHome(String path) => path == '~' || path.startsWith('~/') ? homeDir + path.substring(1) : path;
+
+class SchemaCommand extends Cmd {
+  SchemaCommand() : super('schema', 'Print the SQL that sets up a sync server. Paste it into your Supabase SQL editor.');
+
+  @override
+  void run() => stdout.write(schemaSql);
+}
+
+class InitCommand extends Cmd {
+  InitCommand() : super('init', 'Set up sync, your assistant and a vault of notes, one question at a time. Safe to run again.') {
+    argParser
+      ..addOption('server', help: 'Sync: your Supabase project URL.')
+      ..addOption('key', help: 'Sync: its publishable key.')
+      ..addOption('email', help: 'Sync: the account to sign in with. The password is asked for, or read from standard input.')
+      ..addMultiOption('assistant', allowed: [for (final a in assistants) a.id], help: 'Connect this assistant.')
+      ..addOption('vault', help: 'Create a vault of notes in this folder.')
+      ..addOption('github', help: 'Keep the vault in a new private GitHub repository with this name.')
+      ..addFlag('defaults', negatable: false, help: 'Ask nothing: do only what the options above say.');
+  }
+
+  @override
+  Future<void> run() async {
+    final asking = stdin.hasTerminal && !argResults!.flag('defaults');
+    final done = <String>[];
+    final left = <String>[];
+    void say(String text) => stderr.writeln(text);
+
+    if (asking) {
+      say('Setting up Todo. Three questions; Enter takes the answer in capitals.\n'
+          'Everything here is optional and can be changed by running this again.\n');
+    }
+
+    // 1. Sync.
+    final remote = SupabaseRemote(store);
+    if (remote.signedIn) {
+      done.add('Sync: signed in as ${remote.email}.');
+    } else {
+      var url = opt('server') ?? remote.url;
+      var key = opt('key');
+      if (asking) {
+        say('1. Sync. Your tasks live in a file on this machine. To have them on your phone or another\n'
+            '   computer too, they sync through a free Supabase project of your own.');
+        if (confirm('   Set up sync now?', fallback: false)) {
+          if (url == null || !confirm('   Use the server already set ($url)?', fallback: true)) {
+            final sql = File('${Directory.systemTemp.path}/todo-schema.sql')..writeAsStringSync(schemaSql);
+            say('   a. Create a project at https://supabase.com/dashboard\n'
+                '   b. Open its SQL editor, paste the contents of ${sql.path} and run it.\n'
+                '   c. Under Authentication > Users, add a user for yourself (email and password).\n'
+                '   d. Under Project Settings > API keys, copy the project URL and the publishable key.');
+            url = prompt('   Project URL');
+            key = prompt('   Publishable key');
+          }
+        } else {
+          url = null;
+        }
+        say('');
+      }
+      if (url != null && url.isNotEmpty) {
+        if (key != null && key.isNotEmpty) remote.configure(url: url, anonKey: key);
+        final email = opt('email') ?? (asking ? prompt('   Email of that user') : '');
+        if (email.isEmpty) {
+          left.add('Sync: the server is set. Sign in with: todo login');
+        } else {
+          try {
+            await remote.signIn(email, prompt('   Password', secret: true));
+            final r = await SyncEngine(store, remote).sync();
+            done.add('Sync: signed in as $email.');
+            if (r.missing.isNotEmpty) {
+              left.add('Sync: the server has no ${r.missing.join(', ')} table yet. Run the SQL from `todo schema` in its SQL editor.');
+            }
+          } on SyncException catch (e) {
+            left.add('Sync: could not sign in (${e.message}). Try again with: todo login');
+          } on SocketException {
+            left.add('Sync: could not reach the server. Try again with: todo login');
+          } on http.ClientException {
+            left.add('Sync: could not reach the server. Try again with: todo login');
+          }
+        }
+      } else {
+        done.add('Sync: off. Everything works on this device.');
+      }
+    }
+
+    // 2. Assistants.
+    final wanted = argResults!.multiOption('assistant');
+    final found = [for (final a in assistants) if (isInstalled(a.command)) a];
+    final chosen = <Assistant>[for (final a in assistants) if (wanted.contains(a.id)) a];
+    if (asking && wanted.isEmpty) {
+      say('2. Assistant. Connected, it can read and change your tasks, plan your day and file your diary.');
+      if (found.isEmpty) say('   Neither Claude Code nor Codex is installed on this machine.');
+      for (final a in found) {
+        if (confirm('   Connect ${a.name}?', fallback: true)) chosen.add(a);
+      }
+      say('');
+    }
+    final todo = todoCommand();
+    for (final a in chosen) {
+      done.addAll(connect(a, todo: todo));
+    }
+    if (chosen.isEmpty) {
+      left.add(found.isEmpty
+          ? 'Assistant: install Claude Code or Codex, then run `todo init` again to connect it.'
+          : 'Assistant: not connected. Run `todo init` again when you want it.');
+    }
+
+    // 3. Vault.
+    final existing = vaultPath(store);
+    if (existing != null && opt('vault') == null) {
+      done.add('Vault: $existing');
+    } else {
+      var path = opt('vault');
+      var repo = opt('github');
+      if (asking && path == null) {
+        say('3. Vault. A folder of notes that your diary is filed into: each day, decisions, ideas, what\n'
+            '   you learned. It opens in Obsidian. Skip it if you only want tasks.');
+        if (confirm('   Create a vault?', fallback: false)) {
+          path = ask('   Where', defaultVaultPath());
+          if (confirm('   Also keep it in a private GitHub repository? An assistant in the cloud needs that.',
+              fallback: false)) {
+            repo = ask('   Repository name', 'vault');
+          }
+        }
+        say('');
+      }
+      if (path != null) {
+        path = Directory(_expandHome(path)).absolute.path;
+        final written = scaffoldVault(path);
+        store.setMeta(vaultPathKey, path);
+        done.add(written.isEmpty ? 'Vault: $path (already there).' : 'Vault: created at $path. Start by filling in Me.md.');
+        if (repo != null) done.addAll(vaultToGitHub(path, repo));
+      } else {
+        done.add('Vault: none.');
+      }
+    }
+
+    out({'done': done, 'left': left}, () {
+      return [
+        'Set up:',
+        for (final line in done) '  $line',
+        if (left.isNotEmpty) ...['Left to do:', for (final line in left) '  $line'],
+        '',
+        'Try: todo add "Read 20 pages" -d today -t 21:00   then: todo today',
+      ].join('\n');
+    });
   }
 }
 
