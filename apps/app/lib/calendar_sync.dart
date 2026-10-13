@@ -129,6 +129,13 @@ class CalendarSync {
         continue;
       }
 
+      // Once an event has synced, Google gives it the calendar's default
+      // alert, and each calendar app then notifies on its own. The app raises
+      // its own reminder, so take those off.
+      if (event.reminders?.isNotEmpty ?? false) {
+        await _cal.updateEvent(instanceId: event.instanceId, reminders: const Patch.clear());
+      }
+
       if (sig != agreed) {
         await _cal.updateEvent(
           instanceId: event.instanceId,

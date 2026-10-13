@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
 import 'package:todo_core/todo_core.dart';
@@ -22,6 +24,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   StreamSubscription<FileSystemEvent>? _watch;
   Timer? _periodic, _afterEdit, _afterOutside;
+  ReceivePort? _background;
 
   void start({String? watchDir}) {
     if (watchDir != null) {
@@ -31,6 +34,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           notifyListeners();
         });
       });
+    }
+    if (Platform.isAndroid) {
+      // A widget tap or a reminder button changed the database from another
+      // isolate while this screen was open.
+      _background = ReceivePort()..listen((_) => notifyListeners());
+      IsolateNameServer.removePortNameMapping(appChangedPort);
+      IsolateNameServer.registerPortWithName(_background!.sendPort, appChangedPort);
     }
     _periodic = Timer.periodic(const Duration(minutes: 2), (_) => _collectThenSync());
     WidgetsBinding.instance.addObserver(this);
@@ -108,6 +118,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _watch?.cancel();
+    if (_background != null) {
+      IsolateNameServer.removePortNameMapping(appChangedPort);
+      _background!.close();
+    }
     _periodic?.cancel();
     _afterEdit?.cancel();
     _afterOutside?.cancel();

@@ -5,4 +5,5 @@
     <color name="widget_muted">#8E8E93</color>
     <color name="widget_tide">#F2541B</color>
     <color name="widget_on_tide">#FFFFFF</color>
+    <color name="widget_raised">#2E2E34</color>
 </resources>

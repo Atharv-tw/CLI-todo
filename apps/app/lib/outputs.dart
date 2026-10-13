@@ -7,29 +7,11 @@ import 'package:home_widget/home_widget.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:todo_core/todo_core.dart';
 
+import 'reminders.dart';
+
 const _widgets = ['TodayWidget', 'HabitsWidget', 'FocusWidget'];
 const _ongoingId = 1;
 const _finishedId = 2;
-
-final _notifications = FlutterLocalNotificationsPlugin();
-bool _notificationsReady = false;
-
-Future<void> _initNotifications() async {
-  if (_notificationsReady) return;
-  await _notifications.initialize(
-    settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_todo')),
-  );
-  _notificationsReady = true;
-}
-
-/// Asks for permission to show notifications (Android 13+). Call from the UI.
-Future<void> requestNotificationPermission() async {
-  if (!Platform.isAndroid) return;
-  await _initNotifications();
-  await _notifications
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
-}
 
 /// Pushes the current state to the home-screen widgets and the focus
 /// notification. Phone only; a no-op elsewhere.
@@ -40,78 +22,8 @@ Future<void> refreshOutputs(Store store) async {
     await HomeWidget.updateWidget(qualifiedAndroidName: 'dev.atharv.todo_app.$w');
   }
   await _focusNotification(store);
-  await _scheduleReminders(store);
-}
-
-const _reminderBase = 1000;
-const _maxReminders = 60;
-
-/// Schedules an alert at the start of each upcoming task and timed habit.
-///
-/// Tasks alert on the "Task reminders" channel: sound (or vibration when the
-/// phone is on vibrate), shown over the lock screen, with a countdown to the
-/// task's end. Habits use a quieter channel.
-Future<void> _scheduleReminders(Store store) async {
-  final now = DateTime.now();
-  final items = [
-    for (final i in store.upcoming(fromDate: today(now), days: 3))
-      if (atTime(i['date'] as String, i['time'] as String).isAfter(now)) i,
-  ].take(_maxReminders).toList();
-
-  final plan = jsonEncode(items);
-  if (plan == store.getMeta('reminders_plan')) return;
-  await _initNotifications();
-  // Only alerts that have not fired yet; ones already showing stay put.
-  for (final pending in await _notifications.pendingNotificationRequests()) {
-    if (pending.id >= _reminderBase) await _notifications.cancel(id: pending.id);
-  }
-
-  for (final (index, i) in items.indexed) {
-    final date = i['date'] as String, time = i['time'] as String;
-    final isTask = i['kind'] == 'task';
-    final start = atTime(date, time);
-    final end = slotEnd(date, time, i['end_time'] as String?);
-    final details = isTask
-        ? AndroidNotificationDetails(
-            'task_start',
-            'Task reminders',
-            channelDescription: 'When a scheduled task starts',
-            importance: Importance.max,
-            priority: Priority.max,
-            category: AndroidNotificationCategory.reminder,
-            visibility: NotificationVisibility.public,
-            fullScreenIntent: true,
-            enableVibration: true,
-            when: end.millisecondsSinceEpoch,
-            usesChronometer: true,
-            chronometerCountDown: true,
-            timeoutAfter: end.difference(start).inMilliseconds,
-          )
-        : const AndroidNotificationDetails(
-            'habit_reminder',
-            'Habit reminders',
-            channelDescription: 'When a habit with a time of day is due',
-            importance: Importance.high,
-            priority: Priority.high,
-            category: AndroidNotificationCategory.reminder,
-            visibility: NotificationVisibility.public,
-            enableVibration: true,
-          );
-    Future<void> schedule(AndroidScheduleMode mode) => _notifications.zonedSchedule(
-          id: _reminderBase + index,
-          title: i['title'] as String,
-          body: isTask ? 'Now until ${hm(end)}' : 'Habit',
-          scheduledDate: tz.TZDateTime.from(start.toUtc(), tz.UTC),
-          androidScheduleMode: mode,
-          notificationDetails: NotificationDetails(android: details),
-        );
-    try {
-      await schedule(AndroidScheduleMode.exactAllowWhileIdle);
-    } on PlatformException {
-      await schedule(AndroidScheduleMode.inexactAllowWhileIdle);
-    }
-  }
-  store.setMeta('reminders_plan', plan);
+  await scheduleReminders(store);
+  await clearHandledReminders(store);
 }
 
 Future<void> _focusNotification(Store store) async {
@@ -120,15 +32,15 @@ Future<void> _focusNotification(Store store) async {
   // neither re-alert nor leave a stale timer behind.
   final shown = store.getMeta('notified_focus');
   if (session?.id == shown) return;
-  await _initNotifications();
-  await _notifications.cancel(id: _ongoingId);
-  await _notifications.cancel(id: _finishedId);
+  await initNotifications();
+  await notifications.cancel(id: _ongoingId);
+  await notifications.cancel(id: _finishedId);
   store.setMeta('notified_focus', session?.id);
   if (session == null) return;
 
   final isBreak = session.kind == 'break';
   final left = session.plannedEnd.difference(DateTime.now());
-  await _notifications.show(
+  await notifications.show(
     id: _ongoingId,
     title: isBreak ? 'Break' : 'Focus',
     body: session.taskTitle ?? '${session.plannedMin} minutes',
@@ -151,7 +63,7 @@ Future<void> _focusNotification(Store store) async {
     ),
   );
 
-  Future<void> scheduleEnd(AndroidScheduleMode mode) => _notifications.zonedSchedule(
+  Future<void> scheduleEnd(AndroidScheduleMode mode) => notifications.zonedSchedule(
         id: _finishedId,
         title: isBreak ? 'Break over' : 'Focus session finished',
         body: session.taskTitle ?? '${session.plannedMin} minutes done',

@@ -12,7 +12,6 @@ import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetBackgroundIntent
-import es.antonborri.home_widget.HomeWidgetBackgroundReceiver
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 import java.time.Instant
@@ -33,7 +32,10 @@ private fun action(context: Context, uri: String): PendingIntent =
 private fun openApp(context: Context): PendingIntent =
     HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
 
-/** A scrolling list of tickable rows; each item's `kind` and `id` form its tap action. */
+/**
+ * A scrolling list of rows. Tapping a row's tick toggles it; tapping its text
+ * opens a card with the details. Both go through [TaskPopupActivity].
+ */
 private fun listViews(
     context: Context,
     title: String,
@@ -65,24 +67,26 @@ private fun listViews(
         Paint.ANTI_ALIAS_FLAG or (if (done) Paint.STRIKE_THRU_TEXT_FLAG else 0),
     )
     val kind = item.optString("kind", "task")
+    val id = item.getString("id")
     row.setOnClickFillInIntent(
-        R.id.row,
-        Intent().setData(Uri.parse("todo://$kind/toggle?id=${item.getString("id")}")),
+        R.id.row_check,
+        Intent().setData(Uri.parse("todo://$kind/toggle?id=$id")),
+    )
+    row.setOnClickFillInIntent(
+        R.id.row_body,
+        Intent().setData(Uri.parse("todo://$kind/details?id=$id")),
     )
     rows.addItem(item.getString("id").hashCode().toLong(), row)
   }
   views.setRemoteAdapter(R.id.rows, rows.build())
 
   // Rows fill in their own `todo://` uri on top of this shared template.
-  val template =
-      Intent(context, HomeWidgetBackgroundReceiver::class.java)
-          .setAction("es.antonborri.home_widget.action.BACKGROUND")
   views.setPendingIntentTemplate(
       R.id.rows,
-      PendingIntent.getBroadcast(
+      PendingIntent.getActivity(
           context,
           2,
-          template,
+          Intent(context, TaskPopupActivity::class.java),
           PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
       ),
   )
