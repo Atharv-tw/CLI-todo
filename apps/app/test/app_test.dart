@@ -9,6 +9,7 @@ import 'package:todo_app/reminders.dart';
 import 'package:todo_app/speech_models.dart';
 import 'package:todo_app/state.dart';
 import 'package:todo_app/sync_page.dart';
+import 'package:todo_app/voice.dart';
 import 'package:todo_app/voice_sheet.dart';
 import 'package:todo_core/todo_core.dart';
 
@@ -270,6 +271,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('diary: text deleted while the mic is on does not come back when it is turned off', (tester) async {
+    final mic = _FakeDictation();
+    dictationForTest = () => mic;
+    addTearDown(() => dictationForTest = null);
+    await pump(tester, const Size(360, 740));
+    await go(tester, 'Diary');
+    final box = find.byKey(const ValueKey('diary-draft'));
+    String text() => tester.widget<TextField>(box).controller!.text;
+
+    await tester.tap(find.byKey(const ValueKey('diary-mic')));
+    await tester.pumpAndSettle();
+    mic.say('I skipped the workout and felt bad about it');
+    await tester.pump();
+    expect(text(), 'I skipped the workout and felt bad about it');
+
+    // Delete the end by hand while the mic is still on, then turn it off.
+    await tester.enterText(box, 'I skipped the workout');
+    await tester.tap(find.byKey(const ValueKey('diary-mic')));
+    await tester.pumpAndSettle();
+    expect(mic.listening, isFalse);
+    expect(text(), 'I skipped the workout');
+
+    // What is saved is what is in the box.
+    await tester.tap(find.byKey(const ValueKey('diary-save')));
+    await tester.pumpAndSettle();
+    expect(state.store.diary(author: DiaryEntry.me).single.body, 'I skipped the workout');
+  });
+
   testWidgets('diary: the box to write in sits below the entries, with a mic and a send button', (tester) async {
     state.store.addDiary('Woke at seven');
     await pump(tester, const Size(360, 740));
@@ -436,4 +465,37 @@ void main() {
     await tester.pump();
     expect(state.store.currentFocus(), isNull);
   });
+}
+
+/// A speech engine a test can speak through.
+class _FakeDictation extends Dictation {
+  bool _on = false;
+  String _text = '';
+
+  void say(String everythingSoFar) {
+    _text = everythingSoFar;
+    notifyListeners();
+  }
+
+  @override
+  String get setup => 'fake';
+
+  @override
+  bool get listening => _on;
+
+  @override
+  String get text => _text;
+
+  @override
+  Future<void> start() async {
+    _on = true;
+    _text = '';
+    notifyListeners();
+  }
+
+  @override
+  Future<void> stop() async {
+    _on = false;
+    notifyListeners();
+  }
 }

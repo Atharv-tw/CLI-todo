@@ -18,6 +18,59 @@ void _trace(String event) {
   if (_tracing) debugPrint('dictation: $event');
 }
 
+/// Puts what is spoken into a box the user may also be typing in.
+///
+/// A speech engine reports everything said so far, and its newest words can
+/// still change, so while the box holds what was last put there the spoken
+/// part is simply replaced. Once the user changes the box by hand, their text
+/// is kept exactly as it is, and only what is said from then on is added
+/// after it. Nothing they deleted comes back.
+class SpokenDraft {
+  /// The text speech is added after.
+  String _before = '';
+
+  /// Speech already in the box, or edited away, which is not added again.
+  String _skip = '';
+
+  /// Everything said, as of the last [merge].
+  String _said = '';
+
+  /// What the box held after the last [merge]; anything else is an edit.
+  String _shown = '';
+
+  /// Starts a stretch of dictation in a box that holds [box].
+  void begin(String box) {
+    _before = _shown = box;
+    _skip = _said = '';
+  }
+
+  /// What the box should hold, given what it holds now and everything
+  /// [said] so far; null when it should be left alone.
+  String? merge(String box, String said) {
+    if (box != _shown) {
+      _before = box;
+      _skip = _said;
+    }
+    _said = said;
+    final fresh = _after(_skip, said);
+    final gap = _before.isEmpty || fresh.isEmpty || RegExp(r'\s$').hasMatch(_before) ? '' : ' ';
+    _shown = '$_before$gap$fresh';
+    return _shown == box ? null : _shown;
+  }
+
+  /// The words of [said] that follow the ones it shares with [skip]. By
+  /// words, because an engine may still be finishing the last one.
+  static String _after(String skip, String said) {
+    if (skip.isEmpty) return said;
+    final old = skip.trim().split(RegExp(r'\s+')), now = said.trim().split(RegExp(r'\s+'));
+    var same = 0;
+    while (same < old.length && same < now.length && old[same] == now[same]) {
+      same++;
+    }
+    return now.skip(same).join(' ');
+  }
+}
+
 /// Speech to text for as long as the user wants to keep talking.
 abstract class Dictation extends ChangeNotifier {
   /// Why listening could not start or stopped early, in plain words.

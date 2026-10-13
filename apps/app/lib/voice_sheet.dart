@@ -27,8 +27,13 @@ String? _engineFor(Store store, SpeechLibrary? library) {
   return ready.any((m) => m.id == choice) ? choice : ready.first.id;
 }
 
+/// Set by tests in place of a real speech engine.
+@visibleForTesting
+Dictation Function()? dictationForTest;
+
 /// The dictation the user has set up, or null when there is none yet.
 Future<Dictation?> dictationFor(Store store) async {
+  if (dictationForTest case final make?) return make();
   final library = await SpeechLibrary.open();
   final engine = _engineFor(store, library);
   if (engine == null) return null;
