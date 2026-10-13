@@ -5,6 +5,9 @@
 //
 // which runs this with the clock set to mid-afternoon, so the day in the
 // pictures is half done whenever they are taken.
+//
+// It is a test in all but where it lives, so it may use what tests may.
+// ignore_for_file: invalid_use_of_visible_for_testing_member
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
