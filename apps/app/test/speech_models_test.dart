@@ -133,16 +133,6 @@ void main() {
     expect(speechModels.map((m) => m.id).toSet().length, speechModels.length);
   });
 
-  test('where the device is set to India, the Hindi-English model is offered first', () {
-    expect(speechModelsFor('en_US.UTF-8').first.id, 'base');
-    expect(speechModelsFor('en_GB').first.id, 'base');
-    for (final locale in ['en_IN', 'hi-IN', 'en_IN.UTF-8']) {
-      final models = speechModelsFor(locale);
-      expect(models.first.id, 'hinglish', reason: locale);
-      expect(models.toSet(), speechModels.toSet(), reason: locale);
-    }
-  });
-
   test('recorded bytes become samples, even when a chunk splits one', () {
     // 0x0001 = 1, 0x8000 = -32768, 0x7fff = 32767, as little-endian pairs.
     final pcm = Uint8List.fromList([0x01, 0x00, 0x00, 0x80, 0xff, 0x7f]);

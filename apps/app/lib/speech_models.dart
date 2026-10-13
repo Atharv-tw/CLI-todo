@@ -94,7 +94,7 @@ final speechModels = <SpeechModel>[
   const SpeechModel(
     id: 'hinglish',
     name: 'Hindi and English, mixed',
-    about: 'Writes mixed Hindi and English in Roman letters, the way it is typed in chats.',
+    about: 'Writes mixed Hindi and English in Roman letters, the way it is typed in chats. How well depends a lot on the speaker.',
     source: "Oriserve's Whisper-Hindi2Hinglish, converted by Parismita Global Solutions",
     language: 'hi',
     files: [
@@ -120,15 +120,6 @@ final speechModels = <SpeechModel>[
     decoder: 89855401,
   ),
 ];
-
-/// The models in the order they are offered. The first one a device has is
-/// used until another is picked, so where the device is set to India the
-/// mixed Hindi-English model leads: Whisper's own models write Hindi in
-/// whichever script they guess, a stretch at a time.
-List<SpeechModel> speechModelsFor(String locale) {
-  if (!RegExp(r'[_-]IN\b').hasMatch(locale)) return speechModels;
-  return [...speechModels.where((m) => m.language == 'hi'), ...speechModels.where((m) => m.language != 'hi')];
-}
 
 /// Languages offered for the models that can write any. Whisper knows many
 /// more; the empty code lets it work the language out from the speech.
@@ -214,8 +205,9 @@ class SpeechLibrary extends ChangeNotifier {
   bool has(SpeechModel model) =>
       File(detectorPath).existsSync() && model.files.every((f) => File(pathOf(model, f.name)).existsSync());
 
-  /// The models this device has, the one to prefer first.
-  List<SpeechModel> get ready => [for (final m in speechModelsFor(Platform.localeName)) if (has(m)) m];
+  /// The models this device has, in the order they are offered. The first is
+  /// the one used until another is picked.
+  List<SpeechModel> get ready => [for (final m in speechModels) if (has(m)) m];
 
   /// Fetches [model] and the speech detector. A download that stopped part
   /// way carries on from where it got to. True when the model is ready.

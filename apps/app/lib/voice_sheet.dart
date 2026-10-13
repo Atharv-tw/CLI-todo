@@ -141,7 +141,7 @@ class _VoiceSettingsState extends State<VoiceSettings> {
           if (_opened && library == null)
             Text('This device gives the app nowhere to keep a speech model.', style: muted)
           else if (library != null) ...[
-            for (final model in speechModelsFor(Platform.localeName))
+            for (final model in speechModels)
               _ModelTile(
                 model: model,
                 ready: library.has(model),
