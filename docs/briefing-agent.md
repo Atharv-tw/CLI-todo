@@ -83,7 +83,24 @@ about one item, `task` or `habit` with that item's title.
   or leave it and say so.
 - Never tick things done on their behalf unless the diary says it was done.
 - Do not touch habits, lists, sync settings or the account.
-- Do not edit files in the repository, commit, or push.
+- Do not edit files in this repository, commit to it, or push it.
+
+## The vault (only if one is checked out)
+
+Some people keep a vault: a second repository of Markdown notes, checked out
+beside this one. Look for it (`ls ..`); it has a `Me.md` and a `README.md`
+with filing rules. If there is none, skip this section.
+
+- **Before deciding,** read `Me.md` in it. It holds their goals and how they
+  like their day planned, and it wins over any general advice in this file.
+- **After writing back,** file the diary into it: run `todo vault use PATH`
+  with the vault's path, then follow
+  [plugin/skills/file-diary/SKILL.md](../plugin/skills/file-diary/SKILL.md).
+  Commit in the vault and push to its main branch. The vault is the only
+  place you write files, commit or push.
+- Filing is separate from planning: file every entry not yet filed, including
+  the ones that changed nothing in the plan.
+- Add a sixth point to your report: what you filed, and into which notes.
 
 ## Write back
 

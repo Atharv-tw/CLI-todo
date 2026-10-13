@@ -225,8 +225,12 @@ todo vault status                  # where it is, and how much waits to be filed
 - **Nothing is rewritten.** The assistant adds to notes; what you wrote stays.
 - **From a scheduled cloud session,** the vault has to be somewhere it can
   reach, which is what `--github` is for: the session clones the private
-  repo, files, commits and pushes. On the laptop, `git pull` in the vault to
-  see it. Reading it on a phone needs Obsidian plus a git or sync app.
+  repo, files, commits and pushes. Give Claude's GitHub app access to the
+  vault repository, add it to the routine as a second repository with pushes
+  to its main branch allowed, and let the session use the Write and Edit
+  tools; [docs/briefing-agent.md](docs/briefing-agent.md) tells the agent the
+  rest. On the laptop, `git pull` in the vault to see what was filed. Reading
+  it on a phone needs Obsidian plus a git or sync app.
 
 ## License
 
