@@ -17,6 +17,8 @@ import 'state.dart';
 import 'sync_page.dart';
 import 'theme.dart';
 import 'today_page.dart';
+import 'voice.dart';
+import 'voice_sheet.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,7 +119,7 @@ class _ShellState extends State<Shell> {
     (icon: Icons.home_rounded, label: 'Today', page: TodayPage()),
     (icon: Icons.view_agenda_rounded, label: 'Plan', page: PlanPage()),
     (icon: Icons.grid_view_rounded, label: 'Habits', page: HabitsPage()),
-    (icon: Icons.timer_rounded, label: 'Focus', page: FocusPage()),
+    (icon: Icons.edit_note_rounded, label: 'Diary', page: DiaryPage()),
     (icon: Icons.phone_android_rounded, label: 'Screen', page: ScreenPage()),
   ];
 
@@ -126,6 +128,7 @@ class _ShellState extends State<Shell> {
     final app = AppScope.of(context);
     final text = Theme.of(context).textTheme;
     final wide = MediaQuery.sizeOf(context).width >= 720;
+    final focusing = app.store.currentFocus() != null;
     final syncIcon = !app.remote.signedIn
         ? Icons.cloud_off_outlined
         : app.syncError != null
@@ -161,11 +164,25 @@ class _ShellState extends State<Shell> {
               ],
             ),
           ),
+          // How speech becomes text is chosen where it is used.
+          if (_pages[_index].label == 'Diary' && voiceSupported) ...[
+            IconButton.filled(
+              key: const ValueKey('voice-settings'),
+              tooltip: 'Voice',
+              style: IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),
+              icon: const Icon(Icons.settings_voice_rounded),
+              onPressed: () => showVoiceSettings(context),
+            ),
+            const SizedBox(width: 8),
+          ],
           IconButton.filled(
-            tooltip: 'Diary',
-            style: IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),
-            icon: const Icon(Icons.edit_note_rounded),
-            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const DiaryPage())),
+            tooltip: 'Focus',
+            // Lit while a session is running, wherever you are in the app.
+            style: focusing
+                ? IconButton.styleFrom(backgroundColor: AppColors.lavender, foregroundColor: AppColors.onLight)
+                : IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),
+            icon: const Icon(Icons.timer_rounded),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const _FocusScreen())),
           ),
           const SizedBox(width: 8),
           IconButton.filled(
@@ -235,6 +252,21 @@ class _ShellState extends State<Shell> {
             ),
     );
   }
+}
+
+/// The focus timer, opened from the button at the top of every page.
+class _FocusScreen extends StatelessWidget {
+  const _FocusScreen();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Focus')),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760), child: const FocusPage()),
+          ),
+        ),
+      );
 }
 
 /// A tab in the floating pill: the selected one widens to show its label.

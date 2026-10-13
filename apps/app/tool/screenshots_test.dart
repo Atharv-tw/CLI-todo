@@ -5,9 +5,6 @@
 //
 // which runs this with the clock set to mid-afternoon, so the day in the
 // pictures is half done whenever they are taken.
-//
-// It is a test in all but where it lives, so it may use what tests may.
-// ignore_for_file: invalid_use_of_visible_for_testing_member
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -18,10 +15,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:todo_app/diary_page.dart';
 import 'package:todo_app/main.dart';
 import 'package:todo_app/reminder_page.dart';
 import 'package:todo_app/reminders.dart';
-import 'package:todo_app/speech_models.dart';
 import 'package:todo_app/state.dart';
 import 'package:todo_core/todo_core.dart';
 
@@ -179,31 +176,34 @@ Store _demo() {
   entry('12:20', 'Idea: record a two-minute summary after every paper, so the literature review writes itself.');
   entry('13:40', 'Decided to drop the second experiment. One done well beats two rushed.');
 
+  // Earlier days, which the Diary folds into one tile each.
+  const earlier = [
+    ['Long day in the lab. The second run finally converged.', 'Decided to write every morning before email.'],
+    ['Slept badly, kept the run short.', 'Outlined chapter 3 on paper first. Much faster than typing.'],
+    ['Supervisor liked the framing. Wants one more baseline.'],
+    ['Rest day. Read a novel for two hours.'],
+    ['Idea: plot error against sample size, not against time.', 'Guitar felt easier today.'],
+    ['Groceries, laundry, an early night.'],
+  ];
+  for (final (i, texts) in earlier.indexed) {
+    final date = addDays(now, -(i + 1));
+    for (final (n, body) in texts.indexed) {
+      final e = store.addDiary(body, date: date);
+      store.db.execute('UPDATE diary SET created_at = ? WHERE id = ?', [utcStamp(atTime(date, n == 0 ? '08:10' : '21:40')), e.id]);
+    }
+  }
+
   store.setMeta('demo_reading', reading.id);
   return store;
 }
 
 void main() {
   late AppState state;
-  late Directory models;
 
   setUpAll(() async {
     await _loadFonts();
     _out.createSync(recursive: true);
-    models = Directory.systemTemp.createTempSync('speech');
-    // One model looks downloaded, so the Voice sheet shows both states.
-    final library = SpeechLibrary.override = SpeechLibrary(models);
-    final base = speechModels.firstWhere((m) => m.id == 'base');
-    File(library.detectorPath).createSync(recursive: true);
-    for (final f in base.files) {
-      File(library.pathOf(base, f.name)).createSync(recursive: true);
-    }
   });
-  tearDownAll(() {
-    SpeechLibrary.override = null;
-    models.deleteSync(recursive: true);
-  });
-
   setUp(() => state = AppState(_demo()));
   tearDown(() => state.dispose());
 
@@ -242,30 +242,29 @@ void main() {
     expect(DateTime.now().hour, 14, reason: 'Run scripts/screenshots.sh, which sets the clock.');
     await open(tester, phone);
     await shoot(tester, 'today');
-    for (final page in ['Plan', 'Habits', 'Focus', 'Screen']) {
+    for (final page in ['Plan', 'Habits', 'Diary', 'Screen']) {
       await go(tester, page);
-      // The focus page is shown with a session under way.
-      if (page == 'Focus') {
-        await tester.tap(find.text('Start focus'));
-        await tester.pumpAndSettle();
-      }
       await shoot(tester, page.toLowerCase());
-      if (page == 'Focus') {
-        state.change((s) => s.stopFocus());
+      if (page == 'Diary') {
+        // Further down: the days that are over, one tile each, one opened.
+        final yesterday = find.byKey(ValueKey('diary-day-${addDays(today(), -1)}'));
+        final list = find.descendant(of: find.byType(DiaryPage), matching: find.byType(Scrollable)).first;
+        await tester.scrollUntilVisible(yesterday, 200, scrollable: list);
+        await tester.tap(yesterday);
         await tester.pumpAndSettle();
+        await tester.drag(list, const Offset(0, -260));
+        await tester.pumpAndSettle();
+        await shoot(tester, 'diary-earlier');
       }
     }
-    debugDisableShadows = true;
-  });
-
-  testWidgets('the diary and the voice sheet', (tester) async {
-    await open(tester, phone);
-    await tester.tap(find.byTooltip('Diary'));
+    // Focus opens from the button at the top; shown with a session under way.
+    await tester.tap(find.byTooltip('Focus'));
     await tester.pumpAndSettle();
-    await shoot(tester, 'diary');
-    await tester.tap(find.byKey(const ValueKey('voice-settings')));
+    await tester.tap(find.text('Start focus'));
     await tester.pumpAndSettle();
-    await shoot(tester, 'voice');
+    await shoot(tester, 'focus');
+    state.change((s) => s.stopFocus());
+    await tester.pumpAndSettle();
     debugDisableShadows = true;
   });
 

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:todo_app/diary_page.dart';
 import 'package:todo_app/main.dart';
 import 'package:todo_app/reminder_page.dart';
 import 'package:todo_app/reminders.dart';
@@ -141,10 +142,17 @@ void main() {
     ]);
     for (final size in const [Size(360, 740), Size(390, 844), Size(1200, 800)]) {
       await pump(tester, size);
-      for (final page in ['Plan', 'Habits', 'Focus', 'Screen', 'Today']) {
+      for (final page in ['Plan', 'Habits', 'Diary', 'Screen', 'Today']) {
         await go(tester, page);
         expect(tester.takeException(), isNull, reason: '$page at $size');
       }
+      // Focus is not a tab: it opens from the button beside Sync.
+      await tester.tap(find.byTooltip('Focus'));
+      await tester.pumpAndSettle();
+      expect(find.text('Start focus'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'Focus at $size');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
     }
     expect(find.byType(NavigationRail), findsOneWidget);
   });
@@ -200,8 +208,7 @@ void main() {
     state.store.addDiary('Moved DSA to 13:30', author: DiaryEntry.assistant);
     state.store.addDiary('Finally got hash maps', taskId: t.id);
     await pump(tester, const Size(360, 740));
-    await tester.tap(find.byTooltip('Diary'));
-    await tester.pumpAndSettle();
+    await go(tester, 'Diary');
     expect(find.text('Claude'), findsOneWidget);
     expect(find.text('DSA: Two Sum'), findsOneWidget); // the chip on the entry about the task
     expect(find.text('Today'), findsOneWidget);
@@ -214,6 +221,71 @@ void main() {
     expect(find.text('Decided to park Onyx'), findsOneWidget);
     expect(find.text(hm(mine.last.createdAt)), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('diary: a day that is over folds into one tile, ten days at a time', (tester) async {
+    // Three weeks of days, two entries each, and one entry today.
+    for (var back = 21; back >= 1; back--) {
+      state.store.addDiary('Morning of day $back', date: addDays(today(), -back));
+      state.store.addDiary('Evening of day $back', date: addDays(today(), -back));
+    }
+    state.store.addDiary('Woke at seven');
+    await pump(tester, const Size(360, 740));
+    await go(tester, 'Diary');
+
+    // Today is open; nothing from an earlier day is.
+    expect(find.text('Woke at seven'), findsOneWidget);
+    expect(find.text('Evening of day 1'), findsNothing);
+    final list = find.descendant(of: find.byType(DiaryPage), matching: find.byType(Scrollable)).first;
+    Finder tile(int back) => find.byKey(ValueKey('diary-day-${addDays(today(), -back)}'));
+
+    // A folded day says which day it is, how much was written, and how it began.
+    expect(find.descendant(of: tile(1), matching: find.text('Yesterday')), findsOneWidget);
+    expect(find.descendant(of: tile(1), matching: find.text('2 entries')), findsOneWidget);
+    expect(find.descendant(of: tile(1), matching: find.text('Morning of day 1')), findsOneWidget);
+
+    // Tapping it opens that day, and tapping again folds it.
+    await tester.tap(tile(1));
+    await tester.pumpAndSettle();
+    expect(find.text('Evening of day 1'), findsOneWidget);
+    await tester.tap(tile(1));
+    await tester.pumpAndSettle();
+    expect(find.text('Evening of day 1'), findsNothing);
+
+    // Ten earlier days are listed; the rest come ten at a time.
+    final more = find.byKey(const ValueKey('diary-more'));
+    await tester.scrollUntilVisible(more, 200, scrollable: list);
+    expect(tile(10), findsOneWidget);
+    expect(tile(11), findsNothing);
+    expect(find.text('Show 10 more days'), findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(more, 200, scrollable: list);
+    expect(find.text('Show 1 more days'), findsNothing);
+    expect(find.text('Show 1 more day'), findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(tile(21), 200, scrollable: list);
+    expect(more, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('diary: the box to write in sits below the entries, with a mic and a send button', (tester) async {
+    state.store.addDiary('Woke at seven');
+    await pump(tester, const Size(360, 740));
+    await go(tester, 'Diary');
+    final box = tester.getRect(find.byKey(const ValueKey('diary-draft')));
+    final mic = tester.getRect(find.byKey(const ValueKey('diary-mic')));
+    final send = tester.getRect(find.byKey(const ValueKey('diary-save')));
+    expect(box.top, greaterThan(tester.getRect(find.text('Woke at seven')).bottom));
+    // One row: the box, then the mic, then send, at the right edge.
+    expect(mic.left, greaterThan(box.right));
+    expect(send.left, greaterThan(mic.right));
+    expect(send.center.dy, closeTo(mic.center.dy, 1));
+    // In the bottom third of the screen, within reach of a thumb.
+    expect(send.top, greaterThan(740 * 2 / 3));
+    expect(find.text('Speak'), findsNothing);
+    expect(find.text('Save'), findsNothing);
   });
 
   testWidgets('sync: a build with no server asks for one before signing in', (tester) async {
@@ -261,8 +333,7 @@ void main() {
     }
 
     await pump(tester, const Size(360, 740));
-    await tester.tap(find.byTooltip('Diary'));
-    await tester.pumpAndSettle();
+    await go(tester, 'Diary');
 
     // Nothing to listen with yet, so the mic opens the choice of models.
     await tester.tap(find.byKey(const ValueKey('diary-mic')));
@@ -356,7 +427,8 @@ void main() {
 
   testWidgets('focus starts and stops from the Focus page', (tester) async {
     await pump(tester, const Size(390, 844));
-    await go(tester, 'Focus');
+    await tester.tap(find.byTooltip('Focus'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Start focus'));
     await tester.pump();
     expect(state.store.currentFocus()!.plannedMin, 25);
