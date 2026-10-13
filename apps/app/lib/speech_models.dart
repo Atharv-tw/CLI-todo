@@ -87,7 +87,7 @@ final speechModels = <SpeechModel>[
     'base',
     'bb53ee204431c90d314c1cc08d28d23e5b7927cc',
     name: 'Whisper base',
-    about: 'Any language. A good start on most phones.',
+    about: 'Any one language at a time; it mixes two badly. A good start on most phones.',
     encoder: 29120534,
     decoder: 130672026,
   ),
@@ -107,7 +107,7 @@ final speechModels = <SpeechModel>[
     'small',
     '8f3c18b358db4d1f2fc1eae49d75cd20989e4309',
     name: 'Whisper small',
-    about: 'Any language. More accurate, and slower to write.',
+    about: 'Any one language at a time. More accurate, and slower to write.',
     encoder: 112442483,
     decoder: 262226114,
   ),
@@ -115,11 +115,20 @@ final speechModels = <SpeechModel>[
     'tiny',
     '65176e2deb88badc814a94058666cadccc29b61c',
     name: 'Whisper tiny',
-    about: 'Any language. Fastest and least accurate.',
+    about: 'Any one language at a time. Fastest and least accurate.',
     encoder: 12937772,
     decoder: 89855401,
   ),
 ];
+
+/// The models in the order they are offered. The first one a device has is
+/// used until another is picked, so where the device is set to India the
+/// mixed Hindi-English model leads: Whisper's own models write Hindi in
+/// whichever script they guess, a stretch at a time.
+List<SpeechModel> speechModelsFor(String locale) {
+  if (!RegExp(r'[_-]IN\b').hasMatch(locale)) return speechModels;
+  return [...speechModels.where((m) => m.language == 'hi'), ...speechModels.where((m) => m.language != 'hi')];
+}
 
 /// Languages offered for the models that can write any. Whisper knows many
 /// more; the empty code lets it work the language out from the speech.
@@ -171,8 +180,12 @@ class SpeechLibrary extends ChangeNotifier {
     if (override != null) return override;
     if (_shared != null) return _shared;
     try {
-      final support = await getApplicationSupportDirectory();
-      return _shared = SpeechLibrary(Directory(p.join(support.path, 'speech')));
+      // On a phone the models go in the app's folder on shared storage: still
+      // private to the app and removed with it, but a model can also be
+      // copied in over USB instead of downloaded.
+      final home = (Platform.isAndroid ? await getExternalStorageDirectory() : null) ??
+          await getApplicationSupportDirectory();
+      return _shared = SpeechLibrary(Directory(p.join(home.path, 'speech')));
     } catch (_) {
       return null;
     }
@@ -201,7 +214,8 @@ class SpeechLibrary extends ChangeNotifier {
   bool has(SpeechModel model) =>
       File(detectorPath).existsSync() && model.files.every((f) => File(pathOf(model, f.name)).existsSync());
 
-  List<SpeechModel> get ready => [for (final m in speechModels) if (has(m)) m];
+  /// The models this device has, the one to prefer first.
+  List<SpeechModel> get ready => [for (final m in speechModelsFor(Platform.localeName)) if (has(m)) m];
 
   /// Fetches [model] and the speech detector. A download that stopped part
   /// way carries on from where it got to. True when the model is ready.
