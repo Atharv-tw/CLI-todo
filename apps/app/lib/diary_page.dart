@@ -61,8 +61,9 @@ class _DiaryComposerState extends State<DiaryComposer> {
   /// The speech engine last used here; made when the mic is first pressed.
   Dictation? _dictation;
 
-  /// What was in the box when the mic was pressed; speech is added after it.
-  String _before = '';
+  /// Fits what is spoken around what is typed, so an edit made while the mic
+  /// is on stays made.
+  final _draft = SpokenDraft();
 
   @override
   void initState() {
@@ -82,12 +83,21 @@ class _DiaryComposerState extends State<DiaryComposer> {
   void _heard() {
     final dictation = _dictation;
     if (!mounted || dictation == null) return;
-    final said = dictation.text;
-    if (said.isNotEmpty) {
-      final joined = [_before, said].where((s) => s.isNotEmpty).join(_before.endsWith('\n') ? '' : ' ');
-      if (joined != _text.text) {
-        _text.value = TextEditingValue(text: joined, selection: TextSelection.collapsed(offset: joined.length));
-      }
+    final next = _draft.merge(_text.text, dictation.text);
+    if (next != null) {
+      // The cursor follows the speech, unless the user has put it somewhere
+      // to edit: then it stays where they are working.
+      final at = _text.selection;
+      final following = !at.isValid || at.end >= _text.text.length;
+      _text.value = TextEditingValue(
+        text: next,
+        selection: following
+            ? TextSelection.collapsed(offset: next.length)
+            : TextSelection(
+                baseOffset: at.baseOffset.clamp(0, next.length),
+                extentOffset: at.extentOffset.clamp(0, next.length),
+              ),
+      );
     }
     setState(() {});
   }
@@ -116,7 +126,7 @@ class _DiaryComposerState extends State<DiaryComposer> {
         ..dispose();
       _dictation = next..addListener(_heard);
     }
-    _before = _text.text.trimRight();
+    _draft.begin(_text.text);
     await next.start();
   }
 
@@ -126,7 +136,7 @@ class _DiaryComposerState extends State<DiaryComposer> {
     if (body.isEmpty || !mounted) return;
     AppScope.of(context).change((s) => s.addDiary(body, taskId: widget.taskId, habitId: widget.habitId));
     _text.clear();
-    _before = '';
+    _draft.begin('');
     FocusScope.of(context).unfocus();
     widget.onSaved?.call();
   }
