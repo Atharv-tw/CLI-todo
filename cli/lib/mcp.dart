@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:todo_core/todo_core.dart';
 
+import 'vault.dart';
+
 typedef _Handler = Object? Function(Store store, Map<String, Object?> args);
 
 class _Tool {
@@ -216,7 +218,7 @@ final _tools = <_Tool>[
   ),
   _Tool(
     'list_diary',
-    'The diary, newest day first: what the user logged through each day (author "me": ideas, decisions, how things went, sometimes about one task or habit) and notes the assistant left (author "claude"). `created_at` is when it was logged.',
+    'The diary, newest day first: what the user logged through each day (author "me": ideas, decisions, how things went, sometimes about one task or habit) and notes the assistant left (author "claude"). `time` is when it was logged, on the user\'s clock.',
     {
       'from': _str('First day ($_dateHelp). Defaults to 6 days before the last day.'),
       'to': _str('Last day ($_dateHelp). Defaults to today.'),
@@ -262,6 +264,12 @@ final _tools = <_Tool>[
           taskId: _s(a, 'task') == null ? null : store.resolveId('tasks', _s(a, 'task')!),
         )
         .toJson(),
+  ),
+  _Tool(
+    'vault_status',
+    'The user\'s vault: an optional folder of Markdown notes (it opens in Obsidian) that their diary is filed into. Gives its path on this machine, or a null path if they have none, its git remote, and how many diary entries are waiting to be filed. The vault\'s README.md holds the rules for filing.',
+    {},
+    (store, a) => vaultStatus(store),
   ),
   _Tool(
     'mark_diary_filed',

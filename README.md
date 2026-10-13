@@ -198,6 +198,36 @@ To sync the diary, run the updated `supabase/schema.sql` once. It creates the
 `diary` table, carrying over a `briefs` table from an earlier version. Until
 then everything else keeps syncing and entries wait on the device.
 
+## Vault (optional)
+
+A vault is a folder of plain Markdown notes that builds into a memory of your
+own: each day's log, decisions with their reasons, ideas, what you learned by
+topic, a note per project, and your goals. You keep logging the diary as
+usual; an assistant files each entry where it belongs, so you never sort
+anything. Open the folder in [Obsidian](https://obsidian.md) to read and link
+through it. Skip all of this if you only want tasks and a diary.
+
+```
+todo vault init                    # creates ~/Vault with starter notes
+todo vault init ~/Notes/Me         # or somewhere else
+todo vault init --github my-vault  # and keep it in a new private GitHub repo
+todo vault use PATH                # point this device at a vault that exists
+todo vault status                  # where it is, and how much waits to be filed
+```
+
+- **The rules live in the vault.** `README.md` there says what goes in which
+  note and how each looks. Edit it and the filing follows.
+- **Filing is done by your assistant, not by this program,** so there is no AI
+  key to set up. Ask it to "file my diary": the steps are in
+  [plugin/skills/file-diary/SKILL.md](plugin/skills/file-diary/SKILL.md), and
+  the MCP server has `vault_status`, `list_diary` and `mark_diary_filed`. An
+  entry is marked once filed and is never filed twice.
+- **Nothing is rewritten.** The assistant adds to notes; what you wrote stays.
+- **From a scheduled cloud session,** the vault has to be somewhere it can
+  reach, which is what `--github` is for: the session clones the private
+  repo, files, commits and pushes. On the laptop, `git pull` in the vault to
+  see it. Reading it on a phone needs Obsidian plus a git or sync app.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

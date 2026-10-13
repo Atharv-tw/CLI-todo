@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:http/http.dart' as http;
 import 'package:todo_cli/mcp.dart';
+import 'package:todo_cli/vault.dart';
 import 'package:todo_core/todo_core.dart';
 
 final Store store = Store(openDb());
@@ -22,6 +23,7 @@ Future<void> main(List<String> args) async {
     ..addCommand(HabitCommand())
     ..addCommand(FocusCommand())
     ..addCommand(UsageCommand())
+    ..addCommand(VaultCommand())
     ..addCommand(DiaryCommand())
     ..addCommand(DiaryCommand('brief'))
     ..addCommand(_DiaryRm())
@@ -533,6 +535,115 @@ class _DiaryFiled extends Cmd {
     final ids = [for (final ref in rest) store.resolveId('diary', ref)];
     store.markDiaryFiled(ids);
     out({'filed': ids}, () => 'Marked ${ids.length} as filed.');
+  }
+}
+
+class VaultCommand extends Cmd {
+  VaultCommand() : super('vault', 'An optional folder of notes that your diary is filed into (opens in Obsidian).') {
+    addSubcommand(_VaultInit());
+    addSubcommand(_VaultUse());
+    addSubcommand(_VaultStatus());
+  }
+}
+
+String _vaultLine(Map<String, Object?> s) {
+  if (s['path'] == null) return 'No vault on this device. Create one with: todo vault init';
+  if (s['exists'] != true) return 'The vault is set to ${s['path']}, but that folder is missing.';
+  final where = s['remote'] == null ? '' : '  (${s['remote']})';
+  final waiting = s['unfiled'] as int;
+  return 'Vault: ${s['path']}$where\n'
+      '${waiting == 0 ? 'Nothing waiting to be filed.' : '$waiting diary ${waiting == 1 ? 'entry' : 'entries'} waiting to be filed.'}';
+}
+
+class _VaultStatus extends Cmd {
+  _VaultStatus() : super('status', 'Where the vault is and how many diary entries are waiting to be filed.');
+
+  @override
+  void run() {
+    final s = vaultStatus(store);
+    out(s, () => _vaultLine(s));
+  }
+}
+
+class _VaultUse extends Cmd {
+  _VaultUse() : super('use', 'Point this device at a vault that already exists: todo vault use PATH');
+
+  @override
+  void run() {
+    if (rest.length != 1) usageException('Give the folder of the vault.');
+    final path = Directory(rest.first).absolute.path;
+    if (!Directory(path).existsSync()) throw TodoException('There is no folder at $path');
+    store.setMeta(vaultPathKey, path);
+    final s = vaultStatus(store);
+    out(s, () => _vaultLine(s));
+  }
+}
+
+class _VaultInit extends Cmd {
+  _VaultInit() : super('init', 'Create a vault: todo vault init [PATH] [--github [NAME]]') {
+    argParser.addOption(
+      'github',
+      help: 'Also keep it in a new private GitHub repo with this name, so an assistant in the cloud can file into it.',
+    );
+  }
+
+  @override
+  void run() {
+    if (rest.length > 1) usageException('Give at most one folder.');
+    final path = Directory(rest.isEmpty ? defaultVaultPath() : rest.first).absolute.path;
+    final written = scaffoldVault(path);
+    store.setMeta(vaultPathKey, path);
+
+    final notes = <String>[];
+    final repo = opt('github');
+    if (repo != null) notes.addAll(_toGitHub(path, repo));
+
+    out({...vaultStatus(store), 'created': written}, () {
+      final lines = [
+        written.isEmpty
+            ? 'The vault at $path already had every starter note; nothing was changed.'
+            : 'Created the vault at $path (${written.where((f) => f.endsWith('.md')).join(', ')}).',
+        ...notes,
+        'Open that folder as a vault in Obsidian. Start by filling in Me.md.',
+      ];
+      return lines.join('\n');
+    });
+  }
+
+  /// Puts the vault under git and, when the GitHub CLI is signed in, into a
+  /// new private repository. Returns lines saying what happened.
+  List<String> _toGitHub(String path, String repo) {
+    ProcessResult git(List<String> args) => Process.runSync('git', ['-C', path, ...args]);
+    try {
+      if (!Directory('$path/.git').existsSync()) git(['init', '-q', '-b', 'main']);
+      git(['add', '-A']);
+      if ((git(['status', '--porcelain']).stdout as String).trim().isNotEmpty) {
+        git(['commit', '-q', '-m', 'Start the vault']);
+      }
+    } on ProcessException {
+      return ['git is not installed, so the vault was not put under version control.'];
+    }
+    if (git(['remote', 'get-url', 'origin']).exitCode == 0) {
+      return ['It already has a remote; left that as it is.'];
+    }
+    final manual = [
+      'To put it on GitHub yourself: create an empty private repository called "$repo", then run',
+      '  git -C "$path" remote add origin https://github.com/YOU/$repo.git',
+      '  git -C "$path" push -u origin main',
+    ];
+    try {
+      if (Process.runSync('gh', ['auth', 'status']).exitCode != 0) {
+        return ['The GitHub CLI is not signed in (run: gh auth login).', ...manual];
+      }
+      final made = Process.runSync(
+        'gh',
+        ['repo', 'create', repo, '--private', '--source', path, '--remote', 'origin', '--push'],
+      );
+      if (made.exitCode != 0) return ['GitHub said: ${(made.stderr as String).trim()}', ...manual];
+      return ['Pushed to a new private GitHub repository: ${(made.stdout as String).trim().split('\n').first}'];
+    } on ProcessException {
+      return ['The GitHub CLI (gh) is not installed.', ...manual];
+    }
   }
 }
 

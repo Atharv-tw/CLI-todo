@@ -189,6 +189,7 @@ class DiaryEntry {
         'author': author,
         'body': body,
         'created_at': utcStamp(createdAt),
+        'time': hm(createdAt),
         'task_id': taskId,
         'task': taskTitle,
         'habit_id': habitId,
