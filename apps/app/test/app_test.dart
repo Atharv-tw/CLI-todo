@@ -7,6 +7,7 @@ import 'package:todo_app/reminder_page.dart';
 import 'package:todo_app/reminders.dart';
 import 'package:todo_app/speech_models.dart';
 import 'package:todo_app/state.dart';
+import 'package:todo_app/sync_page.dart';
 import 'package:todo_app/voice_sheet.dart';
 import 'package:todo_core/todo_core.dart';
 
@@ -212,6 +213,36 @@ void main() {
     expect(mine.map((e) => e.body), ['Finally got hash maps', 'Decided to park Onyx']);
     expect(find.text('Decided to park Onyx'), findsOneWidget);
     expect(find.text(hm(mine.last.createdAt)), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sync: a build with no server asks for one before signing in', (tester) async {
+    await pump(tester, const Size(360, 740));
+    await tester.tap(find.byTooltip('Sync'));
+    await tester.pumpAndSettle();
+    expect(state.remote.configured, isFalse);
+    expect(find.byKey(const ValueKey('sync-url')), findsOneWidget);
+
+    // Signing in without them says what is missing and sets nothing.
+    final signIn = find.text('Sign in');
+    // The page's own list, not the scrolling inside a text field.
+    final page = find.descendant(of: find.byType(SyncPage), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(signIn, 80, scrollable: page);
+    await tester.tap(signIn);
+    await tester.pump();
+    expect(find.textContaining('starts with https://'), findsOneWidget);
+    expect(state.remote.configured, isFalse);
+
+    await tester.enterText(find.byKey(const ValueKey('sync-url')), 'https://example.supabase.co/');
+    await tester.enterText(find.byKey(const ValueKey('sync-key')), 'sb_publishable_test');
+    await tester.scrollUntilVisible(signIn, 80, scrollable: page);
+    await tester.tap(signIn);
+    await tester.pumpAndSettle();
+    expect(state.remote.url, 'https://example.supabase.co');
+    expect(state.remote.anonKey, 'sb_publishable_test');
+    // The server is kept, and can still be changed.
+    expect(find.text('Server: example.supabase.co'), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

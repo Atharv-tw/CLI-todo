@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:http/http.dart' as http;
+import 'package:todo_cli/embedded.g.dart';
 import 'package:todo_cli/mcp.dart';
+import 'package:todo_cli/setup.dart';
 import 'package:todo_cli/vault.dart';
 import 'package:todo_core/todo_core.dart';
 
@@ -12,6 +14,7 @@ final Store store = Store(openDb());
 Future<void> main(List<String> args) async {
   final runner = CommandRunner<void>('todo', 'Tasks, habits and focus sessions.')
     ..argParser.addFlag('json', negatable: false, help: 'Print JSON instead of text.')
+    ..addCommand(InitCommand())
     ..addCommand(AddCommand())
     ..addCommand(ListCommand())
     ..addCommand(TodayCommand())
@@ -29,6 +32,7 @@ Future<void> main(List<String> args) async {
     ..addCommand(_DiaryRm())
     ..addCommand(_DiaryFiled())
     ..addCommand(_UsageAdd())
+    ..addCommand(SchemaCommand())
     ..addCommand(ServerCommand())
     ..addCommand(LoginCommand())
     ..addCommand(LogoutCommand())
@@ -596,7 +600,7 @@ class _VaultInit extends Cmd {
 
     final notes = <String>[];
     final repo = opt('github');
-    if (repo != null) notes.addAll(_toGitHub(path, repo));
+    if (repo != null) notes.addAll(vaultToGitHub(path, repo));
 
     out({...vaultStatus(store), 'created': written}, () {
       final lines = [
@@ -608,42 +612,6 @@ class _VaultInit extends Cmd {
       ];
       return lines.join('\n');
     });
-  }
-
-  /// Puts the vault under git and, when the GitHub CLI is signed in, into a
-  /// new private repository. Returns lines saying what happened.
-  List<String> _toGitHub(String path, String repo) {
-    ProcessResult git(List<String> args) => Process.runSync('git', ['-C', path, ...args]);
-    try {
-      if (!Directory('$path/.git').existsSync()) git(['init', '-q', '-b', 'main']);
-      git(['add', '-A']);
-      if ((git(['status', '--porcelain']).stdout as String).trim().isNotEmpty) {
-        git(['commit', '-q', '-m', 'Start the vault']);
-      }
-    } on ProcessException {
-      return ['git is not installed, so the vault was not put under version control.'];
-    }
-    if (git(['remote', 'get-url', 'origin']).exitCode == 0) {
-      return ['It already has a remote; left that as it is.'];
-    }
-    final manual = [
-      'To put it on GitHub yourself: create an empty private repository called "$repo", then run',
-      '  git -C "$path" remote add origin https://github.com/YOU/$repo.git',
-      '  git -C "$path" push -u origin main',
-    ];
-    try {
-      if (Process.runSync('gh', ['auth', 'status']).exitCode != 0) {
-        return ['The GitHub CLI is not signed in (run: gh auth login).', ...manual];
-      }
-      final made = Process.runSync(
-        'gh',
-        ['repo', 'create', repo, '--private', '--source', path, '--remote', 'origin', '--push'],
-      );
-      if (made.exitCode != 0) return ['GitHub said: ${(made.stderr as String).trim()}', ...manual];
-      return ['Pushed to a new private GitHub repository: ${(made.stdout as String).trim().split('\n').first}'];
-    } on ProcessException {
-      return ['The GitHub CLI (gh) is not installed.', ...manual];
-    }
   }
 }
 
@@ -713,7 +681,7 @@ class _UsageAdd extends Cmd {
 }
 
 class McpCommand extends Cmd {
-  McpCommand() : super('mcp', 'Run the MCP server on stdin/stdout (for Claude).');
+  McpCommand() : super('mcp', 'Run the tool server for an assistant (MCP on stdin/stdout).');
 
   @override
   Future<void> run() => serveMcp(store);
@@ -728,6 +696,166 @@ String prompt(String label, {bool secret = false}) {
   } finally {
     stdin.echoMode = true;
     stderr.writeln();
+  }
+}
+
+/// Asks a yes-or-no question; Enter takes [fallback].
+bool confirm(String question, {required bool fallback}) {
+  final answer = prompt('$question [${fallback ? 'Y/n' : 'y/N'}]').toLowerCase();
+  return answer.isEmpty ? fallback : answer.startsWith('y');
+}
+
+/// Asks for a line; Enter takes [fallback].
+String ask(String label, String fallback) {
+  final answer = prompt('$label [$fallback]');
+  return answer.isEmpty ? fallback : answer;
+}
+
+String _expandHome(String path) => path == '~' || path.startsWith('~/') ? homeDir + path.substring(1) : path;
+
+class SchemaCommand extends Cmd {
+  SchemaCommand() : super('schema', 'Print the SQL that sets up a sync server. Paste it into your Supabase SQL editor.');
+
+  @override
+  void run() => stdout.write(schemaSql);
+}
+
+class InitCommand extends Cmd {
+  InitCommand() : super('init', 'Set up sync, your assistant and a vault of notes, one question at a time. Safe to run again.') {
+    argParser
+      ..addOption('server', help: 'Sync: your Supabase project URL.')
+      ..addOption('key', help: 'Sync: its publishable key.')
+      ..addOption('email', help: 'Sync: the account to sign in with. The password is asked for, or read from standard input.')
+      ..addMultiOption('assistant', allowed: [for (final a in assistants) a.id], help: 'Connect this assistant.')
+      ..addOption('vault', help: 'Create a vault of notes in this folder.')
+      ..addOption('github', help: 'Keep the vault in a new private GitHub repository with this name.')
+      ..addFlag('defaults', negatable: false, help: 'Ask nothing: do only what the options above say.');
+  }
+
+  @override
+  Future<void> run() async {
+    final asking = stdin.hasTerminal && !argResults!.flag('defaults');
+    final done = <String>[];
+    final left = <String>[];
+    void say(String text) => stderr.writeln(text);
+
+    if (asking) {
+      say('Setting up Todo. Three questions; Enter takes the answer in capitals.\n'
+          'Everything here is optional and can be changed by running this again.\n');
+    }
+
+    // 1. Sync.
+    final remote = SupabaseRemote(store);
+    if (remote.signedIn) {
+      done.add('Sync: signed in as ${remote.email}.');
+    } else {
+      var url = opt('server') ?? remote.url;
+      var key = opt('key');
+      if (asking) {
+        say('1. Sync. Your tasks live in a file on this machine. To have them on your phone or another\n'
+            '   computer too, they sync through a free Supabase project of your own.');
+        if (confirm('   Set up sync now?', fallback: false)) {
+          if (url == null || !confirm('   Use the server already set ($url)?', fallback: true)) {
+            final sql = File('${Directory.systemTemp.path}/todo-schema.sql')..writeAsStringSync(schemaSql);
+            say('   a. Create a project at https://supabase.com/dashboard\n'
+                '   b. Open its SQL editor, paste the contents of ${sql.path} and run it.\n'
+                '   c. Under Authentication > Users, add a user for yourself (email and password).\n'
+                '   d. Under Project Settings > API keys, copy the project URL and the publishable key.');
+            url = prompt('   Project URL');
+            key = prompt('   Publishable key');
+          }
+        } else {
+          url = null;
+        }
+        say('');
+      }
+      if (url != null && url.isNotEmpty) {
+        if (key != null && key.isNotEmpty) remote.configure(url: url, anonKey: key);
+        final email = opt('email') ?? (asking ? prompt('   Email of that user') : '');
+        if (email.isEmpty) {
+          left.add('Sync: the server is set. Sign in with: todo login');
+        } else {
+          try {
+            await remote.signIn(email, prompt('   Password', secret: true));
+            final r = await SyncEngine(store, remote).sync();
+            done.add('Sync: signed in as $email.');
+            if (r.missing.isNotEmpty) {
+              left.add('Sync: the server has no ${r.missing.join(', ')} table yet. Run the SQL from `todo schema` in its SQL editor.');
+            }
+          } on SyncException catch (e) {
+            left.add('Sync: could not sign in (${e.message}). Try again with: todo login');
+          } on SocketException {
+            left.add('Sync: could not reach the server. Try again with: todo login');
+          } on http.ClientException {
+            left.add('Sync: could not reach the server. Try again with: todo login');
+          }
+        }
+      } else {
+        done.add('Sync: off. Everything works on this device.');
+      }
+    }
+
+    // 2. Assistants.
+    final wanted = argResults!.multiOption('assistant');
+    final found = [for (final a in assistants) if (isInstalled(a.command)) a];
+    final chosen = <Assistant>[for (final a in assistants) if (wanted.contains(a.id)) a];
+    if (asking && wanted.isEmpty) {
+      say('2. Assistant. Connected, it can read and change your tasks, plan your day and file your diary.');
+      if (found.isEmpty) say('   Neither Claude Code nor Codex is installed on this machine.');
+      for (final a in found) {
+        if (confirm('   Connect ${a.name}?', fallback: true)) chosen.add(a);
+      }
+      say('');
+    }
+    final todo = todoCommand();
+    for (final a in chosen) {
+      done.addAll(connect(a, todo: todo));
+    }
+    if (chosen.isEmpty) {
+      left.add(found.isEmpty
+          ? 'Assistant: install Claude Code or Codex, then run `todo init` again to connect it.'
+          : 'Assistant: not connected. Run `todo init` again when you want it.');
+    }
+
+    // 3. Vault.
+    final existing = vaultPath(store);
+    if (existing != null && opt('vault') == null) {
+      done.add('Vault: $existing');
+    } else {
+      var path = opt('vault');
+      var repo = opt('github');
+      if (asking && path == null) {
+        say('3. Vault. A folder of notes that your diary is filed into: each day, decisions, ideas, what\n'
+            '   you learned. It opens in Obsidian. Skip it if you only want tasks.');
+        if (confirm('   Create a vault?', fallback: false)) {
+          path = ask('   Where', defaultVaultPath());
+          if (confirm('   Also keep it in a private GitHub repository? An assistant in the cloud needs that.',
+              fallback: false)) {
+            repo = ask('   Repository name', 'vault');
+          }
+        }
+        say('');
+      }
+      if (path != null) {
+        path = Directory(_expandHome(path)).absolute.path;
+        final written = scaffoldVault(path);
+        store.setMeta(vaultPathKey, path);
+        done.add(written.isEmpty ? 'Vault: $path (already there).' : 'Vault: created at $path. Start by filling in Me.md.');
+        if (repo != null) done.addAll(vaultToGitHub(path, repo));
+      } else {
+        done.add('Vault: none.');
+      }
+    }
+
+    out({'done': done, 'left': left}, () {
+      return [
+        'Set up:',
+        for (final line in done) '  $line',
+        if (left.isNotEmpty) ...['Left to do:', for (final line in left) '  $line'],
+        '',
+        'Try: todo add "Read 20 pages" -d today -t 21:00   then: todo today',
+      ].join('\n');
+    });
   }
 }
 

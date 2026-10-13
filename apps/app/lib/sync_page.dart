@@ -16,22 +16,35 @@ class SyncPage extends StatefulWidget {
 class _SyncPageState extends State<SyncPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _url = TextEditingController();
+  final _key = TextEditingController();
   String? _error;
   bool _busy = false;
   bool _filled = false;
 
+  /// The server's address and key are being entered or changed.
+  bool _editServer = false;
+
   @override
   void dispose() {
-    for (final c in [_email, _password]) {
+    for (final c in [_email, _password, _url, _key]) {
       c.dispose();
     }
     super.dispose();
   }
 
   Future<void> _signIn(AppState app) async {
+    if (_editServer) {
+      final url = _url.text.trim(), key = _key.text.trim();
+      if (!url.startsWith('https://') || key.isEmpty) {
+        return setState(() => _error = 'Give the project URL (it starts with https://) and its publishable key.');
+      }
+      app.remote.configure(url: url, anonKey: key);
+    }
     setState(() {
       _busy = true;
       _error = null;
+      _editServer = false;
     });
     try {
       await app.signIn(
@@ -54,6 +67,8 @@ class _SyncPageState extends State<SyncPage> {
     if (!_filled) {
       _filled = true;
       _email.text = app.remote.email ?? '';
+      _url.text = app.remote.url ?? '';
+      _editServer = !app.remote.configured;
     }
 
     final List<Widget> children;
@@ -83,18 +98,42 @@ class _SyncPageState extends State<SyncPage> {
         ),
         const Text('Signing out keeps everything on this device; it only stops syncing.'),
       ];
-    } else if (!app.remote.configured) {
-      children = [
-        const Text(
-          'This build has no sync server. Everything still works on this device. To sync, put your '
-          'Supabase project in config.local.json and rebuild (see the README).',
-        ),
-      ];
     } else {
       children = [
         const Text(
           'Everything works without signing in. Sign in to sync this device with your others.',
         ),
+        if (_editServer) ...[
+          const Text(
+            'Sync goes through a Supabase project of your own. Its address and publishable key are under '
+            'Project Settings in the Supabase dashboard; the README explains how to set one up.',
+          ),
+          TextField(
+            key: const ValueKey('sync-url'),
+            controller: _url,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            decoration: const InputDecoration(labelText: 'Project URL', hintText: 'https://xxxx.supabase.co'),
+          ),
+          TextField(
+            key: const ValueKey('sync-key'),
+            controller: _key,
+            autocorrect: false,
+            decoration: const InputDecoration(labelText: 'Publishable key'),
+          ),
+        ] else
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Server: ${Uri.tryParse(app.remote.url ?? '')?.host ?? app.remote.url}',
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              TextButton(onPressed: () => setState(() => _editServer = true), child: const Text('Change')),
+            ],
+          ),
         TextField(
           controller: _email,
           keyboardType: TextInputType.emailAddress,

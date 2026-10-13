@@ -8,19 +8,46 @@ Android app with home-screen widgets, and an MCP server so an AI assistant can
 read and edit your tasks. Everything works offline and syncs through your own
 Supabase project when online.
 
-## What is in here
+[Quick start](#quick-start) · [With an assistant](#with-an-assistant) · [Build from source](docs/building.md)
 
-| Path | What it is |
+## Quick start
+
+**1. Install.** On 64-bit Linux, one line. It needs no sudo and builds nothing.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Atharv-tw/CLI-todo/main/scripts/install.sh | sh -s -- --app
+```
+
+That installs the `todo` command and the desktop app (leave off `-s -- --app`
+for the command alone). For the phone, download the APK from the
+[latest release](https://github.com/Atharv-tw/CLI-todo/releases/latest):
+`todo-android-arm64.apk` suits almost every phone from the last several years.
+
+**2. Answer three questions.** The installer ends by running `todo init`:
+
+| It asks | If you say yes |
 | --- | --- |
-| `packages/core` | Pure Dart: SQLite store, sync engine, Supabase client |
-| `cli` | The `todo` command, including `todo mcp` (MCP server over stdio) |
-| `apps/app` | Flutter app for Linux desktop and Android |
-| `apps/app/android` | Android home-screen widgets (Today, Habits, Focus) |
-| `gnome-extension` | GNOME Shell top-bar widget |
-| `supabase/schema.sql` | Server tables, row-level security, last-write-wins trigger |
-| `scripts` | Toolchain setup and install scripts |
+| Sync between devices? | Walks you through a free Supabase project of your own. |
+| Connect Claude Code or Codex? | Your assistant can read and change your tasks, plan your day and file your diary. |
+| Keep a vault? | A folder of notes, opened in Obsidian, that your diary is filed into. |
 
-Features:
+Each is optional, and `todo init` can be run again to change an answer.
+
+**3. Use it.**
+
+```bash
+todo add Revise unit 2 -d tomorrow -t 18:00-20:45 -l Exams
+todo today
+todo done 5bb889
+todo habit add Read 20 min --time 22:15
+todo focus start
+```
+
+`todo --help` lists everything; add `--json` to any command for
+machine-readable output. Or ask your assistant: "what is on today?", "I woke
+at ten, re-plan my day", "file my diary".
+
+## What it does
 
 - Tasks with optional date, time slot, list, tag and notes
 - Daily habits with an optional time of day, shown in the same timeline as tasks
@@ -32,135 +59,61 @@ Features:
 - Reminders when a task starts: sound on the laptop; on the phone a full-screen reminder if it is locked and a banner if it is in use, each with *Doing it* (ticks it) and *Snooze 10 min*
 - Two-way calendar on Android: timed tasks become events in a calendar you choose; moving or renaming such an event updates the task
 
-## Requirements
+## With an assistant
 
-- Linux with GNOME for the desktop pieces (built and used on Ubuntu 26.04, GNOME Shell 50)
-- Android 12 or newer for the phone app
-- [Flutter](https://docs.flutter.dev/get-started/install/linux) 3.47 or newer. The scripts expect it at `~/development/flutter`
-- A free [Supabase](https://supabase.com) project, only if you want sync
+`todo mcp` is a tool server (MCP over stdio). Connected, an assistant can use
+`today`, `list_tasks`, `add_task`, `update_task`, `set_task_done`,
+`delete_task`, `add_habit`, `set_habit_done`, `focus_start`, `focus_stop`,
+`screen_time`, `list_diary`, `add_diary_entry`, `mark_diary_filed` and
+`vault_status`. Two skills tell it how to do the bigger jobs:
+[daily-briefing](plugin/skills/daily-briefing/SKILL.md) and
+[file-diary](plugin/skills/file-diary/SKILL.md).
 
-## Setup
+- **Claude Code and Codex:** `todo init` registers the tool server and
+  installs the skills for whichever it finds. By hand:
 
-### 1. Toolchain
+  ```bash
+  claude mcp add --scope user todo -- todo mcp
+  codex mcp add todo -- todo mcp
+  ```
 
-With Flutter unpacked at `~/development/flutter`:
+- **Claude Code, as a plugin:** inside Claude Code, run
+  `/plugin marketplace add Atharv-tw/CLI-todo` and then
+  `/plugin install todo@cli-todo`. Use this or `todo init`, not both.
+- **On a schedule, with your laptop off:** a cloud session can re-plan your
+  day every night from your diary. See [Diary](#diary).
+- **ChatGPT and other chat apps** need a tool server on the internet; this
+  one runs on your machine, so they are not supported.
 
-```bash
-./scripts/setup-toolchain.sh
-```
+## Sync (optional)
 
-This installs the Linux build tools and JDK 17 with apt (asks for sudo),
-downloads the Android command-line tools to `~/Android/Sdk`, and shows the
-Android licences for you to accept. Then install the Android pieces Flutter
-builds against:
-
-```bash
-~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
-```
-
-### 2. The `todo` command
-
-```bash
-./scripts/install-cli.sh
-```
-
-Installs to `~/.local/bin/todo`. Data lives in `~/.local/share/todo/todo.db`
-(override with the `TODO_DB` environment variable).
-
-```bash
-todo add Revise unit 2 -d tomorrow -t 18:00-20:45 -l Exams --tag "Exam prep"
-todo today
-todo done 5bb889
-todo habit add Read 20 min --time 22:15
-todo focus start
-```
-
-`todo --help` lists everything; add `--json` to any command for machine-readable output.
-
-### 3. Sync (optional)
+Without sync everything works on one device. To have the same tasks on a
+phone and a laptop, they sync through a free [Supabase](https://supabase.com)
+project of your own; nobody else holds your data. `todo init` walks through
+it. By hand:
 
 1. Create a Supabase project.
-2. Open its SQL editor, paste `supabase/schema.sql`, and run it.
-3. Under Authentication, add a user (email and password) for yourself. Turn off public sign-ups if you do not want anyone else creating accounts in your project.
-4. Point the laptop at the project and sign in:
-
-```bash
-todo server https://YOUR-PROJECT.supabase.co sb_publishable_YOUR_KEY
-todo login
-```
-
-5. For the app builds, copy `config.example.json` to `config.local.json` and fill in the same two values. The install scripts pass it to the build.
+2. Open its SQL editor, paste the output of `todo schema`, and run it. It is
+   safe to run again after an update.
+3. Under Authentication, add a user (email and password) for yourself. Turn
+   off public sign-ups if you do not want anyone else creating accounts in
+   your project.
+4. On the laptop: `todo server https://YOUR-PROJECT.supabase.co sb_publishable_YOUR_KEY`,
+   then `todo login`.
+5. In the app: tap the cloud icon, enter the same project URL and key, and
+   sign in.
 
 The publishable key is meant to ship in client apps; row-level security in
-`schema.sql` is what keeps each user's rows private.
-
-### 4. Desktop app
-
-```bash
-./scripts/install-desktop.sh
-```
-
-Adds "Todo" to the application grid. It shares the database with the CLI.
-
-### 5. GNOME top-bar widget
-
-```bash
-ln -s "$PWD/gnome-extension/todo@atharv.local" ~/.local/share/gnome-shell/extensions/
-```
-
-Log out and back in, then:
-
-```bash
-gnome-extensions enable todo@atharv.local
-```
-
-It shows today's progress, the running task as a coloured block, and the focus
-countdown; the menu lets you tick items and start a focus session. It rings
-when a task starts.
-
-### 6. Android app
-
-Enable USB debugging on the phone, plug it in, then:
-
-```bash
-./scripts/install-phone.sh
-```
-
-In the app: tap the cloud icon to sign in and to choose the calendar for timed
-tasks. Add the widgets from the home screen's widget picker. Exempt the app
-from battery optimisation if background sync is slow.
-
-### 7. MCP server (optional)
-
-`todo mcp` speaks MCP over stdio. For Claude Code, copy `.mcp.example.json` to
-`.mcp.json` and fix the path. Tools: `today`, `list_tasks`, `add_task`,
-`update_task`, `set_task_done`, `delete_task`, `add_habit`, `set_habit_done`,
-`focus_start`, `focus_stop`.
-
-## Development
-
-```bash
-(cd packages/core && dart test)
-(cd apps/app && flutter test)
-```
-
-## Known limits
-
-- Calendar sync runs on the phone only, so a laptop edit reaches the calendar after the phone next syncs (every 15 minutes in the background).
-- Home-screen widgets need Android 12 or newer. In a list widget, tap a row's tick to tick it and its text for a card with the details and actions. Android does not pass a long-press on a widget to the app, so there is no hold gesture.
-- On Samsung phones the banner shown while the phone is in use is a one-line pill unless *Settings > Notifications > Notification pop-up style* is set to *Detailed*; the buttons are behind its arrow otherwise.
-- The app removes the calendar's own default alert from the events it creates, so a task alerts once, from the app. An event made less than the default lead time before it starts can still alert from the calendar once.
-- Reminders respect the phone's ringer mode: vibration on vibrate, nothing on mute or Do Not Disturb.
-- Sync resolves conflicts per row, not per field: if two devices edit the same task while offline, the later edit replaces the earlier one.
+the schema is what keeps each user's rows private.
 
 ## Screen time
 
 Both devices record foreground time per app per hour and sync it like everything else.
 
-- **Laptop:** the GNOME extension notes the focused window every 5 seconds and reports once a minute. Time with the screen locked or no input for 5 minutes is not counted. After pulling this update, log out and back in once so GNOME reloads the extension.
+- **Laptop:** the GNOME extension notes the focused window every 5 seconds and reports once a minute. Time with the screen locked or no input for 5 minutes is not counted. It needs the GNOME top-bar widget (below).
 - **Phone:** open the Screen tab and tap *Open settings* to grant usage access to Todo. The app reads Android's own history whenever it opens (Android keeps about 7 days, so open it at least weekly). The home screen is not counted.
 - Read it with `todo usage`, `todo usage yesterday`, `todo usage week`, or ask the assistant (the `screen_time` MCP tool).
-- To sync it, run the updated `supabase/schema.sql` once; it adds the `screen_usage` table.
+- It syncs like everything else. If your server was set up before this existed, run the output of `todo schema` in its SQL editor again; that adds the `screen_usage` table.
 
 ## Diary
 
@@ -194,9 +147,10 @@ midnight, it closes out the day that ended, plans the new one from every
 entry written since its last run that bears on the schedule, and leaves a
 one-line receipt.
 
-To sync the diary, run the updated `supabase/schema.sql` once. It creates the
-`diary` table, carrying over a `briefs` table from an earlier version. Until
-then everything else keeps syncing and entries wait on the device.
+If your sync server was set up before the diary existed, run the output of
+`todo schema` in its SQL editor again. It creates the `diary` table, carrying
+over a `briefs` table from an earlier version. Until then everything else
+keeps syncing and entries wait on the device.
 
 ## Vault (optional)
 
@@ -231,6 +185,34 @@ todo vault status                  # where it is, and how much waits to be filed
   tools; [docs/briefing-agent.md](docs/briefing-agent.md) tells the agent the
   rest. On the laptop, `git pull` in the vault to see what was filed. Reading
   it on a phone needs Obsidian plus a git or sync app.
+
+## GNOME top-bar widget
+
+On GNOME, a widget in the top bar shows today's progress, the running task as
+a coloured block and the focus countdown; its menu ticks items and starts a
+focus session, and it rings when a task starts. It also records the laptop's
+screen time. Download `todo-gnome-extension.zip` from the
+[latest release](https://github.com/Atharv-tw/CLI-todo/releases/latest), then:
+
+```bash
+gnome-extensions install todo-gnome-extension.zip
+```
+
+Log out and back in, then `gnome-extensions enable todo@atharv.local`.
+
+## Known limits
+
+- Calendar sync runs on the phone only, so a laptop edit reaches the calendar after the phone next syncs (every 15 minutes in the background).
+- Home-screen widgets need Android 12 or newer. In a list widget, tap a row's tick to tick it and its text for a card with the details and actions. Android does not pass a long-press on a widget to the app, so there is no hold gesture.
+- On Samsung phones the banner shown while the phone is in use is a one-line pill unless *Settings > Notifications > Notification pop-up style* is set to *Detailed*; the buttons are behind its arrow otherwise.
+- The app removes the calendar's own default alert from the events it creates, so a task alerts once, from the app. An event made less than the default lead time before it starts can still alert from the calendar once.
+- Reminders respect the phone's ringer mode: vibration on vibrate, nothing on mute or Do Not Disturb.
+- Sync resolves conflicts per row, not per field: if two devices edit the same task while offline, the later edit replaces the earlier one.
+
+## Build from source
+
+See [docs/building.md](docs/building.md), which also covers the GNOME top-bar
+widget and how releases are made.
 
 ## License
 

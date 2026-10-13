@@ -1,0 +1,17 @@
+{
+  "name": "cli-todo",
+  "owner": {
+    "name": "Atharv Tiwari",
+    "url": "https://github.com/Atharv-tw"
+  },
+  "metadata": {
+    "description": "The Todo app's tools and skills for Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "todo",
+      "source": "./plugin",
+      "description": "Tasks, habits, diary and screen time as tools, with skills for a daily briefing and for filing the diary into a vault of notes. Needs the `todo` command installed."
+    }
+  ]
+}

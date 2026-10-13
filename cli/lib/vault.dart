@@ -59,6 +59,42 @@ Map<String, Object?> vaultStatus(Store store) {
   };
 }
 
+/// Puts the vault under git and, when the GitHub CLI is signed in, into a new
+/// private repository. Returns lines saying what happened.
+List<String> vaultToGitHub(String path, String repo) {
+  ProcessResult git(List<String> args) => Process.runSync('git', ['-C', path, ...args]);
+  try {
+    if (!Directory('$path/.git').existsSync()) git(['init', '-q', '-b', 'main']);
+    git(['add', '-A']);
+    if ((git(['status', '--porcelain']).stdout as String).trim().isNotEmpty) {
+      git(['commit', '-q', '-m', 'Start the vault']);
+    }
+  } on ProcessException {
+    return ['git is not installed, so the vault was not put under version control.'];
+  }
+  if (git(['remote', 'get-url', 'origin']).exitCode == 0) {
+    return ['It already has a remote; left that as it is.'];
+  }
+  final manual = [
+    'To put it on GitHub yourself: create an empty private repository called "$repo", then run',
+    '  git -C "$path" remote add origin https://github.com/YOU/$repo.git',
+    '  git -C "$path" push -u origin main',
+  ];
+  try {
+    if (Process.runSync('gh', ['auth', 'status']).exitCode != 0) {
+      return ['The GitHub CLI is not signed in (run: gh auth login).', ...manual];
+    }
+    final made = Process.runSync(
+      'gh',
+      ['repo', 'create', repo, '--private', '--source', path, '--remote', 'origin', '--push'],
+    );
+    if (made.exitCode != 0) return ['GitHub said: ${(made.stderr as String).trim()}', ...manual];
+    return ['Pushed to a new private GitHub repository: ${(made.stdout as String).trim().split('\n').first}'];
+  } on ProcessException {
+    return ['The GitHub CLI (gh) is not installed.', ...manual];
+  }
+}
+
 const _readme = '''
 # My vault
 
