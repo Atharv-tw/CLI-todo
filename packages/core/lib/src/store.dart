@@ -253,6 +253,10 @@ class Store {
     if (bad.isNotEmpty) throw TodoException('Cannot edit: ${bad.join(', ')}');
     if (changes.isEmpty) return task(id);
     final old = task(id);
+    // A time needs a day: a task sent back to the backlog loses its slot.
+    if (changes.containsKey('date') && changes['date'] == null && !changes.containsKey('start_time')) {
+      changes = {...changes, 'start_time': null, 'end_time': null};
+    }
     final after = {
       'date': old.date,
       'start_time': old.startTime,
