@@ -31,7 +31,8 @@ begin
   for t, extra in values
     ('lists', 'title text not null'),
     ('tasks', 'list_id text, title text not null, notes text, tag text, date text,
-               start_time text, end_time text, done_at text, calendar_event_id text'),
+               start_time text, end_time text, done_at text, calendar_event_id text,
+               due_date text, estimate_min integer, protect text, source_entry text, history text'),
     ('habits', 'title text not null, time text, start_date text, end_date text, sort integer not null default 0'),
     ('habit_checks', 'habit_id text not null, date text not null, done integer not null'),
     ('focus_sessions', 'task_id text, kind text not null, started_at text not null,
@@ -39,7 +40,7 @@ begin
     ('screen_usage', 'device_id text not null, device text not null, app text not null, name text not null,
                       date text not null, hour integer not null, seconds integer not null'),
     ('diary', 'date text not null, author text not null, body text not null,
-               task_id text, habit_id text, filed_at text')
+               task_id text, habit_id text, filed_at text, outcome text')
   loop
     execute format('create table if not exists %I (
       id text primary key,
@@ -66,3 +67,9 @@ alter table habits add column if not exists time text;
 alter table diary add column if not exists task_id text;
 alter table diary add column if not exists habit_id text;
 alter table diary add column if not exists filed_at text;
+alter table tasks add column if not exists due_date text;
+alter table tasks add column if not exists estimate_min integer;
+alter table tasks add column if not exists protect text;
+alter table tasks add column if not exists source_entry text;
+alter table tasks add column if not exists history text;
+alter table diary add column if not exists outcome text;

@@ -14,7 +14,7 @@ class SyncException implements Exception {
 
 /// Supabase over plain HTTP (PostgREST + GoTrue). Project URL, anon key and
 /// the login session live in the local `meta` table.
-class SupabaseRemote implements Remote {
+class SupabaseRemote implements Remote, ReportsMissingColumns {
   SupabaseRemote(this.store, {http.Client? client}) : _http = client ?? http.Client();
 
   final Store store;
@@ -79,6 +79,21 @@ class SupabaseRemote implements Remote {
     store.setMeta('supabase_expires_at', expires.toUtc().toIso8601String());
   }
 
+  @override
+  final missingColumns = <String, Set<String>>{};
+
+  /// The column PostgREST says the table lacks, from its answer to a write
+  /// that named it; null for any other error.
+  String? _missingColumn(http.Response res) {
+    try {
+      final data = jsonDecode(res.body) as Map<String, Object?>;
+      if (data['code'] != 'PGRST204') return null;
+      return RegExp(r"'([^']+)' column").firstMatch('${data['message']}')?.group(1);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// PostgREST's answer for a table that is not in the schema.
   bool _missingTable(http.Response res) {
     try {
@@ -129,14 +144,40 @@ class SupabaseRemote implements Remote {
 
   @override
   Future<void> push(String table, List<Map<String, Object?>> rows) async {
+    final skip = missingColumns.putIfAbsent(table, () => {});
     for (var i = 0; i < rows.length; i += 500) {
       final chunk = rows.sublist(i, (i + 500).clamp(0, rows.length));
-      await _send(table, (headers) => _http.post(
-            Uri.parse('$url/rest/v1/$table?on_conflict=id'),
-            headers: {...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal'},
-            body: jsonEncode(chunk),
-          ));
+      // A server older than this app lacks some columns: leave them out and
+      // say so, rather than stop syncing until its schema is updated.
+      while (true) {
+        final body = jsonEncode([
+          for (final r in chunk) {for (final e in r.entries) if (!skip.contains(e.key)) e.key: e.value},
+        ]);
+        final res = await _post(table, body);
+        final column = res.statusCode == 400 ? _missingColumn(res) : null;
+        if (column == null || !skip.add(column)) {
+          _check(table, res);
+          break;
+        }
+      }
     }
+    if (skip.isEmpty) missingColumns.remove(table);
+  }
+
+  Future<http.Response> _post(String table, String body) async {
+    Future<http.Response> send(Map<String, String> headers) => _http.post(
+          Uri.parse('$url/rest/v1/$table?on_conflict=id'),
+          headers: {...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal'},
+          body: body,
+        );
+    var res = await send(await _headers());
+    if (res.statusCode == 401) res = await send(await _headers(forceRefresh: true));
+    return res;
+  }
+
+  void _check(String table, http.Response res) {
+    if (res.statusCode == 404 && _missingTable(res)) throw MissingTable(table);
+    if (res.statusCode >= 300) throw SyncException('Sync failed: ${_errorText(res)}');
   }
 
   @override
