@@ -19,23 +19,33 @@ same names (`today`, `list_tasks`, `update_task`, `list_diary`) do the same.
 1. **Read the day.**
 
    ```bash
-   todo sync                    # skip quietly if there is no sync server
+   todo sync                       # skip quietly if there is no sync server
+   todo stats                      # what recent days really looked like
    todo today
    todo list overdue
-   todo list yesterday
-   todo --json diary --days 3
+   todo list due                   # deadlines, soonest first
+   todo --json diary --unprocessed # entries no one has acted on yet
    ```
 
 2. **Read how they like their day.** Run `todo --json vault status`. If
    `path` is set, read `Me.md` there: their goals and how they like their day
    planned. It wins over the general rules below.
-3. **Work out where the day stands:** the time now, what is ticked, and what
-   the diary says about waking, what got done and what should change. Not
-   every diary entry is an instruction; act only on what concerns the
-   schedule. If you cannot tell when their day started and it matters, ask
-   that one question and nothing else.
-4. **Re-plan** with `todo edit ID -d DATE -t HH:MM-HH:MM`:
+3. **Capture what they committed to.** For each unprocessed entry, every
+   "I have to / need to / gotta …" becomes a backlog task linked to the entry
+   (`todo add TITLE -l PROJECT --from ENTRY [--due DATE]`), unless an open
+   task already covers it. Then record what became of the entry with
+   `todo diary-outcome ENTRY "..."`. Ideas stay ideas; wants become goals in
+   `Me.md`, not tasks.
+4. **Work out where the day stands:** the time now, what is ticked, and what
+   the diary says about waking and what got done. If you cannot tell when
+   their day started and it matters, ask that one question and nothing
+   else.
+5. **Re-plan** with `todo edit ID -d DATE -t HH:MM-HH:MM`:
    - Start from now, not from the morning. Never put a task in the past.
+   - Protected tasks stay on their day; fixed ones stay at their time. Moving
+     one needs `--reason`. A moved task keeps its deadline.
+   - Deadlines within a week come before other backlog work. At most five
+     newly captured commitments go into one day.
    - Keep the order they like. When the day is short, move the least
      important tasks to tomorrow; do not squeeze everything in.
    - A skipped sequence (a numbered course, a day-by-day study plan) slides
@@ -43,9 +53,12 @@ same names (`today`, `list_tasks`, `update_task`, `list_diary`) do the same.
    - Leave gaps for meals, rest and family. Do not fill every hour.
    - Yesterday's unticked one-off tasks come to today, or tomorrow if today
      is full.
-5. **Tell them,** briefly: today's plan as `HH:MM-HH:MM title` lines, the
-   three things that matter most, and what you moved and why.
-6. **Offer to file the diary** if they have a vault and `vault status`
+6. **Check it** with `todo check-plan` and fix what it reports until the plan
+   holds.
+7. **Tell them,** briefly: today's plan as `HH:MM-HH:MM title` lines, the
+   three things that matter most, the commitments you captured, and what you
+   moved and why.
+8. **Offer to file the diary** if they have a vault and `vault status`
    reports entries waiting. That is the `file-diary` skill.
 
 ## Limits

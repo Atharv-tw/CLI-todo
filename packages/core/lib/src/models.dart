@@ -23,7 +23,12 @@ class Task {
         startTime = r['start_time'] as String?,
         endTime = r['end_time'] as String?,
         doneAt = r['done_at'] as String?,
-        calendarEventId = r['calendar_event_id'] as String?;
+        calendarEventId = r['calendar_event_id'] as String?,
+        dueDate = r['due_date'] as String?,
+        estimateMin = r['estimate_min'] as int?,
+        protect = r['protect'] as String?,
+        sourceEntry = r['source_entry'] as String?,
+        history = r['history'] as String?;
 
   final String id;
   final String? listId;
@@ -37,6 +42,28 @@ class Task {
   final String? doneAt;
   final String? calendarEventId;
 
+  /// When it must be done by. Separate from [date], the day it is planned
+  /// for: re-planning moves [date] and never this.
+  final String? dueDate;
+
+  /// Minutes it is expected to take, for tasks without a time slot.
+  final int? estimateMin;
+
+  /// [protectDay], [protectTime] or null.
+  final String? protect;
+
+  /// The diary entry it was captured from.
+  final String? sourceEntry;
+
+  /// One line per change to its day, time or deadline, oldest first.
+  final String? history;
+
+  /// Must stay on its planned day, though it may move within the day.
+  static const protectDay = 'day';
+
+  /// Fixed in time: neither its day nor its time may move.
+  static const protectTime = 'time';
+
   bool get done => doneAt != null;
 
   Map<String, Object?> toJson() => {
@@ -49,6 +76,11 @@ class Task {
         'tag': tag,
         'list': list,
         'notes': notes,
+        'due': dueDate,
+        'estimate_min': estimateMin,
+        'protect': protect,
+        'source_entry': sourceEntry,
+        'history': history?.split('\n') ?? const <String>[],
       };
 }
 
@@ -153,7 +185,8 @@ class DiaryEntry {
         habitId = r['habit_id'] as String?,
         habitTitle = r['habit_title'] as String?,
         createdAt = DateTime.parse(r['created_at'] as String).toLocal(),
-        filedAt = r['filed_at'] == null ? null : DateTime.parse(r['filed_at'] as String).toLocal();
+        filedAt = r['filed_at'] == null ? null : DateTime.parse(r['filed_at'] as String).toLocal(),
+        outcome = r['outcome'] as String?;
 
   static const me = 'me';
   static const assistant = 'claude';
@@ -180,6 +213,11 @@ class DiaryEntry {
   /// When an assistant filed it into the vault; null until then.
   final DateTime? filedAt;
 
+  /// What became of it, written by the assistant that processed it: the
+  /// tasks captured, the projects updated, or that it was only an idea or
+  /// context. Null until processed.
+  final String? outcome;
+
   /// The title of whatever the entry is about.
   String? get about => taskTitle ?? habitTitle;
 
@@ -194,6 +232,7 @@ class DiaryEntry {
         'task': taskTitle,
         'habit_id': habitId,
         'habit': habitTitle,
+        'outcome': outcome,
         'filed_at': filedAt == null ? null : utcStamp(filedAt!),
       };
 }

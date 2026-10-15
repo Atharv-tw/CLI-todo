@@ -126,8 +126,21 @@ class Store {
     String? endTime,
     String? tag,
     String? notes,
+    String? dueDate,
+    int? estimateMin,
+    String? protect,
+    String? sourceEntry,
   }) {
     if (title.trim().isEmpty) throw TodoException('A task needs a title');
+    _checkTaskFields({
+      'date': date,
+      'due_date': dueDate,
+      'start_time': startTime,
+      'end_time': endTime,
+      'estimate_min': estimateMin,
+      'protect': protect,
+      'source_entry': sourceEntry,
+    });
     final id = newId();
     _insert('tasks', {
       'id': id,
@@ -138,8 +151,45 @@ class Store {
       'date': date,
       'start_time': startTime,
       'end_time': endTime,
+      'due_date': dueDate,
+      'estimate_min': estimateMin,
+      'protect': protect,
+      'source_entry': sourceEntry,
     });
     return task(id);
+  }
+
+  static final _ymdPattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+  static final _clockPattern = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$');
+
+  /// Rejects values no client should be able to store.
+  void _checkTaskFields(Map<String, Object?> f) {
+    for (final key in ['date', 'due_date']) {
+      final v = f[key];
+      if (v is String && (!_ymdPattern.hasMatch(v) || ymd(parseYmd(v)) != v)) {
+        throw TodoException('Not a date: $v');
+      }
+    }
+    for (final key in ['start_time', 'end_time']) {
+      final v = f[key];
+      if (v is String && !_clockPattern.hasMatch(v)) throw TodoException('Not a time: $v');
+    }
+    final start = f['start_time'], end = f['end_time'];
+    if (start is String && end is String && end.compareTo(start) <= 0) {
+      throw TodoException('A task has to end after it starts ($start-$end)');
+    }
+    final estimate = f['estimate_min'];
+    if (estimate is int && (estimate < 1 || estimate > 24 * 60)) {
+      throw TodoException('An estimate is between 1 and 1440 minutes');
+    }
+    final protect = f['protect'];
+    if (protect != null && protect != Task.protectDay && protect != Task.protectTime) {
+      throw TodoException('Protect is "${Task.protectDay}", "${Task.protectTime}" or none');
+    }
+    final source = f['source_entry'];
+    if (source is String && db.select('SELECT 1 FROM diary WHERE id = ?', [source]).isEmpty) {
+      throw TodoException('No diary entry $source');
+    }
   }
 
   /// Tasks dated within [from]..[to] (either end optional). [undated] adds
@@ -189,13 +239,73 @@ class Store {
 
   static const _editable = {
     'title', 'notes', 'tag', 'date', 'start_time', 'end_time', 'list_id', 'calendar_event_id',
+    'due_date', 'estimate_min', 'protect', 'source_entry',
   };
 
   /// [changes] maps column name to new value; a null value clears the field.
-  Task updateTask(String id, Map<String, Object?> changes) {
+  ///
+  /// A change to the task's day, time or deadline is written to its history,
+  /// with [reason] when given. With [guarded], as for an assistant working
+  /// unattended, moving a protected task off its day (or a fixed one at all),
+  /// or changing a deadline, is refused unless a [reason] is given.
+  Task updateTask(String id, Map<String, Object?> changes, {String? reason, bool guarded = false}) {
     final bad = changes.keys.where((k) => !_editable.contains(k));
     if (bad.isNotEmpty) throw TodoException('Cannot edit: ${bad.join(', ')}');
-    if (changes.isNotEmpty) _update('tasks', id, changes);
+    if (changes.isEmpty) return task(id);
+    final old = task(id);
+    final after = {
+      'date': old.date,
+      'start_time': old.startTime,
+      'end_time': old.endTime,
+      'due_date': old.dueDate,
+      'estimate_min': old.estimateMin,
+      'protect': old.protect,
+      'source_entry': old.sourceEntry,
+      ...changes,
+    };
+    // Only what changes is checked, so an old row in an older format can
+    // still be edited.
+    _checkTaskFields({
+      ...changes,
+      if (changes.containsKey('start_time') || changes.containsKey('end_time')) ...{
+        'start_time': after['start_time'],
+        'end_time': after['end_time'],
+      },
+    });
+
+    String? show(Object? v) => v?.toString() ?? 'none';
+    final moved = <String>[
+      if (changes.containsKey('date') && changes['date'] != old.date) 'day ${show(old.date)} -> ${show(changes['date'])}',
+      if ((changes.containsKey('start_time') && changes['start_time'] != old.startTime) ||
+          (changes.containsKey('end_time') && changes['end_time'] != old.endTime))
+        'time ${old.startTime ?? 'none'}${old.endTime == null ? '' : '-${old.endTime}'} -> '
+            '${show(after['start_time'])}${after['end_time'] == null ? '' : '-${after['end_time']}'}',
+      if (changes.containsKey('due_date') && changes['due_date'] != old.dueDate)
+        'deadline ${show(old.dueDate)} -> ${show(changes['due_date'])}',
+    ];
+    final why = reason?.trim();
+    if (guarded && (why == null || why.isEmpty)) {
+      final offDay = changes.containsKey('date') && changes['date'] != old.date;
+      final timeMoved = moved.any((m) => m.startsWith('time '));
+      if (old.protect == Task.protectTime && (offDay || timeMoved)) {
+        throw TodoException('"${old.title}" is fixed in time. Moving it needs a reason (--reason).');
+      }
+      if (old.protect == Task.protectDay && offDay && !old.done) {
+        throw TodoException('"${old.title}" is protected on its day. Moving it to another day needs a reason (--reason).');
+      }
+      if (moved.any((m) => m.startsWith('deadline ')) && old.dueDate != null) {
+        throw TodoException('Changing the deadline of "${old.title}" needs a reason (--reason).');
+      }
+    }
+    final values = {...changes};
+    if (moved.isNotEmpty) {
+      final now = DateTime.now();
+      final line = '${ymd(now)} ${hm(now)} '
+          '${moved.join('; ')}${why == null || why.isEmpty ? '' : ' ($why)'}';
+      final lines = [...?old.history?.split('\n'), line];
+      values['history'] = lines.skip((lines.length - 50).clamp(0, lines.length)).join('\n');
+    }
+    _update('tasks', id, values);
     return task(id);
   }
 
@@ -488,6 +598,7 @@ class Store {
     String? habitId,
     String? author,
     bool unfiledOnly = false,
+    bool unprocessedOnly = false,
   }) =>
       db
           .select(
@@ -498,6 +609,7 @@ class Store {
             '${habitId == null ? '' : 'AND d.habit_id = ? '}'
             '${author == null ? '' : 'AND d.author = ? '}'
             '${unfiledOnly ? 'AND d.filed_at IS NULL ' : ''}'
+            '${unprocessedOnly ? "AND d.outcome IS NULL AND d.author = 'me' " : ''}'
             'ORDER BY d.date DESC, d.created_at',
             [?from, ?to, ?taskId, ?habitId, ?author],
           )
@@ -510,6 +622,24 @@ class Store {
   }
 
   void deleteDiary(String id) => _update('diary', id, {'deleted_at': nowUtc()});
+
+  /// The user's entries from the last [days] days that no assistant has
+  /// recorded an outcome for yet.
+  List<DiaryEntry> unprocessedDiary({int days = 14}) =>
+      diary(from: addDays(today(), -days), unprocessedOnly: true);
+
+  /// Records what became of an entry. Every entry the user writes should end
+  /// up with one, so nothing they say is silently dropped.
+  void setDiaryOutcome(String id, String outcome) {
+    if (outcome.trim().isEmpty) throw TodoException('An outcome needs some text');
+    _update('diary', id, {'outcome': outcome.trim()});
+  }
+
+  /// Open tasks captured from [entryId].
+  List<Task> tasksFromEntry(String entryId) => db
+      .select('$_taskSelect WHERE t.source_entry = ? AND t.deleted_at IS NULL', [entryId])
+      .map(Task.fromRow)
+      .toList();
 
   /// Records that the entries have been filed into the vault.
   void markDiaryFiled(Iterable<String> ids) {

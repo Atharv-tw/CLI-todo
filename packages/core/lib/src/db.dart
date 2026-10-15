@@ -136,6 +136,21 @@ const _migrations = [
   ALTER TABLE diary ADD COLUMN filed_at TEXT;
   UPDATE meta SET key = 'pulled:diary' WHERE key = 'pulled:briefs';
   ''',
+  // Commitments. A task's `date` is the day it is planned for; `due_date` is
+  // when it must be done, and moving one never moves the other. `protect` is
+  // null, 'day' (must stay on its day, may move within it) or 'time' (fixed
+  // in time). `source_entry` is the diary entry a task was captured from.
+  // `history` is an append-only log of changes to its day, time or deadline.
+  // A diary entry's `outcome` says what became of it once processed.
+  '''
+  ALTER TABLE tasks ADD COLUMN due_date TEXT;
+  ALTER TABLE tasks ADD COLUMN estimate_min INTEGER;
+  ALTER TABLE tasks ADD COLUMN protect TEXT;
+  ALTER TABLE tasks ADD COLUMN source_entry TEXT;
+  ALTER TABLE tasks ADD COLUMN history TEXT;
+  CREATE INDEX tasks_due ON tasks(due_date);
+  ALTER TABLE diary ADD COLUMN outcome TEXT;
+  ''',
 ];
 
 /// Brings [db] up to the current schema, or (for tests of a migration) only

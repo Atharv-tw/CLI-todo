@@ -124,6 +124,26 @@ void main() {
     expect(find.text('Buy milk'), findsWidgets);
   });
 
+  testWidgets('a task can be protected from its sheet, and keeps its deadline when its day moves', (tester) async {
+    final t = state.store.addTask(title: "Dad's project", date: today(), dueDate: '2026-11-05');
+    await pump(tester, const Size(390, 800));
+    await go(tester, 'Plan');
+    await tester.tap(find.text("Dad's project"));
+    await tester.pumpAndSettle();
+    expect(find.text('Due ${prettyDate('2026-11-05')}'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('task-protect')));
+    await tester.pump();
+    expect(find.text('Protected: stays on its day'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(state.store.task(t.id).protect, Task.protectDay);
+
+    // Moving it in the app is the person's own choice: allowed, logged, deadline kept.
+    state.change((s) => s.updateTask(t.id, {'date': addDays(today(), 1)}));
+    expect(state.store.task(t.id).dueDate, '2026-11-05');
+    expect(state.store.task(t.id).history, contains('day ${today()} -> ${addDays(today(), 1)}'));
+  });
+
   testWidgets('every page lays out without overflow at phone and desktop widths', (tester) async {
     state.store.addHabit(title: 'Water 4 L', time: '21:00');
     state.store.addHabit(title: 'A habit with quite a long name to wrap', startDate: addDays(today(), 3));

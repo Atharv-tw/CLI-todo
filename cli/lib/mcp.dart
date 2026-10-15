@@ -28,7 +28,11 @@ Map<String, Object?> _str(String description) => {'type': 'string', 'description
 const _dateHelp = 'today, tomorrow, a weekday, +N days, or YYYY-MM-DD';
 
 final _taskFields = {
-  'date': _str('When it is due: $_dateHelp.'),
+  'date': _str('The day it is planned for: $_dateHelp. Not its deadline; leave empty to keep it in the backlog.'),
+  'due': _str('Its deadline, when it must be done by: $_dateHelp. Re-planning never moves this.'),
+  'estimate_min': {'type': 'integer', 'description': 'Minutes it should take, for a task without a time slot.'},
+  'protect': _str('"day": must stay on its day, may move within it. "time": fixed in time. "none": free.'),
+  'source_entry': _str('Id (or prefix) of the diary entry this commitment was captured from.'),
   'time': _str('Start time or range in 24h local time: 17:30 or 17:30-18:15.'),
   'list': _str('List name; created if it does not exist.'),
   'tag': _str('Short label, e.g. Exam prep.'),
@@ -96,14 +100,24 @@ final _tools = <_Tool>[
             endTime: time?.$2,
             tag: _s(a, 'tag'),
             notes: _s(a, 'notes'),
+            dueDate: _s(a, 'due') == null ? null : parseDate(_s(a, 'due')!),
+            estimateMin: a['estimate_min'] as int?,
+            protect: _s(a, 'protect') == 'none' ? null : _s(a, 'protect'),
+            sourceEntry: _s(a, 'source_entry') == null ? null : store.resolveId('diary', _s(a, 'source_entry')!),
           )
           .toJson();
     },
   ),
   _Tool(
     'update_task',
-    'Change fields of a task. Pass "none" to clear date, time, list, tag or notes.',
-    {'id': _str('Task id or unique prefix.'), 'title': _str('New title.'), ..._taskFields},
+    'Change fields of a task. Pass "none" to clear a field. Moving a protected task off its day, a fixed one at '
+        'all, or changing a deadline is refused without a reason; the reason is kept in the task history.',
+    {
+      'id': _str('Task id or unique prefix.'),
+      'title': _str('New title.'),
+      ..._taskFields,
+      'reason': _str('Why it is being moved or its deadline changed.'),
+    },
     required: ['id'],
     (store, a) {
       String? clearable(String v) => v.toLowerCase() == 'none' ? null : v;
@@ -125,7 +139,17 @@ final _tools = <_Tool>[
       }
       if (_s(a, 'tag') != null) changes['tag'] = clearable(_s(a, 'tag')!);
       if (_s(a, 'notes') != null) changes['notes'] = clearable(_s(a, 'notes')!);
-      return store.updateTask(_taskId(store, a), changes).toJson();
+      if (_s(a, 'due') != null) {
+        final v = clearable(_s(a, 'due')!);
+        changes['due_date'] = v == null ? null : parseDate(v);
+      }
+      if (a.containsKey('estimate_min')) changes['estimate_min'] = a['estimate_min'] as int?;
+      if (_s(a, 'protect') != null) changes['protect'] = clearable(_s(a, 'protect')!);
+      if (_s(a, 'source_entry') != null) {
+        final v = clearable(_s(a, 'source_entry')!);
+        changes['source_entry'] = v == null ? null : store.resolveId('diary', v);
+      }
+      return store.updateTask(_taskId(store, a), changes, reason: _s(a, 'reason'), guarded: true).toJson();
     },
   ),
   _Tool(
@@ -227,8 +251,13 @@ final _tools = <_Tool>[
         'type': 'boolean',
         'description': 'Only the user\'s entries not yet filed into their vault, however old.',
       },
+      'unprocessed': {
+        'type': 'boolean',
+        'description': 'Only the user\'s entries of the last 14 days with no recorded outcome yet.',
+      },
     },
     (store, a) {
+      if (a['unprocessed'] == true) return [for (final e in store.unprocessedDiary()) e.toJson()];
       final unfiled = a['unfiled'] == true;
       final to = _s(a, 'to') == null ? today() : parseDate(_s(a, 'to')!);
       final from = _s(a, 'from') == null ? (unfiled ? null : addDays(to, -6)) : parseDate(_s(a, 'from')!);
@@ -262,6 +291,44 @@ final _tools = <_Tool>[
           date: _s(a, 'date') == null ? null : parseDate(_s(a, 'date')!),
           author: _s(a, 'author') ?? DiaryEntry.assistant,
           taskId: _s(a, 'task') == null ? null : store.resolveId('tasks', _s(a, 'task')!),
+        )
+        .toJson(),
+  ),
+  _Tool(
+    'set_diary_outcome',
+    'Record what became of one of the user\'s diary entries: the commitments captured (with task ids), the projects '
+        'updated, or that it was only an idea or context, or what needs their answer. Every entry needs one.',
+    {'id': _str('Entry id or unique prefix.'), 'outcome': _str('One or two plain sentences.')},
+    required: ['id', 'outcome'],
+    (store, a) {
+      final id = store.resolveId('diary', a['id'] as String);
+      store.setDiaryOutcome(id, a['outcome'] as String);
+      return {'id': id, 'outcome': a['outcome']};
+    },
+  ),
+  _Tool(
+    'stats',
+    'What recent days actually looked like, computed from the records: wake and bed times, tasks planned and done, '
+        'protected ones done, focus, the backlog, overdue tasks, deadlines in the next 14 days and diary entries '
+        'still without an outcome. Plan from this, not from an ideal day.',
+    {'days': {'type': 'integer', 'description': 'How many days back; default 14.'}},
+    (store, a) => store.stats(days: a['days'] as int? ?? 14).toJson(),
+  ),
+  _Tool(
+    'check_plan',
+    'Check a day\'s plan against what must hold: nothing left in the past, no deadline broken, no overlaps, nothing '
+        'before the day really starts, every diary entry accounted for, at most five new commitments in the day, and '
+        'the day no fuller than 75% of the time available. Fix every error, or explain it if it cannot be avoided.',
+    {
+      'date': _str('The day ($_dateHelp). Defaults to today.'),
+      'wake': _str('When the day starts, HH:MM, if the diary says; default: the typical wake time of the last 3 days.'),
+      'end': _str('When the day ends, HH:MM; default 22:30.'),
+    },
+    (store, a) => store
+        .checkPlan(
+          _s(a, 'date') == null ? today() : parseDate(_s(a, 'date')!),
+          wake: _s(a, 'wake'),
+          end: _s(a, 'end'),
         )
         .toJson(),
   ),

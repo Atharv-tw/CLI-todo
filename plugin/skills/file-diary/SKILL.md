@@ -31,10 +31,17 @@ as an MCP server, `vault_status`, `list_diary` (with `unfiled: true`) and
    `Me.md`. List `Learning/` and `Projects/` so you add to a note that exists
    instead of starting a near-duplicate under another name.
 5. **File.** Every entry goes into its day's note in `Daily/`. Beyond that,
-   file an entry further only when it clearly is a decision, an idea,
-   something learned, project news, or a stated goal. Most entries are just
-   the day. Keep the user's words; fix only obvious speech-to-text slips.
-   Add to notes; never rewrite or delete what is there.
+   file each part of an entry where it belongs:
+   - a **project** they mention, even in passing ("I have to finish
+     Helios"): a line under `## Log` in `Projects/<Project>.md`, created if
+     new. Their commitments are tracked as tasks in the to-do system, so the
+     note keeps the context, not a second task list.
+   - a **goal** they state ("I want an international internship"): `Me.md`,
+     under Goals, with the date, if it is not there already.
+   - a **decision**, an **idea**, or something **learned**: as the vault's
+     README says.
+   Keep the user's words; fix only obvious speech-to-text slips. Add to
+   notes; never rewrite or delete what is there.
 6. **Record it.** Run `todo diary-filed ID ID ...` with every entry you
    filed, then `todo sync`. Do this only after the notes are written.
 7. **Save it.** If the vault is under git, commit with a message like

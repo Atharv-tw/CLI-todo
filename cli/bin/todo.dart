@@ -27,10 +27,14 @@ Future<void> main(List<String> args) async {
     ..addCommand(FocusCommand())
     ..addCommand(UsageCommand())
     ..addCommand(VaultCommand())
+    ..addCommand(ShowCommand())
+    ..addCommand(StatsCommand())
+    ..addCommand(CheckPlanCommand())
     ..addCommand(DiaryCommand())
     ..addCommand(DiaryCommand('brief'))
     ..addCommand(_DiaryRm())
     ..addCommand(_DiaryFiled())
+    ..addCommand(_DiaryOutcome())
     ..addCommand(_UsageAdd())
     ..addCommand(SchemaCommand())
     ..addCommand(ServerCommand())
@@ -92,7 +96,13 @@ String taskLine(Task t, {bool showDate = true}) {
   final date = showDate && t.date != null ? '${prettyDate(t.date!)} ' : '';
   final tag = t.tag == null ? '' : '  #${t.tag}';
   final list = t.list == null ? '' : '  (${t.list})';
-  return '${t.done ? '[x]' : '[ ]'} ${short(t.id)}  $date$time${t.title}$tag$list';
+  final due = t.dueDate == null ? '' : '  due ${prettyDate(t.dueDate!)}';
+  final protect = switch (t.protect) {
+    Task.protectDay => '  [protected]',
+    Task.protectTime => '  [fixed time]',
+    _ => '',
+  };
+  return '${t.done ? '[x]' : '[ ]'} ${short(t.id)}  $date$time${t.title}$tag$list$due$protect';
 }
 
 String taskLines(List<Task> tasks, {bool showDate = true}) =>
@@ -112,7 +122,28 @@ void addTaskOptions(Cmd c) {
     ..addOption('time', abbr: 't', help: '17:30 or 17:30-18:15.')
     ..addOption('list', abbr: 'l', help: 'List name (created if new).')
     ..addOption('tag', help: 'Short label.')
-    ..addOption('notes', abbr: 'n');
+    ..addOption('notes', abbr: 'n')
+    ..addOption('due', help: 'Deadline: when it must be done by. Not the day it is planned for (-d).')
+    ..addOption('estimate', help: 'Minutes it should take, for a task without a time slot.')
+    ..addOption('protect',
+        allowed: ['day', 'time', 'none'],
+        help: 'day: must stay on its day, may move within it. time: fixed in time. none: free to move.')
+    ..addOption('from', help: 'The diary entry this commitment was captured from (id or prefix).');
+}
+
+/// The commitment fields of [c]'s options, as store columns. "none" clears.
+Map<String, Object?> commitmentOptions(Cmd c) {
+  String? opt(String name) => c.argResults!.option(name);
+  bool clear(String v) => v.toLowerCase() == 'none';
+  return {
+    if (opt('due') != null) 'due_date': clear(opt('due')!) ? null : parseDate(opt('due')!),
+    if (opt('estimate') != null)
+      'estimate_min': clear(opt('estimate')!)
+          ? null
+          : int.tryParse(opt('estimate')!) ?? (throw TodoException('The estimate is a number of minutes')),
+    if (opt('protect') != null) 'protect': clear(opt('protect')!) ? null : opt('protect'),
+    if (opt('from') != null) 'source_entry': clear(opt('from')!) ? null : store.resolveId('diary', opt('from')!),
+  };
 }
 
 class AddCommand extends Cmd {
@@ -130,6 +161,7 @@ class AddCommand extends Cmd {
         : time != null
             ? today()
             : null;
+    final more = commitmentOptions(this);
     final t = store.addTask(
       title: rest.join(' '),
       listId: opt('list') == null ? null : store.ensureList(opt('list')!).id,
@@ -138,6 +170,10 @@ class AddCommand extends Cmd {
       endTime: time?.$2,
       tag: opt('tag'),
       notes: opt('notes'),
+      dueDate: more['due_date'] as String?,
+      estimateMin: more['estimate_min'] as int?,
+      protect: more['protect'] as String?,
+      sourceEntry: more['source_entry'] as String?,
     );
     out(t.toJson(), () => 'Added ${taskLine(t)}');
   }
@@ -145,7 +181,7 @@ class AddCommand extends Cmd {
 
 class ListCommand extends Cmd {
   ListCommand()
-      : super('list', 'List tasks: todo list [today|tomorrow|week|overdue|all|undated|DATE]') {
+      : super('list', 'List tasks: todo list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
     argParser
       ..addOption('list', abbr: 'l', help: 'Only this list.')
       ..addFlag('open', negatable: false, help: 'Hide ticked tasks.');
@@ -172,6 +208,11 @@ class ListCommand extends Cmd {
           .where((t) => t.date == null)
           .toList(),
       'overdue' => store.tasks(overdueBefore: now, listId: listId),
+      // Open commitments with no day yet.
+      'backlog' => store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.date == null).toList(),
+      // Open tasks with a deadline, soonest first.
+      'due' => store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.dueDate != null).toList()
+        ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!)),
       'week' => store.tasks(from: now, to: addDays(now, 6), listId: listId, includeDone: includeDone),
       _ => store.tasks(from: parseDate(when), to: parseDate(when), listId: listId, includeDone: includeDone),
     };
@@ -219,8 +260,15 @@ class DoneCommand extends Cmd {
 }
 
 class EditCommand extends Cmd {
-  EditCommand() : super('edit', 'Change a task: todo edit ID -d fri -t 10:00. Use "none" to clear a field.') {
-    argParser.addOption('title');
+  EditCommand()
+      : super(
+          'edit',
+          'Change a task: todo edit ID -d fri -t 10:00. Use "none" to clear a field. Moving a protected task '
+              'off its day, a fixed one at all, or changing a deadline needs --reason.',
+        ) {
+    argParser
+      ..addOption('title')
+      ..addOption('reason', help: 'Why: kept in the task history.');
     addTaskOptions(this);
   }
 
@@ -247,8 +295,11 @@ class EditCommand extends Cmd {
     }
     if (opt('tag') != null) changes['tag'] = clearable(opt('tag')!);
     if (opt('notes') != null) changes['notes'] = clearable(opt('notes')!);
+    changes.addAll(commitmentOptions(this));
     if (changes.isEmpty) usageException('Nothing to change.');
-    final t = store.updateTask(id, changes);
+    // The command line is how an assistant changes tasks unattended, so the
+    // rules that keep protected work and deadlines from slipping apply here.
+    final t = store.updateTask(id, changes, reason: opt('reason'), guarded: true);
     out(t.toJson(), () => taskLine(t));
   }
 }
@@ -459,7 +510,9 @@ class DiaryCommand extends Cmd {
       ..addOption('as',
           allowed: [DiaryEntry.me, DiaryEntry.assistant], defaultsTo: DiaryEntry.me, help: 'Who is writing.')
       ..addOption('days', defaultsTo: '7', help: 'How many days back to show.')
-      ..addFlag('unfiled', negatable: false, help: 'Only your entries not yet filed into the vault.');
+      ..addFlag('unfiled', negatable: false, help: 'Only your entries not yet filed into the vault.')
+      ..addFlag('unprocessed',
+          negatable: false, help: 'Only your entries of the last 14 days with no recorded outcome yet.');
   }
 
   // `todo brief` still works: the nightly routine was written against it.
@@ -479,6 +532,16 @@ class DiaryCommand extends Cmd {
         habitId: habitId,
       );
       out(e.toJson(), () => 'Saved to the diary for ${prettyDate(e.date)}${e.about == null ? '' : ', on "${e.about}"'}.');
+      return;
+    }
+    if (argResults!.flag('unprocessed')) {
+      final waiting = store.unprocessedDiary();
+      out([for (final e in waiting) e.toJson()], () {
+        if (waiting.isEmpty) return 'Every entry has an outcome.';
+        return [
+          for (final e in waiting) '  ${short(e.id)}  ${prettyDate(e.date)} ${hm(e.createdAt)}  ${e.body.replaceAll('\n', ' ')}',
+        ].join('\n');
+      });
       return;
     }
     final unfiled = argResults!.flag('unfiled');
@@ -506,6 +569,7 @@ class DiaryCommand extends Cmd {
         final who = e.author == DiaryEntry.me ? '' : 'Claude: ';
         final about = e.about == null ? '' : '[${e.about}] ';
         lines.add('  ${short(e.id)}  ${hm(e.createdAt)}  $who$about${e.body.replaceAll('\n', '\n                 ')}');
+        if (e.outcome != null) lines.add('                 -> ${e.outcome}');
       }
       return lines.join('\n');
     });
@@ -539,6 +603,106 @@ class _DiaryFiled extends Cmd {
     final ids = [for (final ref in rest) store.resolveId('diary', ref)];
     store.markDiaryFiled(ids);
     out({'filed': ids}, () => 'Marked ${ids.length} as filed.');
+  }
+}
+
+class _DiaryOutcome extends Cmd {
+  _DiaryOutcome()
+      : super('diary-outcome', 'Record what became of a diary entry: todo diary-outcome ID Captured 3 commitments...');
+
+  @override
+  bool get hidden => true;
+
+  @override
+  void run() {
+    if (rest.length < 2) usageException('Give the entry id and the outcome.');
+    final id = store.resolveId('diary', rest.first);
+    store.setDiaryOutcome(id, rest.skip(1).join(' '));
+    out({'id': id, 'outcome': rest.skip(1).join(' ')}, () => 'Outcome recorded.');
+  }
+}
+
+class ShowCommand extends Cmd {
+  ShowCommand() : super('show', 'Everything about one task, with its history and the diary entry it came from.');
+
+  @override
+  void run() {
+    needArgs('a task id');
+    final t = store.task(store.resolveId('tasks', rest.first));
+    final source = t.sourceEntry == null ? null : store.diary().where((e) => e.id == t.sourceEntry).firstOrNull;
+    out({...t.toJson(), 'source': source?.toJson()}, () => [
+          taskLine(t),
+          if (t.estimateMin != null) '    estimate: ${t.estimateMin} min',
+          if (t.notes != null) '    notes: ${t.notes}',
+          if (source != null) '    from the diary, ${prettyDate(source.date)} ${hm(source.createdAt)}: ${source.body.replaceAll('\n', ' ')}',
+          if (t.history != null) ...['    history:', for (final l in t.history!.split('\n')) '      $l'],
+        ].join('\n'));
+  }
+}
+
+class StatsCommand extends Cmd {
+  StatsCommand() : super('stats', 'What recent days actually looked like: wake times, tasks done, deadlines, backlog.') {
+    argParser.addOption('days', defaultsTo: '14', help: 'How many days back.');
+  }
+
+  @override
+  void run() {
+    final days = int.tryParse(opt('days')!);
+    if (days == null || days < 1) usageException('Days must be a number.');
+    final s = store.stats(days: days);
+    out(s.toJson(), () {
+      final t = s.toJson()['typical'] as Map<String, Object?>;
+      String pct(Object? v) => v == null ? 'no data' : '$v%';
+      return [
+        'Typical wake: ${t['wake_last_3_days'] ?? 'no data'} (last 3 days), ${t['wake_last_7_days'] ?? 'no data'} (7)',
+        'Typical bedtime: ${t['bed_last_3_days'] ?? 'no data'}',
+        'Tasks done: ${pct(t['completion'])}; protected ones: ${pct(t['protected_completion'])}; '
+            '${t['done_min_per_day'] ?? 0} min of planned work done a day',
+        'Backlog: ${s.backlog} without a day. Overdue: ${s.overdue}. Diary entries waiting for an outcome: ${s.unprocessed}',
+        if (s.dueSoon.isNotEmpty) 'Due in the next 14 days:',
+        for (final d in s.dueSoon) '  ${prettyDate(d.dueDate!)}  ${d.title}${d.date == null ? '  (no day planned)' : ''}',
+        '',
+        for (final d in s.days)
+          '${prettyDate(d.date).padRight(11)} woke ${d.wake == null ? '  -  ' : clockText(d.wake!)}  '
+              'bed ${d.bed == null ? '  -  ' : clockText(d.bed!)}  done ${d.done}/${d.planned}  focus ${d.focusMin} min',
+      ].join('\n');
+    });
+  }
+}
+
+class CheckPlanCommand extends Cmd {
+  CheckPlanCommand()
+      : super(
+          'check-plan',
+          'Check a day\'s plan: nothing left in the past, no deadline broken, every diary entry accounted for, '
+              'the day no fuller than the time there really is. Exits 1 if anything must be fixed.',
+        ) {
+    argParser
+      ..addOption('wake', help: 'When the day starts (HH:MM); default: the typical wake time of the last 3 days.')
+      ..addOption('end', help: 'When the day ends (HH:MM); default 22:30.')
+      ..addOption('capacity', defaultsTo: '0.75', help: 'Share of the available time that may be planned.');
+  }
+
+  @override
+  void run() {
+    final date = rest.isEmpty ? today() : parseDate(rest.first);
+    final capacity = double.tryParse(opt('capacity')!);
+    if (capacity == null || capacity <= 0 || capacity > 1) usageException('Capacity is between 0 and 1.');
+    final c = store.checkPlan(
+      date,
+      wake: opt('wake') == null ? null : parseTimeRange(opt('wake')!).$1,
+      end: opt('end') == null ? null : parseTimeRange(opt('end')!).$1,
+      capacity: capacity,
+    );
+    out(c.toJson(), () => [
+          '${prettyDate(date)}: from ${clockText(c.start)} to ${clockText(c.end)}, '
+              '${c.plannedMin} of ${c.budgetMin} min planned (${(capacity * 100).round()}%).',
+          c.ok ? 'The plan holds.' : 'To fix:',
+          for (final e in c.errors) '  - ${e.message}',
+          if (c.warnings.isNotEmpty) 'To mention:',
+          for (final w in c.warnings) '  - ${w.message}',
+        ].join('\n'));
+    if (!c.ok) exitCode = 1;
   }
 }
 
@@ -914,7 +1078,9 @@ class SyncCommand extends Cmd {
       r.toJson(),
       () => 'Pulled ${r.pulled}, pushed ${r.pushed}.'
           '${r.missing.isEmpty ? '' : '\nNot synced, the server has no table for: ${r.missing.join(', ')}. '
-              'Run the latest supabase/schema.sql.'}',
+              'Run the latest supabase/schema.sql.'}'
+          '${r.missingColumns.isEmpty ? '' : '\nThe server is missing ${[for (final e in r.missingColumns.entries) ...e.value.map((c) => '${e.key}.$c')].join(', ')}; '
+              'those values stay on this device until you run the output of `todo schema` in its SQL editor.'}',
     );
   }
 }

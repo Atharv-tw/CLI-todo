@@ -27,6 +27,7 @@ class TaskTile extends StatelessWidget {
       timeLabel(task),
       ?task.tag,
       ?task.list,
+      if (task.dueDate != null) 'due ${prettyDate(task.dueDate!)}',
     ].where((s) => s.isNotEmpty).join(' · ');
     // The task whose slot covers the present moment stands out as a block.
     final isNow = task.date != null && timeline.isNow(task.date!, task.startTime, task.endTime, done: task.done);
@@ -91,6 +92,10 @@ class _TaskSheetState extends State<_TaskSheet> {
   late String? _start = widget.task?.startTime;
   late String? _end = widget.task?.endTime;
 
+  /// When it must be done by: separate from [_date], the day it is planned for.
+  late String? _due = widget.task?.dueDate;
+  late String? _protect = widget.task?.protect;
+
   @override
   void dispose() {
     for (final c in [_title, _list, _tag, _notes]) {
@@ -108,6 +113,17 @@ class _TaskSheetState extends State<_TaskSheet> {
       lastDate: DateTime(2100),
     );
     if (picked != null) setState(() => _date = ymd(picked));
+  }
+
+  Future<void> _pickDue() async {
+    final picked = await showDatePicker(
+      context: context,
+      helpText: 'Deadline',
+      initialDate: _due == null ? DateTime.now() : parseYmd(_due!),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _due = ymd(picked));
   }
 
   Future<String?> _pickTime(String? current) async {
@@ -138,6 +154,8 @@ class _TaskSheetState extends State<_TaskSheet> {
           listId: listId,
           tag: text(_tag),
           notes: text(_notes),
+          dueDate: _due,
+          protect: _protect,
         );
       } else {
         s.updateTask(task.id, {
@@ -148,6 +166,8 @@ class _TaskSheetState extends State<_TaskSheet> {
           'list_id': listId,
           'tag': text(_tag),
           'notes': text(_notes),
+          'due_date': _due,
+          'protect': _protect,
         });
       }
     });
@@ -179,7 +199,7 @@ class _TaskSheetState extends State<_TaskSheet> {
               children: [
                 InputChip(
                   avatar: const Icon(Icons.event, size: 18),
-                  label: Text(_date == null ? 'No date' : prettyDate(_date!)),
+                  label: Text(_date == null ? 'No day yet' : prettyDate(_date!)),
                   onPressed: _pickDate,
                   onDeleted: _date == null ? null : () => setState(() => _date = null),
                 ),
@@ -201,6 +221,28 @@ class _TaskSheetState extends State<_TaskSheet> {
                     },
                     onDeleted: _end == null ? null : () => setState(() => _end = null),
                   ),
+                InputChip(
+                  key: const ValueKey('task-due'),
+                  avatar: const Icon(Icons.flag_outlined, size: 18),
+                  label: Text(_due == null ? 'No deadline' : 'Due ${prettyDate(_due!)}'),
+                  onPressed: _pickDue,
+                  onDeleted: _due == null ? null : () => setState(() => _due = null),
+                ),
+                // Tap to cycle: free, kept on its day, fixed in time.
+                ActionChip(
+                  key: const ValueKey('task-protect'),
+                  avatar: Icon(_protect == null ? Icons.lock_open_rounded : Icons.lock_rounded, size: 18),
+                  label: Text(switch (_protect) {
+                    Task.protectDay => 'Protected: stays on its day',
+                    Task.protectTime => 'Protected: fixed time',
+                    _ => 'Not protected',
+                  }),
+                  onPressed: () => setState(() => _protect = switch (_protect) {
+                        null => Task.protectDay,
+                        Task.protectDay => Task.protectTime,
+                        _ => null,
+                      }),
+                ),
               ],
             ),
             Row(

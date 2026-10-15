@@ -20,16 +20,31 @@ class MissingTable implements Exception {
   String toString() => 'The sync server has no "$table" table; run the latest supabase/schema.sql';
 }
 
+/// A [Remote] that can tell which columns its server lacks, having left them
+/// out of what it pushed.
+abstract interface class ReportsMissingColumns {
+  /// Column names by table.
+  Map<String, Set<String>> get missingColumns;
+}
+
 class SyncResult {
-  SyncResult(this.pulled, this.pushed, [this.missing = const []]);
+  SyncResult(this.pulled, this.pushed, [this.missing = const [], this.missingColumns = const {}]);
   final int pulled;
   final int pushed;
 
   /// Tables the server does not have yet; their rows wait locally.
   final List<String> missing;
 
-  Map<String, Object?> toJson() =>
-      {'pulled': pulled, 'pushed': pushed, if (missing.isNotEmpty) 'missing_tables': missing};
+  /// Columns the server does not have yet, by table. Those rows stay marked
+  /// for pushing, so the values arrive once the server is updated.
+  final Map<String, List<String>> missingColumns;
+
+  Map<String, Object?> toJson() => {
+        'pulled': pulled,
+        'pushed': pushed,
+        if (missing.isNotEmpty) 'missing_tables': missing,
+        if (missingColumns.isNotEmpty) 'missing_columns': missingColumns,
+      };
 }
 
 /// Pull then push. Conflicts resolve per row by the newer `updated_at`.
@@ -74,6 +89,11 @@ class SyncEngine {
       ];
       if (rows.isEmpty) continue;
       await remote.push(table, rows);
+      // Left dirty while the server lacks columns, so nothing is lost.
+      if (_lacks(table).isNotEmpty) {
+        pushed += rows.length;
+        continue;
+      }
       for (final r in rows) {
         // A row edited again while the push was in flight stays dirty.
         db.execute(
@@ -83,8 +103,16 @@ class SyncEngine {
       }
       pushed += rows.length;
     }
-    return SyncResult(pulled, pushed, missing);
+    return SyncResult(pulled, pushed, missing, {
+      for (final t in syncedTables)
+        if (_lacks(t).isNotEmpty) t: _lacks(t).toList()..sort(),
+    });
   }
+
+  Set<String> _lacks(String table) => switch (remote) {
+        final ReportsMissingColumns r => r.missingColumns[table] ?? const {},
+        _ => const {},
+      };
 
   bool _apply(String table, Map<String, Object?> remoteRow) {
     final db = store.db;
@@ -97,10 +125,13 @@ class SyncEngine {
       for (final c in db.select('PRAGMA table_info($table)'))
         if (c['name'] != 'dirty') c['name'] as String,
     ];
+    // A server older than this app lacks some columns. Keep what this device
+    // has for those instead of blanking them.
+    final mine = local.isEmpty ? const <String, Object?>{} : db.select('SELECT * FROM $table WHERE id = ?', [remoteRow['id']]).first;
     db.execute(
       'INSERT OR REPLACE INTO $table (${columns.join(', ')}, dirty) '
       'VALUES (${List.filled(columns.length, '?').join(', ')}, 0)',
-      [for (final c in columns) remoteRow[c]],
+      [for (final c in columns) remoteRow.containsKey(c) ? remoteRow[c] : mine[c]],
     );
     return true;
   }
