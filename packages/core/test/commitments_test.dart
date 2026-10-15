@@ -72,6 +72,12 @@ void main() {
       expect(lines.last, endsWith('time 11:15-12:45 -> 13:00-14:30'));
     });
 
+    test('a task sent back to the backlog loses its time slot, and keeps its deadline', () {
+      final t = store.addTask(title: 'Workout', date: day, startTime: '07:00', endTime: '08:00', dueDate: tomorrow);
+      final back = store.updateTask(t.id, {'date': null}, reason: 'morning passed');
+      expect([back.date, back.startTime, back.endTime, back.dueDate], [null, null, null, tomorrow]);
+    });
+
     test('dates and times that make no sense are refused', () {
       expect(() => store.addTask(title: 'x', dueDate: '2026-02-30'), throwsA(isA<TodoException>()));
       expect(() => store.addTask(title: 'x', date: day, startTime: '14:00', endTime: '13:00'), throwsA(isA<TodoException>()));
