@@ -242,3 +242,11 @@ changed this week (`git log --since`) and the open tasks. Its point is what
 they decided and forgot: commitments from the week still open, projects
 that did not move, and how the routines really went. Put a link to it at the
 top of that night's morning page.
+
+The weekly run also looks after the vault. Run `todo vault lint` and fix
+what is safe to fix (a broken link, a missing `INDEX.md` line, a note
+nothing links to). Then read for what code cannot see: claims that
+contradict each other, statuses that are stale, things mentioned on several
+pages that deserve their own page. Fix what is clear, following the README's
+editing rules, and put the rest under "Waiting for your yes". Report it all
+under "Vault health" in the weekly page.

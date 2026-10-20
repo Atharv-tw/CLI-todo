@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:todo_core/todo_core.dart';
 
 import 'vault.dart';
+import 'vault_lint.dart';
 
 typedef _Handler = Object? Function(Store store, Map<String, Object?> args);
 
@@ -17,10 +18,10 @@ class _Tool {
   final _Handler handler;
 
   Map<String, Object?> toJson() => {
-        'name': name,
-        'description': description,
-        'inputSchema': {'type': 'object', 'properties': properties, 'required': required},
-      };
+    'name': name,
+    'description': description,
+    'inputSchema': {'type': 'object', 'properties': properties, 'required': required},
+  };
 }
 
 Map<String, Object?> _str(String description) => {'type': 'string', 'description': description};
@@ -79,35 +80,29 @@ final _tools = <_Tool>[
       return [for (final t in tasks) t.toJson()];
     },
   ),
-  _Tool(
-    'add_task',
-    'Add a task.',
-    {'title': _str('What to do.'), ..._taskFields},
-    required: ['title'],
-    (store, a) {
-      final time = _s(a, 'time') == null ? null : parseTimeRange(_s(a, 'time')!);
-      final date = _s(a, 'date') != null
-          ? parseDate(_s(a, 'date')!)
-          : time != null
-              ? today()
-              : null;
-      return store
-          .addTask(
-            title: a['title'] as String,
-            listId: _s(a, 'list') == null ? null : store.ensureList(_s(a, 'list')!).id,
-            date: date,
-            startTime: time?.$1,
-            endTime: time?.$2,
-            tag: _s(a, 'tag'),
-            notes: _s(a, 'notes'),
-            dueDate: _s(a, 'due') == null ? null : parseDate(_s(a, 'due')!),
-            estimateMin: a['estimate_min'] as int?,
-            protect: _s(a, 'protect') == 'none' ? null : _s(a, 'protect'),
-            sourceEntry: _s(a, 'source_entry') == null ? null : store.resolveId('diary', _s(a, 'source_entry')!),
-          )
-          .toJson();
-    },
-  ),
+  _Tool('add_task', 'Add a task.', {'title': _str('What to do.'), ..._taskFields}, required: ['title'], (store, a) {
+    final time = _s(a, 'time') == null ? null : parseTimeRange(_s(a, 'time')!);
+    final date = _s(a, 'date') != null
+        ? parseDate(_s(a, 'date')!)
+        : time != null
+        ? today()
+        : null;
+    return store
+        .addTask(
+          title: a['title'] as String,
+          listId: _s(a, 'list') == null ? null : store.ensureList(_s(a, 'list')!).id,
+          date: date,
+          startTime: time?.$1,
+          endTime: time?.$2,
+          tag: _s(a, 'tag'),
+          notes: _s(a, 'notes'),
+          dueDate: _s(a, 'due') == null ? null : parseDate(_s(a, 'due')!),
+          estimateMin: a['estimate_min'] as int?,
+          protect: _s(a, 'protect') == 'none' ? null : _s(a, 'protect'),
+          sourceEntry: _s(a, 'source_entry') == null ? null : store.resolveId('diary', _s(a, 'source_entry')!),
+        )
+        .toJson();
+  }),
   _Tool(
     'update_task',
     'Change fields of a task. Pass "none" to clear a field. Moving a protected task off its day, a fixed one at '
@@ -162,21 +157,20 @@ final _tools = <_Tool>[
     required: ['id'],
     (store, a) => store.setDone(_taskId(store, a), a['done'] != false).toJson(),
   ),
-  _Tool(
-    'delete_task',
-    'Delete a task.',
-    {'id': _str('Task id or unique prefix.')},
-    required: ['id'],
-    (store, a) {
-      final id = _taskId(store, a);
-      store.deleteTask(id);
-      return {'deleted': id};
-    },
-  ),
+  _Tool('delete_task', 'Delete a task.', {'id': _str('Task id or unique prefix.')}, required: ['id'], (store, a) {
+    final id = _taskId(store, a);
+    store.deleteTask(id);
+    return {'deleted': id};
+  }),
   _Tool(
     'add_habit',
     'Add a daily habit, optionally limited to a date range.',
-    {'title': _str('The habit.'), 'time': _str('Time of day it sits at in the timeline, e.g. 07:00.'), 'from': _str('First day ($_dateHelp).'), 'to': _str('Last day ($_dateHelp).')},
+    {
+      'title': _str('The habit.'),
+      'time': _str('Time of day it sits at in the timeline, e.g. 07:00.'),
+      'from': _str('First day ($_dateHelp).'),
+      'to': _str('Last day ($_dateHelp).'),
+    },
     required: ['title'],
     (store, a) => store
         .addHabit(
@@ -311,7 +305,9 @@ final _tools = <_Tool>[
     'What recent days actually looked like, computed from the records: wake and bed times, tasks planned and done, '
         'protected ones done, focus, the backlog, overdue tasks, deadlines in the next 14 days and diary entries '
         'still without an outcome. Plan from this, not from an ideal day.',
-    {'days': {'type': 'integer', 'description': 'How many days back; default 14.'}},
+    {
+      'days': {'type': 'integer', 'description': 'How many days back; default 14.'},
+    },
     (store, a) => store.stats(days: a['days'] as int? ?? 14).toJson(),
   ),
   _Tool(
@@ -325,11 +321,7 @@ final _tools = <_Tool>[
       'end': _str('When the day ends, HH:MM; default 22:30.'),
     },
     (store, a) => store
-        .checkPlan(
-          _s(a, 'date') == null ? today() : parseDate(_s(a, 'date')!),
-          wake: _s(a, 'wake'),
-          end: _s(a, 'end'),
-        )
+        .checkPlan(_s(a, 'date') == null ? today() : parseDate(_s(a, 'date')!), wake: _s(a, 'wake'), end: _s(a, 'end'))
         .toJson(),
   ),
   _Tool(
@@ -337,6 +329,22 @@ final _tools = <_Tool>[
     'The user\'s vault: an optional folder of Markdown notes (it opens in Obsidian) that their diary is filed into. Gives its path on this machine, or a null path if they have none, its git remote, and how many diary entries are waiting to be filed. The vault\'s README.md holds the rules for filing.',
     {},
     (store, a) => vaultStatus(store),
+  ),
+  _Tool(
+    'vault_lint',
+    'Check the user\'s vault for upkeep: links to notes that do not exist, links into raw/ (the private diary), main notes '
+        'missing from INDEX.md, notes nothing links to, missing or stale frontmatter, diary days without a summary, and '
+        'log.md lines out of format. Errors break the vault\'s rules; warnings are upkeep to look at.',
+    {},
+    (store, a) {
+      final path = vaultStatus(store)['path'] as String?;
+      if (path == null) throw TodoException('No vault on this device.');
+      final issues = lintVault(path);
+      return {
+        'path': path,
+        'issues': [for (final i in issues) i.toJson()],
+      };
+    },
   ),
   _Tool(
     'mark_diary_filed',
@@ -360,11 +368,7 @@ final _tools = <_Tool>[
 /// Minimal MCP server: newline-delimited JSON-RPC on stdin/stdout.
 Future<void> serveMcp(Store store) async {
   void send(Object? id, {Object? result, Map<String, Object?>? error}) {
-    stdout.writeln(jsonEncode({
-      'jsonrpc': '2.0',
-      'id': id,
-      if (error != null) 'error': error else 'result': result,
-    }));
+    stdout.writeln(jsonEncode({'jsonrpc': '2.0', 'id': id, if (error != null) 'error': error else 'result': result}));
   }
 
   await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
@@ -383,15 +387,23 @@ Future<void> serveMcp(Store store) async {
 
     switch (msg['method']) {
       case 'initialize':
-        send(id, result: {
-          'protocolVersion': params['protocolVersion'] ?? '2025-06-18',
-          'capabilities': {'tools': <String, Object?>{}},
-          'serverInfo': {'name': 'todo', 'version': '0.1.0'},
-        });
+        send(
+          id,
+          result: {
+            'protocolVersion': params['protocolVersion'] ?? '2025-06-18',
+            'capabilities': {'tools': <String, Object?>{}},
+            'serverInfo': {'name': 'todo', 'version': '0.1.0'},
+          },
+        );
       case 'ping':
         send(id, result: <String, Object?>{});
       case 'tools/list':
-        send(id, result: {'tools': [for (final t in _tools) t.toJson()]});
+        send(
+          id,
+          result: {
+            'tools': [for (final t in _tools) t.toJson()],
+          },
+        );
       case 'tools/call':
         final tool = _tools.where((t) => t.name == params['name']).firstOrNull;
         if (tool == null) {
@@ -413,12 +425,15 @@ Future<void> serveMcp(Store store) async {
           text = 'Wrong argument type for ${tool.name}';
           isError = true;
         }
-        send(id, result: {
-          'content': [
-            {'type': 'text', 'text': text},
-          ],
-          'isError': isError,
-        });
+        send(
+          id,
+          result: {
+            'content': [
+              {'type': 'text', 'text': text},
+            ],
+            'isError': isError,
+          },
+        );
       default:
         send(id, error: {'code': -32601, 'message': 'Method not found: ${msg['method']}'});
     }
