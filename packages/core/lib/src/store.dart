@@ -804,7 +804,7 @@ class Store {
           r['device'] as String: r['seconds'] as int,
       };
 
-  /// Everything `todo usage` and the assistant need for a period, as JSON.
+  /// Everything `myvault usage` and the assistant need for a period, as JSON.
   Map<String, Object?> usageSummary(String from, String to) {
     final apps = usageByApp(from, to);
     final days = usageByDay(from, to);

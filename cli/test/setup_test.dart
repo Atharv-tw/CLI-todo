@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:todo_cli/embedded.g.dart';
-import 'package:todo_cli/setup.dart';
+import 'package:vault_cli/embedded.g.dart';
+import 'package:vault_cli/setup.dart';
 
 import '../tool/embed_skills.dart' as embed;
 
@@ -60,7 +60,7 @@ void main() {
 
     test('registers the tool server for every project, and installs the skills', () {
       final lines = connect(stub, todo: '/opt/todo', home: dir.path);
-      expect(log.readAsLinesSync(), ['mcp get todo', 'mcp add --scope user todo -- /opt/todo mcp']);
+      expect(log.readAsLinesSync(), ['mcp get myvault', 'mcp add --scope user myvault -- /opt/todo mcp']);
       expect(lines.first, contains('can now read and change your tasks'));
       expect(File(p.join(dir.path, 'skills', 'file-diary', 'SKILL.md')).existsSync(), isTrue);
     });
@@ -69,7 +69,7 @@ void main() {
       connect(stub, todo: '/opt/todo', home: dir.path);
       log.writeAsStringSync('');
       final lines = connect(stub, todo: '/opt/todo', home: dir.path);
-      expect(log.readAsLinesSync(), ['mcp get todo']);
+      expect(log.readAsLinesSync(), ['mcp get myvault']);
       expect(lines.first, contains('already has'));
     });
 

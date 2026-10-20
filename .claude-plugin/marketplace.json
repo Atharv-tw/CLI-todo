@@ -1,17 +1,17 @@
 {
-  "name": "cli-todo",
+  "name": "vault-app",
   "owner": {
     "name": "Atharv Tiwari",
     "url": "https://github.com/Atharv-tw"
   },
   "metadata": {
-    "description": "The Todo app's tools and skills for Claude Code."
+    "description": "Vault's tools and skills for Claude Code: a private second brain your agents share."
   },
   "plugins": [
     {
-      "name": "todo",
+      "name": "vault",
       "source": "./plugin",
-      "description": "Tasks, habits, diary and screen time as tools, with skills for a daily briefing and for filing the diary into a vault of notes. Needs the `todo` command installed."
+      "description": "Your goals, plans, tasks, habits and diary as tools, with skills to plan your day, file your diary into your notes and keep them healthy. Needs the `myvault` command installed."
     }
   ]
 }

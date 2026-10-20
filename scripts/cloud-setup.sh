@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# Prepares a fresh machine (a scheduled cloud session) to use the `todo`
+# Prepares a fresh machine (a scheduled cloud session) to use the `myvault`
 # command against your synced data: installs Dart if needed, builds the CLI,
-# signs in and syncs. Needs these environment variables:
-#   TODO_SUPABASE_URL, TODO_SUPABASE_KEY   the project (as in config.local.json)
-#   TODO_EMAIL, TODO_PASSWORD              the sync account
-#   TZ                                     your timezone, e.g. Asia/Kolkata,
-#                                          so "today" means your today
+# signs in and syncs. Needs these environment variables (the older TODO_*
+# names work too):
+#   MYVAULT_SUPABASE_URL, MYVAULT_SUPABASE_KEY   the project (as in config.local.json)
+#   MYVAULT_EMAIL, MYVAULT_PASSWORD              the sync account
+#   TZ                                           your timezone, e.g. Asia/Kolkata,
+#                                                so "today" means your today
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-for v in TODO_SUPABASE_URL TODO_SUPABASE_KEY TODO_EMAIL TODO_PASSWORD TZ; do
-  [ -n "${!v:-}" ] || { echo "Missing environment variable: $v" >&2; exit 1; }
+for v in SUPABASE_URL SUPABASE_KEY EMAIL PASSWORD; do
+  new="MYVAULT_$v" old="TODO_$v"
+  [ -n "${!new:-}" ] || { [ -n "${!old:-}" ] && export "$new=${!old}"; } \
+    || { echo "Missing environment variable: $new" >&2; exit 1; }
 done
+[ -n "${TZ:-}" ] || { echo "Missing environment variable: TZ" >&2; exit 1; }
 
 DART_VERSION=3.13.5
 if ! command -v dart >/dev/null; then
@@ -27,10 +31,12 @@ fi
 
 (cd cli && dart pub get >/dev/null && dart build cli >/dev/null)
 mkdir -p "$HOME/.local/bin"
-ln -sf "$PWD/cli/build/cli/linux_x64/bundle/bin/todo" "$HOME/.local/bin/todo"
+for name in myvault todo; do
+  ln -sf "$PWD/cli/build/cli/linux_x64/bundle/bin/myvault" "$HOME/.local/bin/$name"
+done
 export PATH="$HOME/.local/bin:$PATH"
 
-todo server "$TODO_SUPABASE_URL" "$TODO_SUPABASE_KEY" >/dev/null
-# `todo login` reads the password from standard input when there is no terminal.
-printf '%s\n' "$TODO_PASSWORD" | todo login --email "$TODO_EMAIL"
-echo "Ready. Use: $HOME/.local/bin/todo (run 'todo sync' after making changes)"
+myvault server "$MYVAULT_SUPABASE_URL" "$MYVAULT_SUPABASE_KEY" >/dev/null
+# `myvault login` reads the password from standard input when there is no terminal.
+printf '%s\n' "$MYVAULT_PASSWORD" | myvault login --email "$MYVAULT_EMAIL"
+echo "Ready. Use: $HOME/.local/bin/myvault (run 'myvault sync' after making changes)"

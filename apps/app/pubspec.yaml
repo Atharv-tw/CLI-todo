@@ -1,4 +1,4 @@
-name: todo_app
+name: vault_app
 description: "A new Flutter project."
 publish_to: 'none'
 version: 0.1.1+2
@@ -18,7 +18,7 @@ dependencies:
   sherpa_onnx: ^1.13.8
   speech_to_text: ^7.5.0
   timezone: ^0.11.1
-  todo_core:
+  vault_core:
     path: ../../packages/core
   workmanager: ^0.10.10
 

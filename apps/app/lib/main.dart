@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:home_widget/home_widget.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 import 'background.dart';
 import 'diary_page.dart';
@@ -96,7 +96,7 @@ class TodoApp extends StatelessWidget {
   Widget build(BuildContext context) => AppScope(
         state: state,
         child: MaterialApp(
-          title: 'Todo',
+          title: 'Vault',
           navigatorKey: _navigator,
           debugShowCheckedModeBanner: false,
           theme: appTheme(),

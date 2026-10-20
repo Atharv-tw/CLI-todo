@@ -23,9 +23,15 @@ class SupabaseRemote implements Remote, ReportsMissingColumns {
   static const _pageSize = 1000;
 
   // App builds may bake the project in with --dart-define; otherwise it is
-  // set once per device (`todo server URL KEY`) and kept in `meta`.
-  static const _builtInUrl = String.fromEnvironment('TODO_SUPABASE_URL');
-  static const _builtInKey = String.fromEnvironment('TODO_SUPABASE_KEY');
+  // set once per device (`myvault server URL KEY`) and kept in `meta`.
+  static const _builtInUrl = String.fromEnvironment(
+    'MYVAULT_SUPABASE_URL',
+    defaultValue: String.fromEnvironment('TODO_SUPABASE_URL'),
+  );
+  static const _builtInKey = String.fromEnvironment(
+    'MYVAULT_SUPABASE_KEY',
+    defaultValue: String.fromEnvironment('TODO_SUPABASE_KEY'),
+  );
 
   String? get url => store.getMeta('supabase_url') ?? (_builtInUrl.isEmpty ? null : _builtInUrl);
   String? get anonKey => store.getMeta('supabase_anon_key') ?? (_builtInKey.isEmpty ? null : _builtInKey);
@@ -33,7 +39,7 @@ class SupabaseRemote implements Remote, ReportsMissingColumns {
 
   void _needConfig() {
     if (!configured) {
-      throw SyncException('No sync server set. Run: todo server URL KEY (see the README)');
+      throw SyncException('No sync server set. Run: myvault server URL KEY (see the README)');
     }
   }
 
@@ -68,7 +74,7 @@ class SupabaseRemote implements Remote, ReportsMissingColumns {
       final detail = _errorText(res);
       if (grant == 'refresh_token') {
         signOut();
-        throw SyncException('Signed out (the session expired). Run: todo login');
+        throw SyncException('Signed out (the session expired). Run: myvault login');
       }
       throw SyncException('Sign-in failed: $detail');
     }
@@ -116,7 +122,7 @@ class SupabaseRemote implements Remote, ReportsMissingColumns {
   Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
     _needConfig();
     final refresh = store.getMeta('supabase_refresh_token');
-    if (refresh == null) throw SyncException('Not signed in. Run: todo login');
+    if (refresh == null) throw SyncException('Not signed in. Run: myvault login');
     final expires = DateTime.tryParse(store.getMeta('supabase_expires_at') ?? '');
     if (forceRefresh ||
         expires == null ||

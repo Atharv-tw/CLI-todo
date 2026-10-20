@@ -1,15 +1,17 @@
 # For coding agents working on this repository
 
-A personal to-do system: one local SQLite store, reached by a CLI, an MCP
+Vault: a private second brain that a person's agents share. One local SQLite
+store (diary, tasks, habits, plans) reached by a CLI (`myvault`), an MCP
 server, a Flutter app (Android and Linux) and a GNOME extension, with optional
-sync through the user's own Supabase project. `README.md` has the full tour.
+sync through the user's own Supabase project; and a vault of Markdown notes
+the user owns, kept by agents. `README.md` has the full tour.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
 | `packages/core` | Pure Dart: store, migrations, sync engine. No Flutter. |
-| `cli` | The `todo` command (`bin/todo.dart`) and its MCP server (`lib/mcp.dart`). |
+| `cli` | The `myvault` command (`bin/myvault.dart`) and its MCP server (`lib/mcp.dart`). |
 | `apps/app` | Flutter app. `android/` holds the home-screen widgets (Kotlin). |
 | `gnome-extension` | GNOME Shell top-bar widget (GJS). |
 | `plugin` | Claude Code plugin: skills and the MCP server entry. Codex reads the same `SKILL.md` files. |

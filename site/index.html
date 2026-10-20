@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CLI todo: plan the day, then re-plan it when the day happens</title>
+  <title>Vault: a private second brain your agents share</title>
   <meta name="description" content="Tasks, habits, focus timers and a spoken diary in one store on your own devices, with an AI assistant that fits the plan to the day you are actually having. Free and open source.">
-  <meta property="og:title" content="CLI todo: plan the day, then re-plan it when the day happens">
+  <meta property="og:title" content="Vault: a private second brain your agents share">
   <meta property="og:description" content="Tasks, habits, focus timers and a spoken diary on your own devices, with an assistant that re-plans your day. Free and open source.">
-  <meta property="og:image" content="https://atharv-tw.github.io/CLI-todo/img/desktop.png">
+  <meta property="og:image" content="https://atharv-tw.github.io/vault-app/img/desktop.png">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#0E0E10">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
@@ -16,13 +16,13 @@
 <body>
 
 <header class="top">
-  <a class="brand" href="#top"><img src="logo.svg" alt="" width="32" height="32">CLI todo</a>
+  <a class="brand" href="#top"><img src="logo.svg" alt="" width="32" height="32">Vault</a>
   <nav aria-label="Sections">
     <a href="#features">What it does</a>
     <a href="#assistant">Assistant</a>
     <a href="#vault">Vault</a>
     <a href="#start">Quick start</a>
-    <a class="pill" href="https://github.com/Atharv-tw/CLI-todo">GitHub</a>
+    <a class="pill" href="https://github.com/Atharv-tw/vault-app">GitHub</a>
   </nav>
 </header>
 
@@ -34,10 +34,10 @@
     <h1>Plan the day. Then re-plan it when the day happens.</h1>
     <p class="lead">Tasks, habits, focus timers and a diary you can speak, in one store on your own devices. Connect an AI assistant and it reads what actually happened, moves what you missed, and has tomorrow ready before you wake.</p>
     <div class="install">
-      <code id="install-line">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/CLI-todo/main/scripts/install.sh | sh -s -- --app</code>
+      <code id="install-line">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/vault-app/main/scripts/install.sh | sh -s -- --app</code>
       <button type="button" data-copy="install-line">Copy</button>
     </div>
-    <p class="fine">One line on 64-bit Linux: no sudo, nothing to build. <a href="https://github.com/Atharv-tw/CLI-todo/releases/latest">Android app and other downloads</a></p>
+    <p class="fine">One line on 64-bit Linux: no sudo, nothing to build. <a href="https://github.com/Atharv-tw/vault-app/releases/latest">Android app and other downloads</a></p>
   </div>
   <div class="hero-art">
     <img class="screen" src="img/desktop.png" alt="The desktop app: an activity grid, a card for the task on now, and today's timeline" width="1280" height="800">
@@ -49,22 +49,22 @@
   <h2 id="ways-title">One store, five ways in</h2>
   <p class="sub">Everything lives in one small database on each device. Whichever way you reach it, you see the same day.</p>
   <ul class="cards five">
-    <li><h3>Terminal</h3><p><code>todo add</code>, <code>todo today</code>, <code>todo done</code>. Every command also speaks JSON.</p></li>
+    <li><h3>Terminal</h3><p><code>myvault add</code>, <code>myvault today</code>, <code>myvault done</code>. Every command also speaks JSON.</p></li>
     <li><h3>Desktop</h3><p>A Linux app with the full picture, sharing the terminal's data.</p></li>
     <li><h3>Phone</h3><p>An Android app, with home-screen widgets for today, habits, focus and a quick diary note.</p></li>
     <li><h3>Top bar</h3><p>A GNOME widget: the task on now, the focus countdown, a tick from the menu.</p></li>
     <li><h3>Assistant</h3><p>Claude Code or Codex can read and change it all, through tools that ship with it.</p></li>
   </ul>
-  <pre class="term" aria-label="Example terminal session"><span class="p">$</span> todo add Read two papers on graph sampling -d today -t 14:00-15:30 -l Thesis
+  <pre class="term" aria-label="Example terminal session"><span class="p">$</span> myvault add Read two papers on graph sampling -d today -t 14:00-15:30 -l Thesis
 Added [ ] 3f9a1c  Tue 13 Oct 14:00–15:30 Read two papers on graph sampling  (Thesis)
-<span class="p">$</span> todo today
+<span class="p">$</span> myvault today
 Tue 13 Oct: 7 of 16 done
 [x] 8b21d0  07:00–07:45  Morning run, 5 km  #Fitness
 [x] 5bb889  09:00–11:00  Write the methods section  #Writing  (Thesis)
 [ ] 3f9a1c  14:00–15:30  Read two papers on graph sampling  (Thesis)
 [ ] c07e44  16:00–16:30  Groceries for the week  (Home)
 …
-<span class="p">$</span> todo done 3f9a1c</pre>
+<span class="p">$</span> myvault done 3f9a1c</pre>
 </section>
 
 <section id="features" aria-labelledby="features-title">
@@ -229,14 +229,14 @@ Tue 13 Oct: 7 of 16 done
       <h3>Install</h3>
       <p>On 64-bit Linux, one line installs the <code>todo</code> command and the desktop app into your home folder.</p>
       <div class="install">
-        <code id="install-line-2">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/CLI-todo/main/scripts/install.sh | sh -s -- --app</code>
+        <code id="install-line-2">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/vault-app/main/scripts/install.sh | sh -s -- --app</code>
         <button type="button" data-copy="install-line-2">Copy</button>
       </div>
-      <p>For the phone, download the APK from the <a href="https://github.com/Atharv-tw/CLI-todo/releases/latest">latest release</a>. It needs Android 12 or newer.</p>
+      <p>For the phone, download the APK from the <a href="https://github.com/Atharv-tw/vault-app/releases/latest">latest release</a>. It needs Android 12 or newer.</p>
     </li>
     <li>
       <h3>Answer three questions</h3>
-      <p>The installer ends with <code>todo init</code>. Each answer is optional, and you can run it again to change one.</p>
+      <p>The installer ends with <code>myvault init</code>. Each answer is optional, and you can run it again to change one.</p>
       <table>
         <tr><th>Sync between devices?</th><td>It walks you through a free Supabase project of your own.</td></tr>
         <tr><th>Connect Claude Code or Codex?</th><td>It registers the tools and installs the two skills.</td></tr>
@@ -245,9 +245,9 @@ Tue 13 Oct: 7 of 16 done
     </li>
     <li>
       <h3>Use it</h3>
-      <pre class="term"><span class="p">$</span> todo add Revise unit 2 -d tomorrow -t 18:00-20:45
-<span class="p">$</span> todo habit add Read 20 min --time 22:15
-<span class="p">$</span> todo today</pre>
+      <pre class="term"><span class="p">$</span> myvault add Revise unit 2 -d tomorrow -t 18:00-20:45
+<span class="p">$</span> myvault habit add Read 20 min --time 22:15
+<span class="p">$</span> myvault today</pre>
       <p>Or say it to your assistant: "what is on today?", "I woke at ten, re-plan my day", "file my diary".</p>
     </li>
   </ol>
@@ -261,14 +261,14 @@ Tue 13 Oct: 7 of 16 done
     <li>Sync and the nightly planner take some setting up: a Supabase project of your own, and for the planner a Claude subscription that can run scheduled sessions.</li>
     <li>Speech models are a one-time download of 100 to 375 MB, and words appear when you pause, not as you speak.</li>
     <li>Reading the vault on a phone needs Obsidian and a way to sync the folder, which this does not provide.</li>
-    <li>I built it for my own days. Expect rough edges, and <a href="https://github.com/Atharv-tw/CLI-todo/issues">tell me about them</a>.</li>
+    <li>I built it for my own days. Expect rough edges, and <a href="https://github.com/Atharv-tw/vault-app/issues">tell me about them</a>.</li>
   </ul>
 </section>
 
 </main>
 
 <footer>
-  <p><a href="https://github.com/Atharv-tw/CLI-todo">Source on GitHub</a> · <a href="https://github.com/Atharv-tw/CLI-todo/releases/latest">Downloads</a> · <a href="https://github.com/Atharv-tw/CLI-todo/issues">Report a problem</a></p>
+  <p><a href="https://github.com/Atharv-tw/vault-app">Source on GitHub</a> · <a href="https://github.com/Atharv-tw/vault-app/releases/latest">Downloads</a> · <a href="https://github.com/Atharv-tw/vault-app/issues">Report a problem</a></p>
   <p class="fine">MIT licensed. Made by <a href="https://github.com/Atharv-tw">Atharv Tiwari</a>. The pictures on this page show made-up data.</p>
 </footer>
 

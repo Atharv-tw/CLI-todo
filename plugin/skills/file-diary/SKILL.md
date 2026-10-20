@@ -10,19 +10,19 @@ Their vault is a folder of plain Markdown notes. Your job is to move what is
 new in the diary into the vault, each part where it belongs, so the user never
 has to sort anything.
 
-Everything goes through the `todo` command. If the Todo tools are connected
+Everything goes through the `myvault` command. If the Todo tools are connected
 as an MCP server, `vault_status`, `list_diary` (with `unfiled: true`) and
 `mark_diary_filed` do the same as the commands below.
 
 ## Steps
 
-1. **Find the vault.** Run `todo --json vault status`. If `path` is null the
-   user has no vault: say so, mention `todo vault init` creates one, and stop.
+1. **Find the vault.** Run `myvault --json notes status`. If `path` is null the
+   user has no vault: say so, mention `myvault notes init` creates one, and stop.
    Do not create one unasked.
 2. **Get it up to date.** If `git` is true and `remote` is set, run
    `git -C <path> pull --rebase` first. If that fails, stop and report it;
    never file on top of a vault you could not update.
-3. **Get the entries.** Run `todo sync`, then `todo --json diary --unfiled`.
+3. **Get the entries.** Run `myvault sync`, then `myvault --json diary --unfiled`.
    Each entry has `id`, `date`, `time` (when it was logged, on the user's
    clock), `body`, and `task` or `habit` when it was about one. If the list is
    empty, say there is nothing to file and stop.
@@ -51,9 +51,9 @@ as an MCP server, `vault_status`, `list_diary` (with `unfiled: true`) and
    user's own words never; logs and lists only by adding; summaries such as
    a project's overview are kept current, leaving a trace when a claim
    changes. With no such rules, only add; never rewrite or delete.
-6. **Record it.** Run `todo diary-filed ID ID ...` with every entry you
-   filed, then `todo sync`. Do this only after the notes are written.
-7. **Check and save it.** Run `todo vault lint` and fix any error it
+6. **Record it.** Run `myvault diary-filed ID ID ...` with every entry you
+   filed, then `myvault sync`. Do this only after the notes are written.
+7. **Check and save it.** Run `myvault notes lint` and fix any error it
    reports (a broken link, a link into `raw/`). If the vault has a `log.md`,
    add a line in its format (`- [YYYY-MM-DD] ingest | diary 13 Oct: ...`).
    If the vault is under git, commit with a message like `Diary: 13 Oct`

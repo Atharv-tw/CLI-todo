@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 import 'background.dart';
 
@@ -18,7 +18,7 @@ void Function(Reminder reminder)? onReminderOpened;
 
 /// Must run in every isolate before [notifications] is used.
 Future<void> initNotifications() => _ready ??= notifications.initialize(
-      settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_todo')),
+      settings: const InitializationSettings(android: AndroidInitializationSettings('ic_stat_vault')),
       onDidReceiveNotificationResponse: (response) {
         final reminder = Reminder.fromPayload(response.payload);
         if (reminder != null) onReminderOpened?.call(reminder);

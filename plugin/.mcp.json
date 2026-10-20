@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "todo": {
-      "command": "todo",
+    "myvault": {
+      "command": "myvault",
       "args": ["mcp"]
     }
   }

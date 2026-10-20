@@ -1,13 +1,13 @@
 {
-  "name": "todo",
-  "version": "0.1.1",
-  "description": "Your tasks, habits, diary and screen time from the Todo app, as tools your assistant can read and change, with skills for a daily briefing and for filing the diary into a vault of notes.",
+  "name": "vault",
+  "version": "0.2.0",
+  "description": "Vault: a private second brain your agents share. Your goals, plans, tasks, habits and diary as tools your assistant can read and change, and skills that plan your day, file your diary into your notes and keep that memory healthy.",
   "author": {
     "name": "Atharv Tiwari",
     "url": "https://github.com/Atharv-tw"
   },
-  "homepage": "https://github.com/Atharv-tw/CLI-todo",
-  "repository": "https://github.com/Atharv-tw/CLI-todo",
+  "homepage": "https://atharv-tw.github.io/vault-app/",
+  "repository": "https://github.com/Atharv-tw/vault-app",
   "license": "MIT",
-  "keywords": ["todo", "tasks", "habits", "diary", "obsidian", "planning"]
+  "keywords": ["second-brain", "memory", "personal-agent", "planning", "diary", "obsidian", "tasks"]
 }

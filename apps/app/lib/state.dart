@@ -4,7 +4,7 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 import 'background.dart';
 import 'outputs.dart';

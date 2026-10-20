@@ -9,7 +9,7 @@ or to bake your own sync server into the apps.
 | Path | What it is |
 | --- | --- |
 | `packages/core` | Pure Dart: SQLite store, sync engine, Supabase client |
-| `cli` | The `todo` command, including `todo mcp` (MCP server over stdio) |
+| `cli` | The `myvault` command, including `myvault mcp` (MCP server over stdio) |
 | `apps/app` | Flutter app for Linux desktop and Android |
 | `apps/app/android` | Android home-screen widgets (Today, Habits, Focus, Diary) |
 | `gnome-extension` | GNOME Shell top-bar widget |
@@ -44,26 +44,28 @@ builds against:
 ~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
 ```
 
-### 2. The `todo` command
+### 2. The `myvault` command
 
 ```bash
 ./scripts/install-cli.sh
 ```
 
-Installs to `~/.local/bin/todo`. Data lives in `~/.local/share/todo/todo.db`
-(override with the `TODO_DB` environment variable).
+Installs to `~/.local/bin/myvault`, with `todo` as its older name. Data lives
+in `~/.local/share/myvault/myvault.db`, or in `~/.local/share/todo/todo.db`
+when that exists from before the rename (override with the `MYVAULT_DB`
+environment variable).
 
 ```bash
-todo add Revise unit 2 -d tomorrow -t 18:00-20:45 -l Exams --tag "Exam prep"
-todo today
-todo done 5bb889
-todo habit add Read 20 min --time 22:15
-todo focus start
+myvault add Revise unit 2 -d tomorrow -t 18:00-20:45 -l Exams --tag "Exam prep"
+myvault today
+myvault done 5bb889
+myvault habit add Read 20 min --time 22:15
+myvault focus start
 ```
 
-`todo --help` lists everything; add `--json` to any command for machine-readable output.
+`myvault --help` lists everything; add `--json` to any command for machine-readable output.
 
-Then `todo init` connects your assistant and sets up sync and a vault, as in
+Then `myvault init` connects your assistant and sets up sync and a vault, as in
 the quick start.
 
 ### 3. Your sync server in the apps (optional)
@@ -78,18 +80,18 @@ and publishable key. The install scripts pass it to the build.
 ./scripts/install-desktop.sh
 ```
 
-Adds "Todo" to the application grid. It shares the database with the CLI.
+Adds "Vault" to the application grid. It shares the database with the CLI.
 
 ### 5. GNOME top-bar widget
 
 ```bash
-ln -s "$PWD/gnome-extension/todo@atharv.local" ~/.local/share/gnome-shell/extensions/
+ln -s "$PWD/gnome-extension/myvault@atharv.local" ~/.local/share/gnome-shell/extensions/
 ```
 
 Log out and back in, then:
 
 ```bash
-gnome-extensions enable todo@atharv.local
+gnome-extensions enable myvault@atharv.local
 ```
 
 It shows today's progress, the running task as a coloured block, and the focus

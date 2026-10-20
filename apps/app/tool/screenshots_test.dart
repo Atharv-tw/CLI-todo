@@ -15,12 +15,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:todo_app/diary_page.dart';
-import 'package:todo_app/main.dart';
-import 'package:todo_app/reminder_page.dart';
-import 'package:todo_app/reminders.dart';
-import 'package:todo_app/state.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_app/diary_page.dart';
+import 'package:vault_app/main.dart';
+import 'package:vault_app/reminder_page.dart';
+import 'package:vault_app/reminders.dart';
+import 'package:vault_app/state.dart';
+import 'package:vault_core/vault_core.dart';
 
 const _frame = ValueKey('screenshot');
 final _out = Directory(p.join('..', '..', 'site', 'img'));

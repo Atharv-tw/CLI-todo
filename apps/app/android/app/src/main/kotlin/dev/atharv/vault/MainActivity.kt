@@ -1,4 +1,4 @@
-package dev.atharv.todo_app
+package dev.atharv.vault
 
 import android.app.AppOpsManager
 import android.app.KeyguardManager

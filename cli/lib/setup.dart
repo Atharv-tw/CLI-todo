@@ -4,7 +4,7 @@ import 'package:path/path.dart' as p;
 
 import 'embedded.g.dart';
 
-/// A coding assistant `todo init` can connect: it gets the tool server, so it
+/// A coding assistant `myvault init` can connect: it gets the tool server, so it
 /// can read and change tasks, and the skills, so it knows how to do a daily
 /// briefing and how to file the diary.
 class Assistant {
@@ -39,13 +39,15 @@ bool isInstalled(String command) {
 /// The path an assistant should start the tool server with. The launcher on
 /// the PATH if there is one, so it keeps working when the program is updated.
 String todoCommand() {
-  for (final dir in (Platform.environment['PATH'] ?? '').split(Platform.isWindows ? ';' : ':')) {
-    if (dir.isEmpty) continue;
-    final candidate = File(p.join(dir, Platform.isWindows ? 'todo.exe' : 'todo'));
-    if (candidate.existsSync()) return candidate.path;
+  for (final name in ['myvault', 'todo']) {
+    for (final dir in (Platform.environment['PATH'] ?? '').split(Platform.isWindows ? ';' : ':')) {
+      if (dir.isEmpty) continue;
+      final candidate = File(p.join(dir, Platform.isWindows ? '$name.exe' : name));
+      if (candidate.existsSync()) return candidate.path;
+    }
   }
   final self = Platform.resolvedExecutable;
-  return p.basenameWithoutExtension(self) == 'todo' ? self : 'todo';
+  return {'myvault', 'todo'}.contains(p.basenameWithoutExtension(self)) ? self : 'myvault';
 }
 
 /// Writes every skill into [dir], one folder each, replacing an older copy.
@@ -67,23 +69,23 @@ List<String> connect(Assistant assistant, {required String todo, String? home}) 
   ProcessResult run(List<String> args) => Process.runSync(assistant.command, args);
   try {
     // Asking first keeps a second run from failing on "already exists".
-    final known = run(['mcp', 'get', 'todo']).exitCode == 0;
+    final known = run(['mcp', 'get', 'myvault']).exitCode == 0;
     if (known) {
-      lines.add('${assistant.name} already has the Todo tools.');
+      lines.add('${assistant.name} already has the Vault tools.');
     } else {
       final added = run([
         'mcp',
         'add',
         if (assistant.id == 'claude') ...['--scope', 'user'],
-        'todo',
+        'myvault',
         '--',
         todo,
         'mcp',
       ]);
       lines.add(added.exitCode == 0
-          ? '${assistant.name} can now read and change your tasks (tool server "todo").'
+          ? '${assistant.name} can now read and change your tasks, diary and notes (tool server "myvault").'
           : '${assistant.name} would not take the tool server: ${('${added.stderr}'.trim().split('\n').last)}\n'
-              '  Add it yourself with: ${assistant.command} mcp add todo -- $todo mcp');
+              '  Add it yourself with: ${assistant.command} mcp add myvault -- $todo mcp');
     }
   } on ProcessException {
     lines.add('${assistant.name} is not installed; skipped.');

@@ -1,6 +1,6 @@
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 import 'sync_test.dart' show FakeRemote;
 

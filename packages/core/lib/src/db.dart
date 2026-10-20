@@ -4,14 +4,19 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 /// Laptop location of the shared database. The desktop app, the CLI and the
-/// GNOME widget all open this same file; `TODO_DB` overrides it.
+/// GNOME widget all open this same file; `MYVAULT_DB` overrides it. A
+/// database from before the rename to Vault (`todo/todo.db`) keeps being
+/// used where it is, so nothing has to move.
 String defaultDbPath() {
   final env = Platform.environment;
-  final override = env['TODO_DB'];
+  final override = env['MYVAULT_DB'] ?? env['TODO_DB'];
   if (override != null && override.isNotEmpty) return override;
   final data =
       env['XDG_DATA_HOME'] ?? p.join(env['HOME'] ?? '.', '.local', 'share');
-  return p.join(data, 'todo', 'todo.db');
+  final current = p.join(data, 'myvault', 'myvault.db');
+  final before = p.join(data, 'todo', 'todo.db');
+  if (!File(current).existsSync() && File(before).existsSync()) return before;
+  return current;
 }
 
 Database openDb([String? path]) {

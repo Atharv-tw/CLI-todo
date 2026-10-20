@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-/// One thing `todo vault lint` found. An error is something that breaks the
+/// One thing `myvault notes lint` found. An error is something that breaks the
 /// vault's rules (a link to a note that does not exist, a link into `raw/`);
 /// a warning is upkeep an agent or the person should look at.
 class LintIssue {
