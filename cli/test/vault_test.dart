@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:todo_cli/vault.dart';
+import 'package:todo_cli/vault_lint.dart';
 import 'package:todo_core/todo_core.dart';
 
 void main() {
@@ -23,7 +24,7 @@ void main() {
     }
     final readme = File(p.join(dir.path, 'README.md')).readAsStringSync();
     expect(readme, contains('Rules for filing'));
-    expect(readme, contains('Add, never rewrite'));
+    expect(readme, contains('Never changed:'));
     expect(readme, contains('Every other agent stays out of `raw/`'));
   });
 
@@ -57,5 +58,67 @@ void main() {
     status = vaultStatus(store);
     expect(status['exists'], isFalse);
     dir.createSync();
+  });
+
+  group('lint', () {
+    void write(String rel, String text) => File(p.join(dir.path, rel))
+      ..createSync(recursive: true)
+      ..writeAsStringSync(text);
+    List<String> codes() => [for (final i in lintVault(dir.path, today: DateTime(2026, 10, 20))) '${i.code} ${i.file}'];
+
+    test('a new vault is healthy', () {
+      scaffoldVault(dir.path);
+      expect(lintVault(dir.path), isEmpty);
+    });
+
+    test('finds broken links and links into raw/, but not examples in code', () {
+      scaffoldVault(dir.path);
+      write(
+        'notes/A.md',
+        '---\ntype: note\nupdated: 2026-10-20\n---\n# A\n\nSee [[Nowhere]] and [[raw/2026-10-13|the diary]].\n'
+            'In code: `[[Fine]]`.\n\n```\n[[Also fine]]\n```\n',
+      );
+      write(
+        'INDEX.md',
+        '# Index\n\n- [[notes/A]]\n- [[README]] [[log]] [[Rules]] [[Me]] [[Voice]] [[Decisions]] [[Ideas]]\n',
+      );
+      final issues = lintVault(dir.path);
+      expect(issues.where((i) => i.isError).map((i) => i.code), containsAll(['broken_link', 'raw_link']));
+      expect(issues.where((i) => i.isError), hasLength(2));
+      expect(issues.first.isError, isTrue);
+    });
+
+    test('finds notes missing from INDEX, orphans, missing frontmatter and stale projects', () {
+      scaffoldVault(dir.path);
+      write(
+        'projects/Onyx/Onyx.md',
+        '---\ntype: project\nstatus: building\nupdated: 2026-08-01\n---\n# Onyx\n\n[[projects/Onyx/log|log]]\n',
+      );
+      write('projects/Onyx/log.md', '# Onyx: log\n');
+      write('people/Sam.md', '# Sam\n');
+      expect(
+        codes(),
+        containsAll([
+          'not_in_index people/Sam.md',
+          'orphan people/Sam.md',
+          'no_frontmatter people/Sam.md',
+          'not_in_index projects/Onyx/Onyx.md',
+          'stale projects/Onyx/Onyx.md',
+        ]),
+      );
+      expect(codes(), isNot(contains('orphan projects/Onyx/log.md')));
+    });
+
+    test('pairs raw/ days with days/ notes, and checks the log format', () {
+      scaffoldVault(dir.path);
+      write('raw/2026-10-13.md', '# Tue 13 Oct 2026\n');
+      write('days/2026-10-14.md', '# Wed 14 Oct 2026\n');
+      File(p.join(dir.path, 'log.md')).writeAsStringSync(
+        '# Log\n\n- [2026-10-13] ingest | diary 13 Oct\n- 2026-10-14: old style\n- [2026-10-14] dance | wrong op\n',
+      );
+      final found = codes();
+      expect(found, containsAll(['day_not_written raw/2026-10-13.md', 'day_without_raw days/2026-10-14.md']));
+      expect(found.where((c) => c.startsWith('log_format')), hasLength(2));
+    });
   });
 }

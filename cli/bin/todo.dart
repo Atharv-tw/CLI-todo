@@ -7,6 +7,7 @@ import 'package:todo_cli/embedded.g.dart';
 import 'package:todo_cli/mcp.dart';
 import 'package:todo_cli/setup.dart';
 import 'package:todo_cli/vault.dart';
+import 'package:todo_cli/vault_lint.dart';
 import 'package:todo_core/todo_core.dart';
 
 final Store store = Store(openDb());
@@ -77,8 +78,7 @@ abstract class Cmd extends Command<void> {
   String? opt(String name) => argResults!.option(name);
 
   /// Prints [data] as JSON under `--json`, otherwise the lines from [text].
-  void out(Object? data, String Function() text) =>
-      print(globalResults!.flag('json') ? jsonEncode(data) : text());
+  void out(Object? data, String Function() text) => print(globalResults!.flag('json') ? jsonEncode(data) : text());
 
   void needArgs(String what) {
     if (rest.isEmpty) usageException('Give $what.');
@@ -91,8 +91,8 @@ String taskLine(Task t, {bool showDate = true}) {
   final time = t.startTime == null
       ? ''
       : t.endTime == null
-          ? '${t.startTime} '
-          : '${t.startTime}–${t.endTime} ';
+      ? '${t.startTime} '
+      : '${t.startTime}–${t.endTime} ';
   final date = showDate && t.date != null ? '${prettyDate(t.date!)} ' : '';
   final tag = t.tag == null ? '' : '  #${t.tag}';
   final list = t.list == null ? '' : '  (${t.list})';
@@ -125,9 +125,11 @@ void addTaskOptions(Cmd c) {
     ..addOption('notes', abbr: 'n')
     ..addOption('due', help: 'Deadline: when it must be done by. Not the day it is planned for (-d).')
     ..addOption('estimate', help: 'Minutes it should take, for a task without a time slot.')
-    ..addOption('protect',
-        allowed: ['day', 'time', 'none'],
-        help: 'day: must stay on its day, may move within it. time: fixed in time. none: free to move.')
+    ..addOption(
+      'protect',
+      allowed: ['day', 'time', 'none'],
+      help: 'day: must stay on its day, may move within it. time: fixed in time. none: free to move.',
+    )
     ..addOption('from', help: 'The diary entry this commitment was captured from (id or prefix).');
 }
 
@@ -159,8 +161,8 @@ class AddCommand extends Cmd {
     final date = opt('date') != null
         ? parseDate(opt('date')!)
         : time != null
-            ? today()
-            : null;
+        ? today()
+        : null;
     final more = commitmentOptions(this);
     final t = store.addTask(
       title: rest.join(' '),
@@ -180,8 +182,7 @@ class AddCommand extends Cmd {
 }
 
 class ListCommand extends Cmd {
-  ListCommand()
-      : super('list', 'List tasks: todo list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
+  ListCommand() : super('list', 'List tasks: todo list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
     argParser
       ..addOption('list', abbr: 'l', help: 'Only this list.')
       ..addFlag('open', negatable: false, help: 'Hide ticked tasks.');
@@ -203,16 +204,15 @@ class ListCommand extends Cmd {
     final now = today();
     final tasks = switch (when) {
       'all' => store.tasks(undated: true, listId: listId, includeDone: includeDone),
-      'undated' => store
-          .tasks(undated: true, listId: listId, includeDone: includeDone)
-          .where((t) => t.date == null)
-          .toList(),
+      'undated' =>
+        store.tasks(undated: true, listId: listId, includeDone: includeDone).where((t) => t.date == null).toList(),
       'overdue' => store.tasks(overdueBefore: now, listId: listId),
       // Open commitments with no day yet.
       'backlog' => store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.date == null).toList(),
       // Open tasks with a deadline, soonest first.
-      'due' => store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.dueDate != null).toList()
-        ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!)),
+      'due' =>
+        store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.dueDate != null).toList()
+          ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!)),
       'week' => store.tasks(from: now, to: addDays(now, 6), listId: listId, includeDone: includeDone),
       _ => store.tasks(from: parseDate(when), to: parseDate(when), listId: listId, includeDone: includeDone),
     };
@@ -261,11 +261,11 @@ class DoneCommand extends Cmd {
 
 class EditCommand extends Cmd {
   EditCommand()
-      : super(
-          'edit',
-          'Change a task: todo edit ID -d fri -t 10:00. Use "none" to clear a field. Moving a protected task '
-              'off its day, a fixed one at all, or changing a deadline needs --reason.',
-        ) {
+    : super(
+        'edit',
+        'Change a task: todo edit ID -d fri -t 10:00. Use "none" to clear a field. Moving a protected task '
+            'off its day, a fixed one at all, or changing a deadline needs --reason.',
+      ) {
     argParser
       ..addOption('title')
       ..addOption('reason', help: 'Why: kept in the task history.');
@@ -329,10 +329,9 @@ class ListsCommand extends Cmd {
       store.renameList(list.id, rest[2]);
     }
     final lists = store.lists();
-    out(
-      [for (final l in lists) l.toJson()],
-      () => lists.isEmpty ? 'No lists.' : lists.map((l) => '${short(l.id)}  ${l.title}').join('\n'),
-    );
+    out([
+      for (final l in lists) l.toJson(),
+    ], () => lists.isEmpty ? 'No lists.' : lists.map((l) => '${short(l.id)}  ${l.title}').join('\n'));
   }
 }
 
@@ -363,9 +362,12 @@ class _HabitList extends Cmd {
       () => habits.isEmpty
           ? 'No habits on ${prettyDate(date)}.'
           : habits
-              .map((h) => '${checked.contains(h.id) ? '[x]' : '[ ]'} ${short(h.id)}  '
-                  '${h.time == null ? '' : '${h.time} '}${h.title}')
-              .join('\n'),
+                .map(
+                  (h) =>
+                      '${checked.contains(h.id) ? '[x]' : '[ ]'} ${short(h.id)}  '
+                      '${h.time == null ? '' : '${h.time} '}${h.title}',
+                )
+                .join('\n'),
     );
   }
 
@@ -489,10 +491,7 @@ class _FocusStatus extends Cmd {
   static void show(Cmd c) {
     final s = store.currentFocus();
     final minutes = store.focusedMinutes(today());
-    c.out(
-      {'session': s?.toJson(), 'focused_min': minutes},
-      () => '${focusLine(s)} $minutes min focused today.',
-    );
+    c.out({'session': s?.toJson(), 'focused_min': minutes}, () => '${focusLine(s)} $minutes min focused today.');
   }
 
   @override
@@ -502,17 +501,24 @@ class _FocusStatus extends Cmd {
 /// `todo diary`: what was written, and a way to write more.
 class DiaryCommand extends Cmd {
   DiaryCommand([String name = 'diary'])
-      : super(name, 'Diary: todo diary (recent entries), or todo diary Finally got hash maps --task 6e495e') {
+    : super(name, 'Diary: todo diary (recent entries), or todo diary Finally got hash maps --task 6e495e') {
     argParser
       ..addOption('date', abbr: 'd', help: 'Day the entry is about (default today).')
       ..addOption('task', help: 'A task the entry is about (id or prefix).')
       ..addOption('habit', help: 'A habit the entry is about (title or id).')
-      ..addOption('as',
-          allowed: [DiaryEntry.me, DiaryEntry.assistant], defaultsTo: DiaryEntry.me, help: 'Who is writing.')
+      ..addOption(
+        'as',
+        allowed: [DiaryEntry.me, DiaryEntry.assistant],
+        defaultsTo: DiaryEntry.me,
+        help: 'Who is writing.',
+      )
       ..addOption('days', defaultsTo: '7', help: 'How many days back to show.')
       ..addFlag('unfiled', negatable: false, help: 'Only your entries not yet filed into the vault.')
-      ..addFlag('unprocessed',
-          negatable: false, help: 'Only your entries of the last 14 days with no recorded outcome yet.');
+      ..addFlag(
+        'unprocessed',
+        negatable: false,
+        help: 'Only your entries of the last 14 days with no recorded outcome yet.',
+      );
   }
 
   // `todo brief` still works: the nightly routine was written against it.
@@ -531,7 +537,10 @@ class DiaryCommand extends Cmd {
         taskId: taskId,
         habitId: habitId,
       );
-      out(e.toJson(), () => 'Saved to the diary for ${prettyDate(e.date)}${e.about == null ? '' : ', on "${e.about}"'}.');
+      out(
+        e.toJson(),
+        () => 'Saved to the diary for ${prettyDate(e.date)}${e.about == null ? '' : ', on "${e.about}"'}.',
+      );
       return;
     }
     if (argResults!.flag('unprocessed')) {
@@ -539,7 +548,8 @@ class DiaryCommand extends Cmd {
       out([for (final e in waiting) e.toJson()], () {
         if (waiting.isEmpty) return 'Every entry has an outcome.';
         return [
-          for (final e in waiting) '  ${short(e.id)}  ${prettyDate(e.date)} ${hm(e.createdAt)}  ${e.body.replaceAll('\n', ' ')}',
+          for (final e in waiting)
+            '  ${short(e.id)}  ${prettyDate(e.date)} ${hm(e.createdAt)}  ${e.body.replaceAll('\n', ' ')}',
         ].join('\n');
       });
       return;
@@ -608,7 +618,7 @@ class _DiaryFiled extends Cmd {
 
 class _DiaryOutcome extends Cmd {
   _DiaryOutcome()
-      : super('diary-outcome', 'Record what became of a diary entry: todo diary-outcome ID Captured 3 commitments...');
+    : super('diary-outcome', 'Record what became of a diary entry: todo diary-outcome ID Captured 3 commitments...');
 
   @override
   bool get hidden => true;
@@ -630,18 +640,23 @@ class ShowCommand extends Cmd {
     needArgs('a task id');
     final t = store.task(store.resolveId('tasks', rest.first));
     final source = t.sourceEntry == null ? null : store.diary().where((e) => e.id == t.sourceEntry).firstOrNull;
-    out({...t.toJson(), 'source': source?.toJson()}, () => [
-          taskLine(t),
-          if (t.estimateMin != null) '    estimate: ${t.estimateMin} min',
-          if (t.notes != null) '    notes: ${t.notes}',
-          if (source != null) '    from the diary, ${prettyDate(source.date)} ${hm(source.createdAt)}: ${source.body.replaceAll('\n', ' ')}',
-          if (t.history != null) ...['    history:', for (final l in t.history!.split('\n')) '      $l'],
-        ].join('\n'));
+    out(
+      {...t.toJson(), 'source': source?.toJson()},
+      () => [
+        taskLine(t),
+        if (t.estimateMin != null) '    estimate: ${t.estimateMin} min',
+        if (t.notes != null) '    notes: ${t.notes}',
+        if (source != null)
+          '    from the diary, ${prettyDate(source.date)} ${hm(source.createdAt)}: ${source.body.replaceAll('\n', ' ')}',
+        if (t.history != null) ...['    history:', for (final l in t.history!.split('\n')) '      $l'],
+      ].join('\n'),
+    );
   }
 }
 
 class StatsCommand extends Cmd {
-  StatsCommand() : super('stats', 'What recent days actually looked like: wake times, tasks done, deadlines, backlog.') {
+  StatsCommand()
+    : super('stats', 'What recent days actually looked like: wake times, tasks done, deadlines, backlog.') {
     argParser.addOption('days', defaultsTo: '14', help: 'How many days back.');
   }
 
@@ -660,7 +675,8 @@ class StatsCommand extends Cmd {
             '${t['done_min_per_day'] ?? 0} min of planned work done a day',
         'Backlog: ${s.backlog} without a day. Overdue: ${s.overdue}. Diary entries waiting for an outcome: ${s.unprocessed}',
         if (s.dueSoon.isNotEmpty) 'Due in the next 14 days:',
-        for (final d in s.dueSoon) '  ${prettyDate(d.dueDate!)}  ${d.title}${d.date == null ? '  (no day planned)' : ''}',
+        for (final d in s.dueSoon)
+          '  ${prettyDate(d.dueDate!)}  ${d.title}${d.date == null ? '  (no day planned)' : ''}',
         '',
         for (final d in s.days)
           '${prettyDate(d.date).padRight(11)} woke ${d.wake == null ? '  -  ' : clockText(d.wake!)}  '
@@ -672,11 +688,11 @@ class StatsCommand extends Cmd {
 
 class CheckPlanCommand extends Cmd {
   CheckPlanCommand()
-      : super(
-          'check-plan',
-          'Check a day\'s plan: nothing left in the past, no deadline broken, every diary entry accounted for, '
-              'the day no fuller than the time there really is. Exits 1 if anything must be fixed.',
-        ) {
+    : super(
+        'check-plan',
+        'Check a day\'s plan: nothing left in the past, no deadline broken, every diary entry accounted for, '
+            'the day no fuller than the time there really is. Exits 1 if anything must be fixed.',
+      ) {
     argParser
       ..addOption('wake', help: 'When the day starts (HH:MM); default: the typical wake time of the last 3 days.')
       ..addOption('end', help: 'When the day ends (HH:MM); default 22:30.')
@@ -694,14 +710,17 @@ class CheckPlanCommand extends Cmd {
       end: opt('end') == null ? null : parseTimeRange(opt('end')!).$1,
       capacity: capacity,
     );
-    out(c.toJson(), () => [
-          '${prettyDate(date)}: from ${clockText(c.start)} to ${clockText(c.end)}, '
-              '${c.plannedMin} of ${c.budgetMin} min planned (${(capacity * 100).round()}%).',
-          c.ok ? 'The plan holds.' : 'To fix:',
-          for (final e in c.errors) '  - ${e.message}',
-          if (c.warnings.isNotEmpty) 'To mention:',
-          for (final w in c.warnings) '  - ${w.message}',
-        ].join('\n'));
+    out(
+      c.toJson(),
+      () => [
+        '${prettyDate(date)}: from ${clockText(c.start)} to ${clockText(c.end)}, '
+            '${c.plannedMin} of ${c.budgetMin} min planned (${(capacity * 100).round()}%).',
+        c.ok ? 'The plan holds.' : 'To fix:',
+        for (final e in c.errors) '  - ${e.message}',
+        if (c.warnings.isNotEmpty) 'To mention:',
+        for (final w in c.warnings) '  - ${w.message}',
+      ].join('\n'),
+    );
     if (!c.ok) exitCode = 1;
   }
 }
@@ -711,6 +730,7 @@ class VaultCommand extends Cmd {
     addSubcommand(_VaultInit());
     addSubcommand(_VaultUse());
     addSubcommand(_VaultStatus());
+    addSubcommand(_VaultLint());
   }
 }
 
@@ -730,6 +750,42 @@ class _VaultStatus extends Cmd {
   void run() {
     final s = vaultStatus(store);
     out(s, () => _vaultLine(s));
+  }
+}
+
+class _VaultLint extends Cmd {
+  _VaultLint()
+    : super(
+        'lint',
+        'Check the vault: broken links, links into raw/, notes missing from INDEX.md, unlinked notes, frontmatter, log format.',
+      );
+
+  @override
+  void run() {
+    final path = vaultStatus(store)['path'] as String?;
+    if (path == null || !Directory(path).existsSync()) {
+      throw TodoException('No vault on this device. Create one with: todo vault init');
+    }
+    final issues = lintVault(path);
+    final errors = issues.where((i) => i.isError).length;
+    out(
+      {
+        'path': path,
+        'errors': errors,
+        'warnings': issues.length - errors,
+        'issues': [for (final i in issues) i.toJson()],
+      },
+      () {
+        if (issues.isEmpty) return 'The vault is healthy.';
+        return [
+          if (errors > 0) 'To fix:',
+          for (final i in issues.where((i) => i.isError)) '  - ${i.file}: ${i.message}',
+          if (issues.length > errors) 'To look at:',
+          for (final i in issues.where((i) => !i.isError)) '  - ${i.file}: ${i.message}',
+        ].join('\n');
+      },
+    );
+    if (errors > 0) exitCode = 1;
   }
 }
 
@@ -785,9 +841,7 @@ class UsageCommand extends Cmd {
   @override
   void run() {
     final arg = rest.isEmpty ? 'today' : rest.first;
-    final (from, to) = arg == 'week'
-        ? (addDays(today(), -6), today())
-        : (parseDate(arg), parseDate(arg));
+    final (from, to) = arg == 'week' ? (addDays(today(), -6), today()) : (parseDate(arg), parseDate(arg));
     final s = store.usageSummary(from, to);
     out(s, () {
       final total = s['total_seconds'] as int;
@@ -811,7 +865,9 @@ class UsageCommand extends Cmd {
         lines.add('');
         for (var h = 0; h < 24; h++) {
           if (hours[h] == 0) continue;
-          lines.add('${h.toString().padLeft(2, '0')}:00  ${'█' * (hours[h] * 30 ~/ peak).clamp(1, 30)} ${formatDuration(hours[h])}');
+          lines.add(
+            '${h.toString().padLeft(2, '0')}:00  ${'█' * (hours[h] * 30 ~/ peak).clamp(1, 30)} ${formatDuration(hours[h])}',
+          );
         }
       }
       return lines.join('\n');
@@ -824,7 +880,8 @@ class _UsageAdd extends Cmd {
   @override
   bool get hidden => true;
 
-  _UsageAdd() : super('usage-add', 'Record foreground time: todo usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'');
+  _UsageAdd()
+    : super('usage-add', 'Record foreground time: todo usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'');
 
   @override
   void run() {
@@ -878,18 +935,23 @@ String ask(String label, String fallback) {
 String _expandHome(String path) => path == '~' || path.startsWith('~/') ? homeDir + path.substring(1) : path;
 
 class SchemaCommand extends Cmd {
-  SchemaCommand() : super('schema', 'Print the SQL that sets up a sync server. Paste it into your Supabase SQL editor.');
+  SchemaCommand()
+    : super('schema', 'Print the SQL that sets up a sync server. Paste it into your Supabase SQL editor.');
 
   @override
   void run() => stdout.write(schemaSql);
 }
 
 class InitCommand extends Cmd {
-  InitCommand() : super('init', 'Set up sync, your assistant and a vault of notes, one question at a time. Safe to run again.') {
+  InitCommand()
+    : super('init', 'Set up sync, your assistant and a vault of notes, one question at a time. Safe to run again.') {
     argParser
       ..addOption('server', help: 'Sync: your Supabase project URL.')
       ..addOption('key', help: 'Sync: its publishable key.')
-      ..addOption('email', help: 'Sync: the account to sign in with. The password is asked for, or read from standard input.')
+      ..addOption(
+        'email',
+        help: 'Sync: the account to sign in with. The password is asked for, or read from standard input.',
+      )
       ..addMultiOption('assistant', allowed: [for (final a in assistants) a.id], help: 'Connect this assistant.')
       ..addOption('vault', help: 'Create a vault of notes in this folder.')
       ..addOption('github', help: 'Keep the vault in a new private GitHub repository with this name.')
@@ -904,8 +966,10 @@ class InitCommand extends Cmd {
     void say(String text) => stderr.writeln(text);
 
     if (asking) {
-      say('Setting up Todo. Three questions; Enter takes the answer in capitals.\n'
-          'Everything here is optional and can be changed by running this again.\n');
+      say(
+        'Setting up Todo. Three questions; Enter takes the answer in capitals.\n'
+        'Everything here is optional and can be changed by running this again.\n',
+      );
     }
 
     // 1. Sync.
@@ -916,15 +980,19 @@ class InitCommand extends Cmd {
       var url = opt('server') ?? remote.url;
       var key = opt('key');
       if (asking) {
-        say('1. Sync. Your tasks live in a file on this machine. To have them on your phone or another\n'
-            '   computer too, they sync through a free Supabase project of your own.');
+        say(
+          '1. Sync. Your tasks live in a file on this machine. To have them on your phone or another\n'
+          '   computer too, they sync through a free Supabase project of your own.',
+        );
         if (confirm('   Set up sync now?', fallback: false)) {
           if (url == null || !confirm('   Use the server already set ($url)?', fallback: true)) {
             final sql = File('${Directory.systemTemp.path}/todo-schema.sql')..writeAsStringSync(schemaSql);
-            say('   a. Create a project at https://supabase.com/dashboard\n'
-                '   b. Open its SQL editor, paste the contents of ${sql.path} and run it.\n'
-                '   c. Under Authentication > Users, add a user for yourself (email and password).\n'
-                '   d. Under Project Settings > API keys, copy the project URL and the publishable key.');
+            say(
+              '   a. Create a project at https://supabase.com/dashboard\n'
+              '   b. Open its SQL editor, paste the contents of ${sql.path} and run it.\n'
+              '   c. Under Authentication > Users, add a user for yourself (email and password).\n'
+              '   d. Under Project Settings > API keys, copy the project URL and the publishable key.',
+            );
             url = prompt('   Project URL');
             key = prompt('   Publishable key');
           }
@@ -944,7 +1012,9 @@ class InitCommand extends Cmd {
             final r = await SyncEngine(store, remote).sync();
             done.add('Sync: signed in as $email.');
             if (r.missing.isNotEmpty) {
-              left.add('Sync: the server has no ${r.missing.join(', ')} table yet. Run the SQL from `todo schema` in its SQL editor.');
+              left.add(
+                'Sync: the server has no ${r.missing.join(', ')} table yet. Run the SQL from `todo schema` in its SQL editor.',
+              );
             }
           } on SyncException catch (e) {
             left.add('Sync: could not sign in (${e.message}). Try again with: todo login');
@@ -961,8 +1031,14 @@ class InitCommand extends Cmd {
 
     // 2. Assistants.
     final wanted = argResults!.multiOption('assistant');
-    final found = [for (final a in assistants) if (isInstalled(a.command)) a];
-    final chosen = <Assistant>[for (final a in assistants) if (wanted.contains(a.id)) a];
+    final found = [
+      for (final a in assistants)
+        if (isInstalled(a.command)) a,
+    ];
+    final chosen = <Assistant>[
+      for (final a in assistants)
+        if (wanted.contains(a.id)) a,
+    ];
     if (asking && wanted.isEmpty) {
       say('2. Assistant. Connected, it can read and change your tasks, plan your day and file your diary.');
       if (found.isEmpty) say('   Neither Claude Code nor Codex is installed on this machine.');
@@ -976,9 +1052,11 @@ class InitCommand extends Cmd {
       done.addAll(connect(a, todo: todo));
     }
     if (chosen.isEmpty) {
-      left.add(found.isEmpty
-          ? 'Assistant: install Claude Code or Codex, then run `todo init` again to connect it.'
-          : 'Assistant: not connected. Run `todo init` again when you want it.');
+      left.add(
+        found.isEmpty
+            ? 'Assistant: install Claude Code or Codex, then run `todo init` again to connect it.'
+            : 'Assistant: not connected. Run `todo init` again when you want it.',
+      );
     }
 
     // 3. Vault.
@@ -989,12 +1067,16 @@ class InitCommand extends Cmd {
       var path = opt('vault');
       var repo = opt('github');
       if (asking && path == null) {
-        say('3. Vault. A folder of notes that your diary is filed into: each day, decisions, ideas, what\n'
-            '   you learned. It opens in Obsidian. Skip it if you only want tasks.');
+        say(
+          '3. Vault. A folder of notes that your diary is filed into: each day, decisions, ideas, what\n'
+          '   you learned. It opens in Obsidian. Skip it if you only want tasks.',
+        );
         if (confirm('   Create a vault?', fallback: false)) {
           path = ask('   Where', defaultVaultPath());
-          if (confirm('   Also keep it in a private GitHub repository? An assistant in the cloud needs that.',
-              fallback: false)) {
+          if (confirm(
+            '   Also keep it in a private GitHub repository? An assistant in the cloud needs that.',
+            fallback: false,
+          )) {
             repo = ask('   Repository name', 'vault');
           }
         }
@@ -1004,7 +1086,9 @@ class InitCommand extends Cmd {
         path = Directory(_expandHome(path)).absolute.path;
         final written = scaffoldVault(path);
         store.setMeta(vaultPathKey, path);
-        done.add(written.isEmpty ? 'Vault: $path (already there).' : 'Vault: created at $path. Start by filling in Me.md.');
+        done.add(
+          written.isEmpty ? 'Vault: $path (already there).' : 'Vault: created at $path. Start by filling in Me.md.',
+        );
         if (repo != null) done.addAll(vaultToGitHub(path, repo));
       } else {
         done.add('Vault: none.');
@@ -1076,11 +1160,12 @@ class SyncCommand extends Cmd {
     final r = await SyncEngine(store, SupabaseRemote(store)).sync();
     out(
       r.toJson(),
-      () => 'Pulled ${r.pulled}, pushed ${r.pushed}.'
+      () =>
+          'Pulled ${r.pulled}, pushed ${r.pushed}.'
           '${r.missing.isEmpty ? '' : '\nNot synced, the server has no table for: ${r.missing.join(', ')}. '
-              'Run the latest supabase/schema.sql.'}'
+                    'Run the latest supabase/schema.sql.'}'
           '${r.missingColumns.isEmpty ? '' : '\nThe server is missing ${[for (final e in r.missingColumns.entries) ...e.value.map((c) => '${e.key}.$c')].join(', ')}; '
-              'those values stay on this device until you run the output of `todo schema` in its SQL editor.'}',
+                    'those values stay on this device until you run the output of `todo schema` in its SQL editor.'}',
     );
   }
 }

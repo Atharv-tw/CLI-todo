@@ -47,12 +47,17 @@ as an MCP server, `vault_status`, `list_diary` (with `unfiled: true`) and
    An older vault may use `Daily/`, `Learning/` and `Projects/<Project>.md`
    instead; use whatever its README describes.
    In `raw/` keep the user's words exactly. Everywhere else, fix only
-   obvious speech-to-text slips. Add to notes; never rewrite or delete what
-   is there.
+   obvious speech-to-text slips. What may change follows the README: the
+   user's own words never; logs and lists only by adding; summaries such as
+   a project's overview are kept current, leaving a trace when a claim
+   changes. With no such rules, only add; never rewrite or delete.
 6. **Record it.** Run `todo diary-filed ID ID ...` with every entry you
    filed, then `todo sync`. Do this only after the notes are written.
-7. **Save it.** If the vault is under git, commit with a message like
-   `Diary: 13 Oct` and, when it has a remote, push.
+7. **Check and save it.** Run `todo vault lint` and fix any error it
+   reports (a broken link, a link into `raw/`). If the vault has a `log.md`,
+   add a line in its format (`- [YYYY-MM-DD] ingest | diary 13 Oct: ...`).
+   If the vault is under git, commit with a message like `Diary: 13 Oct`
+   and, when it has a remote, push.
 8. **Report.** List what went where, one line per note touched. Mention any
    entry you were unsure about and where you put it.
 
