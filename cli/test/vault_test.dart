@@ -17,13 +17,14 @@ void main() {
 
   test('a new vault gets the starter notes, and the rules an assistant files by', () {
     final written = scaffoldVault(dir.path);
-    expect(written, containsAll(['README.md', 'Me.md', 'Decisions.md', 'Ideas.md']));
-    for (final folder in ['Daily', 'Learning', 'Projects']) {
+    expect(written, containsAll(['README.md', 'INDEX.md', 'log.md', 'Me.md', 'Rules.md', 'Decisions.md', 'Ideas.md']));
+    for (final folder in ['raw', 'days', 'people', 'projects', 'learning', 'morning', 'weekly']) {
       expect(Directory(p.join(dir.path, folder)).existsSync(), isTrue, reason: folder);
     }
     final readme = File(p.join(dir.path, 'README.md')).readAsStringSync();
     expect(readme, contains('Rules for filing'));
     expect(readme, contains('Add, never rewrite'));
+    expect(readme, contains('Every other agent stays out of `raw/`'));
   });
 
   test('setting up a vault again never touches a note that is there', () {
