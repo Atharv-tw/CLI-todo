@@ -6,15 +6,14 @@ import 'package:home_widget/home_widget.dart';
 import 'package:vault_core/vault_core.dart';
 
 import 'background.dart';
+import 'brain_icon.dart';
 import 'brain_page.dart';
 import 'diary_page.dart';
 import 'focus_page.dart';
-import 'habits_page.dart';
-import 'plan_page.dart';
+import 'profile_page.dart';
 import 'reminder_page.dart';
 import 'reminders.dart';
 import 'state.dart';
-import 'sync_page.dart';
 import 'theme.dart';
 import 'today_page.dart';
 import 'voice.dart';
@@ -116,12 +115,11 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   int _index = 0;
 
-  static const _pages = [
-    (icon: Icons.home_rounded, label: 'Today', page: TodayPage()),
-    (icon: Icons.view_agenda_rounded, label: 'Plan', page: PlanPage()),
-    (icon: Icons.edit_note_rounded, label: 'Diary', page: DiaryPage()),
-    (icon: Icons.psychology_rounded, label: 'Brain', page: BrainPage()),
-    (icon: Icons.grid_view_rounded, label: 'Habits', page: HabitsPage()),
+  static final _pages = <({Widget Function(Color color) icon, String label, Widget page})>[
+    (icon: (c) => BrainIcon(color: c), label: 'Brain', page: const BrainPage()),
+    (icon: (c) => Icon(Icons.task_alt_rounded, color: c), label: 'To-do', page: const TodayPage()),
+    (icon: (c) => Icon(Icons.auto_stories_rounded, color: c), label: 'Diary', page: const DiaryPage()),
+    (icon: (c) => Icon(Icons.person_rounded, color: c), label: 'Profile', page: const ProfilePage()),
   ];
 
   @override
@@ -133,13 +131,7 @@ class _ShellState extends State<Shell> {
     final text = Theme.of(context).textTheme;
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final focusing = app.store.currentFocus() != null;
-    final syncIcon = !app.remote.signedIn
-        ? Icons.cloud_off_outlined
-        : app.syncError != null
-            ? Icons.cloud_off
-            : app.syncing
-                ? Icons.cloud_sync_outlined
-                : Icons.cloud_done_outlined;
+    final label = _pages[_index].label;
 
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
@@ -150,7 +142,7 @@ class _ShellState extends State<Shell> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  // The Today page shows its own date, so greet there instead.
+                  // The first page greets you; the others carry the date.
                   _index == 0
                       ? switch (DateTime.now().hour) {
                           < 5 => 'Still up',
@@ -161,15 +153,12 @@ class _ShellState extends State<Shell> {
                       : prettyDate(today()),
                   style: text.labelLarge?.copyWith(color: AppColors.muted),
                 ),
-                Text(
-                  _pages[_index].label,
-                  style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, height: 1.1),
-                ),
+                Text(label, style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800, height: 1.1)),
               ],
             ),
           ),
           // How speech becomes text is chosen where it is used.
-          if (_pages[_index].label == 'Diary' && voiceSupported) ...[
+          if (label == 'Diary' && voiceSupported) ...[
             IconButton.filled(
               key: const ValueKey('voice-settings'),
               tooltip: 'Voice',
@@ -188,13 +177,6 @@ class _ShellState extends State<Shell> {
             icon: const Icon(Icons.timer_rounded),
             onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const _FocusScreen())),
           ),
-          const SizedBox(width: 8),
-          IconButton.filled(
-            tooltip: 'Sync',
-            style: IconButton.styleFrom(backgroundColor: AppColors.card, foregroundColor: AppColors.ink),
-            icon: Icon(syncIcon),
-            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SyncPage())),
-          ),
         ],
       ),
     );
@@ -205,6 +187,8 @@ class _ShellState extends State<Shell> {
         child: Column(children: [header, Expanded(child: _pages[_index].page)]),
       ),
     );
+
+    final plus = _PlusButton(onPressed: () => showQuickLog(context));
 
     return Scaffold(
       body: SafeArea(
@@ -218,11 +202,13 @@ class _ShellState extends State<Shell> {
                     labelType: NavigationRailLabelType.all,
                     backgroundColor: AppColors.bg,
                     indicatorColor: AppColors.orange,
-                    selectedIconTheme: const IconThemeData(color: Colors.white),
-                    unselectedIconTheme: const IconThemeData(color: AppColors.muted),
+                    leading: Padding(padding: const EdgeInsets.only(top: 8, bottom: 16), child: plus),
                     destinations: [
-                      for (final p in _pages)
-                        NavigationRailDestination(icon: Icon(p.icon), label: Text(p.label)),
+                      for (final (i, p) in _pages.indexed)
+                        NavigationRailDestination(
+                          icon: p.icon(i == _index ? Colors.white : AppColors.muted),
+                          label: Text(p.label),
+                        ),
                     ],
                   ),
                   Expanded(child: content),
@@ -236,19 +222,23 @@ class _ShellState extends State<Shell> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  height: 64,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
                   decoration: const ShapeDecoration(color: AppColors.card, shape: StadiumBorder()),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      for (final (i, p) in _pages.indexed)
-                        _NavItem(
-                          key: ValueKey('nav-${p.label}'),
-                          icon: p.icon,
-                          label: p.label,
-                          selected: i == _index,
-                          onTap: () => setState(() => _index = i),
+                      for (final (i, p) in _pages.indexed) ...[
+                        if (i == 2) plus,
+                        Expanded(
+                          child: _NavItem(
+                            key: ValueKey('nav-${p.label}'),
+                            icon: p.icon,
+                            label: p.label,
+                            selected: i == _index,
+                            onTap: () => setState(() => _index = i),
+                          ),
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -256,6 +246,38 @@ class _ShellState extends State<Shell> {
             ),
     );
   }
+}
+
+/// The + in the middle of the bar: say or write anything into the diary.
+class _PlusButton extends StatelessWidget {
+  const _PlusButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Log an entry',
+    child: Material(
+      key: const ValueKey('nav-plus'),
+      color: AppColors.orange,
+      shape: const CircleBorder(),
+      elevation: 0,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: AppColors.orange.withValues(alpha: 0.45), blurRadius: 18, spreadRadius: 1)],
+          ),
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
+        ),
+      ),
+    ),
+  );
 }
 
 /// The focus timer, opened from the button at the top of every page.
@@ -273,7 +295,7 @@ class _FocusScreen extends StatelessWidget {
       );
 }
 
-/// A tab in the floating pill: the selected one widens to show its label.
+/// A tab in the floating bar: an icon, with its label under it when chosen.
 class _NavItem extends StatelessWidget {
   const _NavItem({
     super.key,
@@ -283,45 +305,44 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final Widget Function(Color color) icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Semantics(
-        button: true,
-        selected: selected,
-        label: label,
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: AnimatedContainer(
+    button: true,
+    selected: selected,
+    label: label,
+    child: InkWell(
+      customBorder: const StadiumBorder(),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 2,
+        children: [
+          AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: EdgeInsets.fromLTRB(4, 4, selected ? 12 : 4, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
             decoration: ShapeDecoration(
-              color: selected ? AppColors.raised : Colors.transparent,
+              color: selected ? AppColors.orange.withValues(alpha: 0.18) : Colors.transparent,
               shape: const StadiumBorder(),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 6,
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: selected ? AppColors.orange : Colors.transparent,
-                  child: Icon(icon, size: 22, color: selected ? Colors.white : AppColors.muted),
-                ),
-                if (selected)
-                  ExcludeSemantics(
-                    child: Text(
-                      label,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-              ],
+            child: icon(selected ? AppColors.orange : AppColors.muted),
+          ),
+          ExcludeSemantics(
+            child: Text(
+              label,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                color: selected ? AppColors.ink : AppColors.muted,
+              ),
             ),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }

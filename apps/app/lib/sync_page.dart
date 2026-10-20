@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:device_calendar_plus/device_calendar_plus.dart';
 import 'package:flutter/material.dart';
@@ -166,7 +165,6 @@ class _SyncPageState extends State<SyncPage> {
             padding: const EdgeInsets.all(16),
             children: [
               for (final c in children) Padding(padding: const EdgeInsets.only(bottom: 16), child: c),
-              if (Platform.isAndroid) const _CalendarSection(),
             ],
           ),
         ),
@@ -176,14 +174,14 @@ class _SyncPageState extends State<SyncPage> {
 }
 
 /// Phone only: choose the calendar that timed tasks are mirrored into.
-class _CalendarSection extends StatefulWidget {
-  const _CalendarSection();
+class CalendarSection extends StatefulWidget {
+  const CalendarSection({super.key});
 
   @override
-  State<_CalendarSection> createState() => _CalendarSectionState();
+  State<CalendarSection> createState() => _CalendarSectionState();
 }
 
-class _CalendarSectionState extends State<_CalendarSection> {
+class _CalendarSectionState extends State<CalendarSection> {
   List<Calendar>? _calendars;
 
   Future<void> _load(CalendarSync sync) async {
@@ -215,7 +213,7 @@ class _CalendarSectionState extends State<_CalendarSection> {
             child: Text(sync.calendarId == null ? 'Choose a calendar' : 'Loading calendars…'),
           )
         else if (calendars.isEmpty)
-          const Text('No calendar available. Allow calendar access for Todo in system settings.')
+          const Text('No calendar available. Allow calendar access for Vault in system settings.')
         else
           RadioGroup<String?>(
             groupValue: calendars.any((c) => c.id == sync.calendarId) ? sync.calendarId : null,

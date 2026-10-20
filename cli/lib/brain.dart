@@ -469,6 +469,11 @@ int publishPages(Store store, String vault) {
     }
   }
   if (store.putPage('goals', 'all', goals(vault).join('\n'), title: 'Goals')) changed++;
+  final me = File(p.join(vault, 'Me.md'));
+  if (me.existsSync() &&
+      store.putPage('me', 'me', _withoutFrontmatter(me.readAsStringSync()).trim(), title: 'Me')) {
+    changed++;
+  }
   final projects = [
     for (final x in listProjects(vault))
       {

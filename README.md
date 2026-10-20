@@ -163,20 +163,21 @@ agent follows are in [docs/briefing-agent.md](docs/briefing-agent.md).
 
 ## The apps
 
-The Android and Linux app has five tabs:
+The Android and Linux app opens on your brain. Four tabs, with a **+** in the
+middle of the bar that opens the diary box from anywhere:
 
-- **Today:** the morning page's plan for the day, a timeline of tasks and
-  habits, what is on now, and a **+** that opens a diary box right there.
-- **Plan:** this week, and everything later, by day.
+- **Brain:** this morning's page, your goals, this week, your projects (tap
+  for the overview). The phone cannot read the vault, so the laptop publishes
+  these on every `myvault sync`.
+- **To-do:** an activity grid, what is on now, and today's timeline of tasks
+  and habits; the arrows walk to other days.
 - **Diary:** write or speak anything. Speech is written down on the device
   by an open-source Whisper model: no key, no account, nothing you say leaves
   the phone. Each entry shows what Vault did with it once processed. Days that
   are over fold into one line each.
-- **Brain:** this morning's page, your goals, this week, your projects (tap
-  for the overview) and your patterns, such as screen time. The phone cannot
-  read the vault, so the laptop publishes these on every `myvault sync`.
-- **Habits:** daily habits with streaks, including groups such as
-  `5 meals / Breakfast`.
+- **Profile:** what your notes say about you (`Me.md`), habits with streaks
+  (including groups such as `5 meals / Breakfast`), screen time, sync, the
+  calendar and voice.
 
 Also: reminders when a task starts (a full-screen reminder when the phone is
 locked, a banner when it is in use, each with *Doing it* and *Snooze*), a

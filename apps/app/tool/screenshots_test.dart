@@ -78,7 +78,7 @@ Store _demo() {
   task('Guitar: practise the new piece', now, '17:00-18:00', tag: 'Music');
   task('Plan tomorrow', now, '21:00-21:15');
 
-  // The days ahead, for the Plan page.
+  // The days ahead.
   task('Draw the sampling diagram', addDays(now, 1), '09:00-10:30', list: thesis, tag: 'Writing');
   task('Lab meeting', addDays(now, 1), '11:00-12:00', list: thesis);
   task('Pay the electricity bill', addDays(now, 1), '18:00-18:15', list: home);
@@ -215,6 +215,13 @@ Store _demo() {
     )
     ..putPage('goals', 'all', 'Submit the thesis by March\nRun a half marathon\nPlay one full song on guitar')
     ..putPage(
+      'me',
+      'me',
+      '# Me\n\nCall me Sam.\n\n## Goals\n\n- Submit the thesis by March.\n- Run a half marathon.\n'
+          '- Play one full song on guitar.\n\n## How I like my day planned\n\n- Wake up: 06:40\n- Asleep by: 23:00',
+      title: 'Me',
+    )
+    ..putPage(
       'projects',
       'all',
       jsonEncode([
@@ -285,10 +292,10 @@ void main() {
   testWidgets('the pages, on a phone', (tester) async {
     expect(DateTime.now().hour, 14, reason: 'Run scripts/screenshots.sh, which sets the clock.');
     await open(tester, phone);
-    await shoot(tester, 'today');
-    for (final page in ['Plan', 'Habits', 'Diary', 'Brain']) {
+    await shoot(tester, 'brain');
+    for (final (page, name) in [('To-do', 'today'), ('Diary', 'diary'), ('Profile', 'profile')]) {
       await go(tester, page);
-      await shoot(tester, page.toLowerCase());
+      await shoot(tester, name);
       if (page == 'Diary') {
         // Further down: the days that are over, one tile each, one opened.
         final yesterday = find.byKey(ValueKey('diary-day-${addDays(today(), -1)}'));
