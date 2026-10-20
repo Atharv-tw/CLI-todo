@@ -33,10 +33,18 @@ void main() {
   });
 
   test('a project starts with its three notes, takes log lines, lists, and stays healthy', () {
-    newProject(vault, 'Helios', what: 'Security scanning that ships fixes', repo: 'https://github.com/x/helios');
+    newProject(
+      vault,
+      'Helios',
+      what: 'Security scanning that ships fixes',
+      repo: 'https://github.com/x/helios',
+    );
     expect(read('projects/Helios/Helios.md'), contains('type: project\nstatus: building'));
     expect(read('projects/Helios/info.md'), contains('https://github.com/x/helios'));
-    expect(read('INDEX.md'), contains('[[projects/Helios/Helios|Helios]]: Security scanning that ships fixes'));
+    expect(
+      read('INDEX.md'),
+      contains('[[projects/Helios/Helios|Helios]]: Security scanning that ships fixes'),
+    );
 
     logProject(vault, 'helios', 'Sessions and API tokens', ref: 'PR #12');
     expect(read('projects/Helios/log.md'), contains(': Sessions and API tokens (PR #12)'));
@@ -55,8 +63,14 @@ void main() {
     final code = Directory(p.join(dir.path, 'helios-code'))..createSync();
     Directory(p.join(code.path, '.git', 'info')).createSync(recursive: true);
     final lines = linkFolder(vault, code.path, 'Helios');
-    expect(File(p.join(code.path, 'CLAUDE.local.md')).readAsStringSync(), contains('myvault project log "Helios"'));
-    expect(File(p.join(code.path, '.git', 'info', 'exclude')).readAsStringSync(), contains('CLAUDE.local.md'));
+    expect(
+      File(p.join(code.path, 'CLAUDE.local.md')).readAsStringSync(),
+      contains('myvault project log "Helios"'),
+    );
+    expect(
+      File(p.join(code.path, '.git', 'info', 'exclude')).readAsStringSync(),
+      contains('CLAUDE.local.md'),
+    );
     expect(read('projects/Helios/info.md'), contains(code.path));
     expect(lines.first, startsWith('Wrote'));
     expect(linkFolder(vault, code.path, 'Helios').first, contains('already links'));
@@ -102,5 +116,17 @@ void main() {
     File(p.join(vault, 'morning', '2026-10-21.md')).writeAsStringSync('# Wed\n');
     expect(page(vault, 'morning')!.text, '# Wed\n');
     expect(page(vault, 'morning', date: '2026-10-20')!.path, 'morning/2026-10-20.md');
+  });
+
+  test('publishing copies the pages the phone shows, and only what changed', () {
+    File(p.join(vault, 'morning', '2026-10-21.md')).writeAsStringSync('# Wed 21 Oct\n\n- 07:00 Workout\n');
+    newProject(vault, 'Helios', what: 'Security scanning');
+    addGoal(vault, 'Land an internship');
+    expect(publishPages(store, vault), 3);
+    expect(publishPages(store, vault), 0);
+    expect(store.page('morning')!.title, 'Wed 21 Oct');
+    expect(store.page('goals')!.body, startsWith('Land an internship'));
+    expect(store.page('projects')!.body, contains('"name":"Helios"'));
+    expect(isoWeek(DateTime(2026, 10, 21)), '2026-W43');
   });
 }

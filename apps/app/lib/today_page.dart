@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:vault_core/vault_core.dart';
 
+import 'brain_page.dart';
 import 'diary_page.dart';
 import 'heatmap.dart';
+import 'markdown_view.dart';
 import 'state.dart';
 import 'task_widgets.dart';
 import 'theme.dart';
@@ -88,6 +90,10 @@ class _TodayPageState extends State<TodayPage> {
                 ],
               ),
               const SizedBox(height: 4),
+              if (app.store.page('morning', date) case final morning?) ...[
+                _MorningCard(morning),
+                const SizedBox(height: 12),
+              ],
               _ActivityCard(selected: date, onPick: (d) => setState(() => _picked = d == now ? null : d)),
               const SizedBox(height: 12),
               _NowCard(date: date, items: items, tasks: tasks, overdue: overdue.length),
@@ -186,6 +192,51 @@ class _QuickLog extends StatelessWidget {
             ),
             DiaryComposer(autofocus: true, onSaved: onSaved),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The day's morning page from the vault: its plan, in short. Tap for all
+/// of it: facts, guesses, what waits for your yes, open questions.
+class _MorningCard extends StatelessWidget {
+  const _MorningCard(this.page);
+
+  final VaultPage page;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Material(
+      key: const ValueKey('morning-card'),
+      color: AppColors.lavender.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(cardRadius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => openPage(context, page),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 4,
+            children: [
+              Row(
+                spacing: 8,
+                children: [
+                  const Icon(Icons.wb_sunny_rounded, size: 18, color: AppColors.lavender),
+                  Expanded(
+                    child: Text(
+                      'Your morning page',
+                      style: t.labelLarge?.copyWith(color: AppColors.lavender, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  Text('Read all', style: t.labelLarge?.copyWith(color: AppColors.muted)),
+                ],
+              ),
+              MarkdownView(firstSection(page.body), maxBlocks: 6),
+            ],
+          ),
         ),
       ),
     );

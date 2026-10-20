@@ -76,7 +76,12 @@ void main() {
     });
 
     test('an assistant that is not installed is skipped, not an error', () {
-      final missing = Assistant(id: 'codex', name: 'Missing', command: p.join(dir.path, 'nope'), skillsDir: 'skills');
+      final missing = Assistant(
+        id: 'codex',
+        name: 'Missing',
+        command: p.join(dir.path, 'nope'),
+        skillsDir: 'skills',
+      );
       expect(isInstalled(missing.command), isFalse);
       expect(connect(missing, todo: '/opt/todo', home: dir.path), ['Missing is not installed; skipped.']);
       expect(Directory(p.join(dir.path, 'skills')).existsSync(), isFalse);

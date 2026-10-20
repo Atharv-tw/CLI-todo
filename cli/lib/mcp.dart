@@ -30,9 +30,14 @@ Map<String, Object?> _str(String description) => {'type': 'string', 'description
 const _dateHelp = 'today, tomorrow, a weekday, +N days, or YYYY-MM-DD';
 
 final _taskFields = {
-  'date': _str('The day it is planned for: $_dateHelp. Not its deadline; leave empty to keep it in the backlog.'),
+  'date': _str(
+    'The day it is planned for: $_dateHelp. Not its deadline; leave empty to keep it in the backlog.',
+  ),
   'due': _str('Its deadline, when it must be done by: $_dateHelp. Re-planning never moves this.'),
-  'estimate_min': {'type': 'integer', 'description': 'Minutes it should take, for a task without a time slot.'},
+  'estimate_min': {
+    'type': 'integer',
+    'description': 'Minutes it should take, for a task without a time slot.',
+  },
   'protect': _str('"day": must stay on its day, may move within it. "time": fixed in time. "none": free.'),
   'source_entry': _str('Id (or prefix) of the diary entry this commitment was captured from.'),
   'time': _str('Start time or range in 24h local time: 17:30 or 17:30-18:15.'),
@@ -81,7 +86,10 @@ final _tools = <_Tool>[
       return [for (final t in tasks) t.toJson()];
     },
   ),
-  _Tool('add_task', 'Add a task.', {'title': _str('What to do.'), ..._taskFields}, required: ['title'], (store, a) {
+  _Tool('add_task', 'Add a task.', {'title': _str('What to do.'), ..._taskFields}, required: ['title'], (
+    store,
+    a,
+  ) {
     final time = _s(a, 'time') == null ? null : parseTimeRange(_s(a, 'time')!);
     final date = _s(a, 'date') != null
         ? parseDate(_s(a, 'date')!)
@@ -100,7 +108,9 @@ final _tools = <_Tool>[
           dueDate: _s(a, 'due') == null ? null : parseDate(_s(a, 'due')!),
           estimateMin: a['estimate_min'] as int?,
           protect: _s(a, 'protect') == 'none' ? null : _s(a, 'protect'),
-          sourceEntry: _s(a, 'source_entry') == null ? null : store.resolveId('diary', _s(a, 'source_entry')!),
+          sourceEntry: _s(a, 'source_entry') == null
+              ? null
+              : store.resolveId('diary', _s(a, 'source_entry')!),
         )
         .toJson();
   }),
@@ -158,7 +168,10 @@ final _tools = <_Tool>[
     required: ['id'],
     (store, a) => store.setDone(_taskId(store, a), a['done'] != false).toJson(),
   ),
-  _Tool('delete_task', 'Delete a task.', {'id': _str('Task id or unique prefix.')}, required: ['id'], (store, a) {
+  _Tool('delete_task', 'Delete a task.', {'id': _str('Task id or unique prefix.')}, required: ['id'], (
+    store,
+    a,
+  ) {
     final id = _taskId(store, a);
     store.deleteTask(id);
     return {'deleted': id};
@@ -318,11 +331,17 @@ final _tools = <_Tool>[
         'the day no fuller than 75% of the time available. Fix every error, or explain it if it cannot be avoided.',
     {
       'date': _str('The day ($_dateHelp). Defaults to today.'),
-      'wake': _str('When the day starts, HH:MM, if the diary says; default: the typical wake time of the last 3 days.'),
+      'wake': _str(
+        'When the day starts, HH:MM, if the diary says; default: the typical wake time of the last 3 days.',
+      ),
       'end': _str('When the day ends, HH:MM; default 22:30.'),
     },
     (store, a) => store
-        .checkPlan(_s(a, 'date') == null ? today() : parseDate(_s(a, 'date')!), wake: _s(a, 'wake'), end: _s(a, 'end'))
+        .checkPlan(
+          _s(a, 'date') == null ? today() : parseDate(_s(a, 'date')!),
+          wake: _s(a, 'wake'),
+          end: _s(a, 'end'),
+        )
         .toJson(),
   ),
   _Tool(
@@ -428,7 +447,12 @@ final _tools = <_Tool>[
     },
     required: ['project', 'text'],
     (store, a) => {
-      'path': logProject(requireVault(vaultPath(store)), _s(a, 'project')!, _s(a, 'text')!, ref: _s(a, 'ref')),
+      'path': logProject(
+        requireVault(vaultPath(store)),
+        _s(a, 'project')!,
+        _s(a, 'text')!,
+        ref: _s(a, 'ref'),
+      ),
     },
   ),
   _Tool(
@@ -484,7 +508,9 @@ final _tools = <_Tool>[
 /// Minimal MCP server: newline-delimited JSON-RPC on stdin/stdout.
 Future<void> serveMcp(Store store) async {
   void send(Object? id, {Object? result, Map<String, Object?>? error}) {
-    stdout.writeln(jsonEncode({'jsonrpc': '2.0', 'id': id, if (error != null) 'error': error else 'result': result}));
+    stdout.writeln(
+      jsonEncode({'jsonrpc': '2.0', 'id': id, if (error != null) 'error': error else 'result': result}),
+    );
   }
 
   await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {

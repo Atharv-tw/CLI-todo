@@ -290,6 +290,28 @@ class DiaryEntryCard extends StatelessWidget {
               padding: const EdgeInsets.only(right: 12),
               child: SelectableText(entry.body, style: text.bodyMedium),
             ),
+            // What Vault did with it, once the nightly run has been through.
+            if (entry.outcome case final outcome? when mine)
+              Padding(
+                key: ValueKey('outcome-${entry.id}'),
+                padding: const EdgeInsets.only(top: 8, right: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 6,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.lavender),
+                    ),
+                    Expanded(
+                      child: Text(
+                        outcome,
+                        style: text.bodySmall?.copyWith(color: AppColors.lavender, height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

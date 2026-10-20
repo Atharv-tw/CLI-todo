@@ -18,7 +18,10 @@ void main() {
 
   test('a new vault gets the starter notes, and the rules an assistant files by', () {
     final written = scaffoldVault(dir.path);
-    expect(written, containsAll(['README.md', 'INDEX.md', 'log.md', 'Me.md', 'Rules.md', 'Decisions.md', 'Ideas.md']));
+    expect(
+      written,
+      containsAll(['README.md', 'INDEX.md', 'log.md', 'Me.md', 'Rules.md', 'Decisions.md', 'Ideas.md']),
+    );
     for (final folder in ['raw', 'days', 'people', 'projects', 'learning', 'morning', 'weekly']) {
       expect(Directory(p.join(dir.path, folder)).existsSync(), isTrue, reason: folder);
     }
@@ -64,7 +67,9 @@ void main() {
     void write(String rel, String text) => File(p.join(dir.path, rel))
       ..createSync(recursive: true)
       ..writeAsStringSync(text);
-    List<String> codes() => [for (final i in lintVault(dir.path, today: DateTime(2026, 10, 20))) '${i.code} ${i.file}'];
+    List<String> codes() => [
+      for (final i in lintVault(dir.path, today: DateTime(2026, 10, 20))) '${i.code} ${i.file}',
+    ];
 
     test('a new vault is healthy', () {
       scaffoldVault(dir.path);

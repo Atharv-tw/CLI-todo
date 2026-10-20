@@ -198,7 +198,9 @@ with filing rules. If there is none, skip this section.
   Then write the morning page (and on Saturday night the weekly page),
   commit it in the vault and push to its main branch. The vault is the only
   place you write files, commit or push.
-- Tasks, deadlines and status live in the to-do system, not the vault. The
+- **Last, run `myvault sync` once more.** It publishes the new morning page,
+  the goals and the projects to the phone, which cannot read the vault.
+- Tasks, deadlines and status live in Vault's store, not the vault. The
   vault keeps the context: goals, project notes, ideas, what was learned.
 
 ## Write back

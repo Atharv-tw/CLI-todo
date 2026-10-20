@@ -58,6 +58,42 @@ class Store {
     );
   }
 
+  /// Writes the page named by [kind] and [key], replacing its text when it
+  /// changed. Returns false when it was already the same.
+  bool putPage(String kind, String key, String body, {String? title}) {
+    final current = page(kind, key);
+    if (current != null) {
+      if (current.body == body && current.title == title) return false;
+      _update('pages', current.id, {'body': body, 'title': title});
+      return true;
+    }
+    _insert('pages', {'id': newId(), 'kind': kind, 'key': key, 'title': title, 'body': body});
+    return true;
+  }
+
+  /// The page named by [kind] and [key], or the newest of that kind. If two
+  /// devices wrote the same page before syncing, the later one wins.
+  VaultPage? page(String kind, [String? key]) {
+    final rows = db.select(
+      'SELECT * FROM pages WHERE deleted_at IS NULL AND kind = ? ${key == null ? '' : 'AND key = ?'} '
+      'ORDER BY key DESC, updated_at DESC LIMIT 1',
+      [kind, ?key],
+    );
+    return rows.isEmpty ? null : VaultPage.fromRow(rows.first);
+  }
+
+  /// Every page of [kind], newest key first, one per key.
+  List<VaultPage> pages(String kind) {
+    final seen = <String>{};
+    return [
+      for (final r in db.select(
+        'SELECT * FROM pages WHERE deleted_at IS NULL AND kind = ? ORDER BY key DESC, updated_at DESC',
+        [kind],
+      ))
+        if (seen.add(r['key'] as String)) VaultPage.fromRow(r),
+    ];
+  }
+
   /// Full id for an id prefix, the way git resolves short hashes.
   String resolveId(String table, String ref) {
     final rows = db.select(

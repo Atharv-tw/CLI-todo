@@ -6,19 +6,20 @@ import 'package:home_widget/home_widget.dart';
 import 'package:vault_core/vault_core.dart';
 
 import 'background.dart';
+import 'brain_page.dart';
 import 'diary_page.dart';
 import 'focus_page.dart';
 import 'habits_page.dart';
 import 'plan_page.dart';
 import 'reminder_page.dart';
 import 'reminders.dart';
-import 'screen_page.dart';
 import 'state.dart';
 import 'sync_page.dart';
 import 'theme.dart';
 import 'today_page.dart';
 import 'voice.dart';
 import 'voice_sheet.dart';
+import 'welcome_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -118,14 +119,17 @@ class _ShellState extends State<Shell> {
   static const _pages = [
     (icon: Icons.home_rounded, label: 'Today', page: TodayPage()),
     (icon: Icons.view_agenda_rounded, label: 'Plan', page: PlanPage()),
-    (icon: Icons.grid_view_rounded, label: 'Habits', page: HabitsPage()),
     (icon: Icons.edit_note_rounded, label: 'Diary', page: DiaryPage()),
-    (icon: Icons.phone_android_rounded, label: 'Screen', page: ScreenPage()),
+    (icon: Icons.psychology_rounded, label: 'Brain', page: BrainPage()),
+    (icon: Icons.grid_view_rounded, label: 'Habits', page: HabitsPage()),
   ];
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    if (app.store.getMeta(welcomedKey) == null) {
+      return WelcomePage(onDone: () => setState(() => app.store.setMeta(welcomedKey, '1')));
+    }
     final text = Theme.of(context).textTheme;
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final focusing = app.store.currentFocus() != null;

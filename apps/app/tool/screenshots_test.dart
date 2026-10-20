@@ -1,3 +1,4 @@
+import 'dart:convert';
 // Draws the pictures the website uses, from made-up data and never your own:
 // it fills a store in memory, opens each page and saves it to site/img.
 //
@@ -20,6 +21,7 @@ import 'package:vault_app/main.dart';
 import 'package:vault_app/reminder_page.dart';
 import 'package:vault_app/reminders.dart';
 import 'package:vault_app/state.dart';
+import 'package:vault_app/welcome_page.dart';
 import 'package:vault_core/vault_core.dart';
 
 const _frame = ValueKey('screenshot');
@@ -194,6 +196,48 @@ Store _demo() {
   }
 
   store.setMeta('demo_reading', reading.id);
+  store.setMeta(welcomedKey, '1');
+
+  // What the laptop's vault publishes for the phone.
+  store
+    ..putPage(
+      'morning',
+      now,
+      '# ${prettyDate(now)}\n\n## The day\n\nStarts 07:00 (woke 06:40, said in the diary).\n\n'
+          '- **07:00–08:00** Run, 5 km\n- **09:00–11:00** Write the methods section\n'
+          '- **14:00–15:30** Supervisor meeting\n- **17:00–18:30** Analysis: error against sample size\n\n'
+          'Must-dos: the methods draft, the meeting notes, an early night.\n\n'
+          '## Facts\n\n- Yesterday: 5 of 6 done.\n- Due this week: the methods draft (Fri).\n\n'
+          '## Guesses\n\n- The analysis needs 90 minutes, from your last three sessions.\n\n'
+          '## Waiting for your yes\n\n- Move "Guitar" to 21:00 on weekdays? It was skipped 4 of 5 days at 19:00.\n\n'
+          '## Open questions\n\n- Should the second experiment come back after the draft?',
+      title: prettyDate(now),
+    )
+    ..putPage('goals', 'all', 'Submit the thesis by March\nRun a half marathon\nPlay one full song on guitar')
+    ..putPage(
+      'projects',
+      'all',
+      jsonEncode([
+        {
+          'name': 'Thesis',
+          'status': 'building',
+          'what': 'Uncertainty in small-sample models',
+          'overview': '# Thesis\n\n**What it is:** my final-year thesis on uncertainty in small-sample models.',
+        },
+        {
+          'name': 'Half marathon',
+          'status': 'building',
+          'what': 'Training plan towards a race in spring',
+          'overview': '# Half marathon\n\nTraining towards a race in spring.',
+        },
+        {
+          'name': 'Reading group',
+          'status': 'role',
+          'what': 'I run the lab\'s weekly paper reading',
+          'overview': '# Reading group\n\nThe lab\'s weekly paper reading.',
+        },
+      ]),
+    );
   return store;
 }
 
@@ -242,7 +286,7 @@ void main() {
     expect(DateTime.now().hour, 14, reason: 'Run scripts/screenshots.sh, which sets the clock.');
     await open(tester, phone);
     await shoot(tester, 'today');
-    for (final page in ['Plan', 'Habits', 'Diary', 'Screen']) {
+    for (final page in ['Plan', 'Habits', 'Diary', 'Brain']) {
       await go(tester, page);
       await shoot(tester, page.toLowerCase());
       if (page == 'Diary') {

@@ -11,12 +11,13 @@ import 'package:vault_app/state.dart';
 import 'package:vault_app/sync_page.dart';
 import 'package:vault_app/voice.dart';
 import 'package:vault_app/voice_sheet.dart';
+import 'package:vault_app/welcome_page.dart';
 import 'package:vault_core/vault_core.dart';
 
 void main() {
   late AppState state;
 
-  setUp(() => state = AppState(Store(openMemoryDb())));
+  setUp(() => state = AppState(Store(openMemoryDb())..setMeta(welcomedKey, '1')));
   tearDown(() => state.dispose());
 
   Future<void> pump(WidgetTester tester, Size size) async {
@@ -185,7 +186,7 @@ void main() {
     ]);
     for (final size in const [Size(360, 740), Size(390, 844), Size(1200, 800)]) {
       await pump(tester, size);
-      for (final page in ['Plan', 'Habits', 'Diary', 'Screen', 'Today']) {
+      for (final page in ['Plan', 'Habits', 'Diary', 'Brain', 'Today']) {
         await go(tester, page);
         expect(tester.takeException(), isNull, reason: '$page at $size');
       }
@@ -507,6 +508,64 @@ void main() {
     await tester.pump();
     expect(state.store.currentFocus(), isNull);
   });
+
+  testWidgets('the welcome shows once on a new device', (tester) async {
+    state.store.setMeta(welcomedKey, null);
+    await pump(tester, const Size(390, 800));
+    expect(find.text('A private second brain that your agents share.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('welcome-start')), 200);
+    await tester.tap(find.byKey(const ValueKey('welcome-start')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('nav-Today')), findsOneWidget);
+    expect(state.store.getMeta(welcomedKey), '1');
+  });
+
+  testWidgets('Brain: says how to connect the notes, then shows the morning page, goals and projects', (tester) async {
+    await pump(tester, const Size(390, 800));
+    await go(tester, 'Brain');
+    expect(find.byKey(const ValueKey('brain-connect')), findsOneWidget);
+
+    state.store
+      ..putPage('morning', today(), '# Today\n\n## The day\n\n- 07:00–08:00 Workout\n- 11:15–12:45 DSA\n\n## Facts\n\n- 3 of 5 done',
+          title: 'Today')
+      ..putPage('goals', 'all', 'Land an ML internship (2026-10-14).\nShip Helios')
+      ..putPage(
+        'projects',
+        'all',
+        '[{"name":"Helios","status":"building","what":"Security scanning that ships fixes","overview":"# Helios\\n\\nThe overview."}]',
+      );
+    state.change((_) {});
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('brain-connect')), findsNothing);
+    expect(find.text('This morning'), findsOneWidget);
+    expect(find.text('07:00–08:00 Workout', findRichText: true), findsOneWidget);
+    expect(find.text('Land an ML internship'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Helios'), 200);
+    await tester.tap(find.text('Helios'));
+    await tester.pumpAndSettle();
+    expect(find.text('The overview.', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Today shows the morning page, and it opens in full', (tester) async {
+    state.store.putPage('morning', today(), '# Today\n\n## The day\n\n- 07:00–08:00 Workout\n\n## Open questions\n\n- Which internship?');
+    await pump(tester, const Size(390, 800));
+    expect(find.byKey(const ValueKey('morning-card')), findsOneWidget);
+    expect(find.text('Which internship?', findRichText: true), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('morning-card')));
+    await tester.pumpAndSettle();
+    expect(find.text('Which internship?', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('a diary entry shows what Vault did with it', (tester) async {
+    final e = state.store.addDiary('I have to finish Helios');
+    state.store.setDiaryOutcome(e.id, '1 commitment captured (Finish Helios).');
+    await pump(tester, const Size(390, 800));
+    await go(tester, 'Diary');
+    expect(find.byKey(ValueKey('outcome-${e.id}')), findsOneWidget);
+    expect(find.text('1 commitment captured (Finish Helios).'), findsOneWidget);
+  });
+
 }
 
 /// A speech engine a test can speak through.
