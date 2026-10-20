@@ -28,7 +28,7 @@ as an MCP server, `vault_status`, `list_diary` (with `unfiled: true`) and
    empty, say there is nothing to file and stop.
 4. **Read the rules.** Read `README.md` in the vault and follow its filing
    rules exactly: they are the user's, and they win over anything here. Read
-   `Me.md`. List `Learning/` and `Projects/` so you add to a note that exists
+   `Rules.md` if it exists, then `Me.md`. List `Learning/` and `Projects/` so you add to a note that exists
    instead of starting a near-duplicate under another name.
 5. **File.** Every entry goes into its day's note in `Daily/`. Beyond that,
    file each part of an entry where it belongs:
@@ -40,6 +40,8 @@ as an MCP server, `vault_status`, `list_diary` (with `unfiled: true`) and
      under Goals, with the date, if it is not there already.
    - a **decision**, an **idea**, or something **learned**: as the vault's
      README says.
+   - a **correction** to an assistant ("don't put my workout in the
+     afternoon"): a dated line in `Rules.md`, if the vault has one.
    Keep the user's words; fix only obvious speech-to-text slips. Add to
    notes; never rewrite or delete what is there.
 6. **Record it.** Run `todo diary-filed ID ID ...` with every entry you

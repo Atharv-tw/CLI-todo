@@ -28,8 +28,9 @@ same names (`today`, `list_tasks`, `update_task`, `list_diary`) do the same.
    ```
 
 2. **Read how they like their day.** Run `todo --json vault status`. If
-   `path` is set, read `Me.md` there: their goals and how they like their day
-   planned. It wins over the general rules below.
+   `path` is set, read `Rules.md` there (every correction they have made),
+   then `Me.md` (their goals and how they like their day planned). Both win
+   over the general rules below, and `Rules.md` wins over `Me.md`.
 3. **Capture what they committed to.** For each unprocessed entry, every
    "I have to / need to / gotta …" becomes a backlog task linked to the entry
    (`todo add TITLE -l PROJECT --from ENTRY [--due DATE]`), unless an open
@@ -46,13 +47,19 @@ same names (`today`, `list_tasks`, `update_task`, `list_diary`) do the same.
      one needs `--reason`. A moved task keeps its deadline.
    - Deadlines within a week come before other backlog work. At most five
      newly captured commitments go into one day.
-   - Keep the order they like. When the day is short, move the least
-     important tasks to tomorrow; do not squeeze everything in.
+   - Keep the order they like, from when the day starts. A first-thing block
+     (a workout) stays first even on a late day. When the day is short, move
+     the least important tasks off it; do not squeeze everything in.
    - A skipped sequence (a numbered course, a day-by-day study plan) slides
      forward a day as a whole. Never two days of the same thing on one day.
+     When only part of a sequence day was done, tick that part and put the
+     rest at the front of the next day of the sequence.
    - Leave gaps for meals, rest and family. Do not fill every hour.
-   - Yesterday's unticked one-off tasks come to today, or tomorrow if today
-     is full.
+   - Yesterday's unticked project work and one-off tasks go back to the
+     backlog, unless their deadline is within a week or they said they
+     would do them today.
+   - Never change a habit. If one keeps disagreeing with how their days go,
+     suggest a change and let them decide.
 6. **Check it** with `todo check-plan` and fix what it reports until the plan
    holds.
 7. **Tell them,** briefly: today's plan as `HH:MM-HH:MM title` lines, the

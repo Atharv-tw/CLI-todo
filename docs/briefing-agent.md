@@ -58,8 +58,11 @@ todo list due                   # deadlines, soonest first
 todo lists                      # projects are lists
 ```
 
-If a vault is checked out (see below), read its `Me.md` too: their goals and
-how they like their day. It wins over general advice in this file.
+If a vault is checked out (see below), read its `Rules.md` first, then
+`Me.md`: every correction they have made, then their goals and how they like
+their day. Both win over general advice in this file, and `Rules.md` wins
+over `Me.md`. Also read the newest note in `Reports/` if there is one (for
+example an overnight email check); it goes into the morning page.
 
 ## 2. Process every entry
 
@@ -75,6 +78,8 @@ it contains. One entry often holds several things.
 | "might", "maybe", "interesting", "someday" | an **idea** | the vault's ideas; never a task |
 | woke late, slept badly, a reset day, feeling low | **context** | shapes today's plan |
 | move, add, drop or shorten something | an **instruction** | do it |
+| "only did one of the two", "finished half" | **partial progress** | tick what was done, carry the rest (below) |
+| "don't do that again", "that's not a task", undoing what you did | a **correction** | follow it, and add it to the vault's `Rules.md` |
 | something you cannot place | a **question** | ask it in your report |
 
 **Commitments.** Capture every one. There is no limit on how many you record.
@@ -103,23 +108,40 @@ note about the day." `todo check-plan` fails while any is missing.
 
 ## 3. Close the day (scheduled run only)
 
-Tasks dated the closed day or earlier that are still unticked were missed:
+Tasks dated the closed day or earlier that are still unticked were missed.
+What happens to one depends on what kind of work it is:
 
-- **A one-off task:** move it to the planned day if it fits, otherwise back
-  to the backlog (`-d none`) or a later day. Its deadline stays where it is.
-- **A sequence** (a numbered course, a day-by-day study plan) slides forward
-  one day as a whole. No day holds two days of the same thing.
+- **A sequence** (a numbered course, a day-by-day study plan, such as
+  `DSA: ...` and `Karpathy N: ...`) slides forward one day as a whole. No day
+  holds two days of the same thing.
+- **Partial progress on a sequence day:** when the diary says only part was
+  done ("only did Top K"), retitle the ticked task to what was done, tick it,
+  and put the rest at the front of the next day of that sequence, in its
+  title. Do not create an extra day for it.
+- **Project work and one-off tasks** do not just reappear the next day. Send
+  them back to the backlog (`-d none`), where planning picks them again on
+  their merits. Put one straight into the planned day only when its deadline
+  is within 7 days or the person said they would do it then.
+- **A missed appointment** (fixed time, with other people): leave it, and ask
+  about it in the morning page.
 - **Protected tasks** need `--reason` to move off their day. Give the real
   reason ("missed 14 Oct, slid with its sequence").
+
+A deadline never moves when its task does.
 
 ## 4. Plan the day
 
 1. **When does the day start?** If an entry says when they woke or will wake,
-   use that. Otherwise use the typical wake time from `todo stats`, never an
-   ideal like 06:30 when the record says otherwise. Plan from about an hour
-   after waking.
-2. **Protected tasks first,** at sensible times after the day starts. Fixed
-   ones stay put.
+   use that. Otherwise, if `Me.md` or `Rules.md` gives a firm wake time, use
+   it, and put it under Guesses if `todo stats` disagrees. Otherwise use the
+   typical wake time from `todo stats`, never an ideal the record
+   contradicts. The first block starts about half an hour to an hour after
+   waking.
+2. **Lay the blocks out in the order `Me.md` gives,** from the start of the
+   day. A block that is first thing (a workout) stays first thing even when
+   the day starts late; it never drifts into the afternoon. Protected tasks
+   must find a place in the day, but the order wins over protection when you
+   place them. Fixed ones stay put.
 3. **Then deadlines:** anything due within a week that has not been planned,
    soonest first, with enough days before the deadline to finish it.
 4. **Then one or two backlog items** that move a goal in `Me.md` forward.
@@ -129,6 +151,10 @@ Tasks dated the closed day or earlier that are still unticked were missed:
    days, or they called the day a reset, plan fewer flexible blocks and keep
    the protected ones.
 6. Leave gaps for meals, rest and family. Do not fill every hour.
+7. **Habits are anchors, not walls.** Never change a habit yourself. When the
+   record disagrees with one for a week (they never wake at the wake-up
+   habit's time, a habit is never ticked), say so under "Waiting for your
+   yes" in the morning page, with the change you suggest.
 
 Move tasks with `todo edit ID -d DATE -t HH:MM-HH:MM`. A moved task keeps its
 deadline; the command records every move in the task's history.
@@ -165,11 +191,12 @@ Some people keep a vault: a second repository of Markdown notes, checked out
 beside this one. Look for it (`ls ..`); it has a `Me.md` and a `README.md`
 with filing rules. If there is none, skip this section.
 
-- **Before planning,** read `Me.md`.
+- **Before planning,** read `Rules.md` (if it exists) and `Me.md`.
 - **After writing back,** file the diary into it: run `todo vault use PATH`
   with the vault's path, then follow
   [plugin/skills/file-diary/SKILL.md](../plugin/skills/file-diary/SKILL.md).
-  Commit in the vault and push to its main branch. The vault is the only
+  Then write the morning page (and on Saturday night the weekly page),
+  commit it in the vault and push to its main branch. The vault is the only
   place you write files, commit or push.
 - Tasks, deadlines and status live in the to-do system, not the vault. The
   vault keeps the context: goals, project notes, ideas, what was learned.
@@ -183,17 +210,35 @@ todo diary --as claude -d 2026-10-15 "Handled the diary up to 19:11 on 14 Oct. C
 todo sync
 ```
 
-Check that `todo sync` reports no error. The full report is your final
-message, not something written into the app:
+Check that `todo sync` reports no error.
 
-1. **The closed day** in one line: tasks ticked out of how many.
-2. **Every entry and its outcome.**
-3. **Commitments captured:** every one, with its deadline and project, and
-   which went into the planned day.
-4. **Needs your answer:** anything you could not place.
-5. **The planned day,** one line per task: `HH:MM-HH:MM title`, and when the
-   day was planned to start and why.
-6. **Deferred:** what was moved off the day or left in the backlog, and why.
-7. **The three must-dos.**
-8. **The plan check:** "holds", or the errors left and why.
-9. **The vault:** what you filed, and into which notes.
+## The morning page
+
+Your report is the morning page. If the vault's `README.md` describes one,
+follow its sections and write it to `Morning/YYYY-MM-DD.md` (the planned
+day) before the vault's commit; your final message is the same text.
+Without a vault, use these sections as your final message:
+
+1. **The day:** one line per block, `HH:MM–HH:MM title`; when the day starts
+   and why; the three must-dos.
+2. **Facts:** the closed day's tasks ticked out of how many; deadlines in the
+   next 7 days; every entry and its outcome.
+3. **Guesses:** what you inferred and could be wrong about.
+4. **Done:** commitments captured (each with deadline and project, and which
+   went into the day), what moved and why, what went back to the backlog,
+   what you filed in the vault and where.
+5. **Waiting for your yes:** changes you suggest but did not make.
+6. **Open questions:** anything you could not place.
+7. **The plan check:** "holds", or the errors left and why.
+8. **Reports:** a short summary of the newest note in `Reports/`, saying how
+   old it is.
+
+## The weekly page (the night before Sunday)
+
+When the planned day is a Sunday, also write the weekly page. If the vault's
+`README.md` describes one, follow it and write it to `Weekly/YYYY-Www.md`.
+Build it from `todo stats --days 7`, the week's diary, the vault's notes
+changed this week (`git log --since`) and the open tasks. Its point is what
+they decided and forgot: commitments from the week still open, projects
+that did not move, and how the routines really went. Put a link to it at the
+top of that night's morning page.

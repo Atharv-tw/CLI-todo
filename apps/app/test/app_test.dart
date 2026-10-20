@@ -85,7 +85,8 @@ void main() {
       tag: 'DSA',
       notes: 'Try 25 min alone first.',
     );
-    Reminder reminder() => Reminder(kind: 'task', id: t.id, date: today(), title: t.title, start: '00:00', end: '23:59');
+    Reminder reminder() =>
+        Reminder(kind: 'task', id: t.id, date: today(), title: t.title, start: '00:00', end: '23:59');
     Future<void> open(Size size) async {
       await pump(tester, size);
       final navigator = tester.state<NavigatorState>(find.byType(Navigator).first);
@@ -113,9 +114,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the + button opens a diary box on the page and saves an entry', (tester) async {
+    await pump(tester, const Size(390, 800));
+    await tester.tap(find.byKey(const ValueKey('quick-log')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('quick-log-bar')), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'Only did Top K today');
+    await tester.tap(find.byKey(const ValueKey('diary-save')));
+    await tester.pumpAndSettle();
+    expect(state.store.diary().single.body, 'Only did Top K today');
+    expect(find.byKey(const ValueKey('quick-log-bar')), findsNothing);
+    expect(find.byKey(const ValueKey('quick-log')), findsOneWidget);
+    expect(find.text('Saved to the diary'), findsOneWidget);
+  });
+
   testWidgets('adding a task through the sheet', (tester) async {
     await pump(tester, const Size(390, 800));
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.byKey(const ValueKey('quick-log')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quick-log-task')));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Task'), 'Buy milk');
     await tester.tap(find.text('Add task'));
@@ -159,7 +176,12 @@ void main() {
     final noon = DateTime.now().copyWith(hour: 12, minute: 0, second: 0, millisecond: 0, microsecond: 0);
     state.store.addUsage([
       UsageSpan('firefox', 'Firefox', noon, noon.add(const Duration(minutes: 50))),
-      UsageSpan('code', 'A very long application name that should be cut short, not overflow', noon, noon.add(const Duration(minutes: 20))),
+      UsageSpan(
+        'code',
+        'A very long application name that should be cut short, not overflow',
+        noon,
+        noon.add(const Duration(minutes: 20)),
+      ),
     ]);
     for (final size in const [Size(360, 740), Size(390, 844), Size(1200, 800)]) {
       await pump(tester, size);
