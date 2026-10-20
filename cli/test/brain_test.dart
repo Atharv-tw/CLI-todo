@@ -117,4 +117,16 @@ void main() {
     expect(page(vault, 'morning')!.text, '# Wed\n');
     expect(page(vault, 'morning', date: '2026-10-20')!.path, 'morning/2026-10-20.md');
   });
+
+  test('publishing copies the pages the phone shows, and only what changed', () {
+    File(p.join(vault, 'morning', '2026-10-21.md')).writeAsStringSync('# Wed 21 Oct\n\n- 07:00 Workout\n');
+    newProject(vault, 'Helios', what: 'Security scanning');
+    addGoal(vault, 'Land an internship');
+    expect(publishPages(store, vault), 3);
+    expect(publishPages(store, vault), 0);
+    expect(store.page('morning')!.title, 'Wed 21 Oct');
+    expect(store.page('goals')!.body, startsWith('Land an internship'));
+    expect(store.page('projects')!.body, contains('"name":"Helios"'));
+    expect(isoWeek(DateTime(2026, 10, 21)), '2026-W43');
+  });
 }

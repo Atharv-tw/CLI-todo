@@ -167,4 +167,24 @@ void main() {
     expect(phone.diary().single.taskTitle, 'revise');
     expect(phone.tasks(undated: true).single.title, 'revise');
   });
+
+  test('pages written on the laptop reach the phone, newest first, and an unchanged page is not rewritten', () async {
+    expect(laptop.putPage('morning', '2026-10-20', '# Tue\n\n- 07:00 Workout', title: 'Tue 20 Oct'), isTrue);
+    expect(laptop.putPage('morning', '2026-10-20', '# Tue\n\n- 07:00 Workout', title: 'Tue 20 Oct'), isFalse);
+    laptop.putPage('morning', '2026-10-21', '# Wed');
+    laptop.putPage('goals', 'all', 'Land an internship');
+    await laptopSync.sync();
+    await phoneSync.sync();
+    expect(phone.page('morning')!.key, '2026-10-21');
+    expect(phone.page('morning', '2026-10-20')!.title, 'Tue 20 Oct');
+    expect(phone.pages('morning').map((p) => p.key), ['2026-10-21', '2026-10-20']);
+    expect(phone.page('goals', 'all')!.body, 'Land an internship');
+
+    await settle();
+    laptop.putPage('goals', 'all', 'Land an internship\nShip Helios');
+    await laptopSync.sync();
+    await phoneSync.sync();
+    expect(phone.page('goals')!.body, contains('Ship Helios'));
+    expect(phone.pages('goals'), hasLength(1));
+  });
 }

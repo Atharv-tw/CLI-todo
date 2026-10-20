@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -49,8 +50,9 @@ List<SearchHit> search(Store store, String? vault, String query, {Set<String>? k
   if (want('note') && vault != null && Directory(vault).existsSync()) {
     for (final f in Directory(vault).listSync(recursive: true).whereType<File>()) {
       final rel = p.relative(f.path, from: vault).replaceAll(r'\', '/');
-      if (!rel.endsWith('.md') || rel.startsWith('raw/') || rel.split('/').any((s) => s.startsWith('.')))
+      if (!rel.endsWith('.md') || rel.startsWith('raw/') || rel.split('/').any((s) => s.startsWith('.'))) {
         continue;
+      }
       final lines = f.readAsLinesSync();
       // A note scores as a whole (so a word in the title and another in the
       // body still match) and is shown by its best line.
@@ -70,8 +72,9 @@ List<SearchHit> search(Store store, String? vault, String query, {Set<String>? k
   if (want('diary')) {
     for (final e in store.diary(author: DiaryEntry.me)) {
       final s = _score(e.body, terms);
-      if (s > 0)
+      if (s > 0) {
         hits.add(SearchHit('diary', '${e.date} ${hm(e.createdAt)}', e.body.replaceAll('\n', ' '), s));
+      }
     }
   }
   if (want('task')) {
@@ -354,13 +357,15 @@ void addGoal(String vault, String goal) {
     );
   }
   final direct = File(p.join(vault, r.endsWith('.md') ? r : '$r.md'));
-  if (direct.existsSync())
+  if (direct.existsSync()) {
     return (path: p.relative(direct.path, from: vault), text: direct.readAsStringSync());
+  }
   final want = p.basenameWithoutExtension(r).toLowerCase();
   for (final f in Directory(vault).listSync(recursive: true).whereType<File>()) {
     final rel = p.relative(f.path, from: vault).replaceAll(r'\', '/');
-    if (rel.startsWith('raw/') || !rel.endsWith('.md') || rel.split('/').any((s) => s.startsWith('.')))
+    if (rel.startsWith('raw/') || !rel.endsWith('.md') || rel.split('/').any((s) => s.startsWith('.'))) {
       continue;
+    }
     if (p.basenameWithoutExtension(rel).toLowerCase() == want) return (path: rel, text: f.readAsStringSync());
   }
   throw TodoException('No note called "$ref". Try: myvault search $ref');
@@ -370,8 +375,9 @@ void addGoal(String vault, String goal) {
 List<String> saveVault(String vault, {String? message}) {
   ProcessResult git(List<String> args) => Process.runSync('git', ['-C', vault, ...args]);
   try {
-    if (!Directory(p.join(vault, '.git')).existsSync())
+    if (!Directory(p.join(vault, '.git')).existsSync()) {
       return ['The vault is not a git repository; nothing to save.'];
+    }
     git(['add', '-A']);
     if ((git(['status', '--porcelain']).stdout as String).trim().isEmpty) return ['Nothing new to save.'];
     final c = git(['commit', '-q', '-m', message ?? 'Notes: ${_today()}']);
@@ -434,4 +440,44 @@ void fillMe(String vault, {String? name, List<String> goals = const [], String? 
   ];
   File(p.join(vault, 'Me.md')).writeAsStringSync(lines.join('\n'));
   appendLog(vault, 'setup', 'Me.md filled in from setup');
+}
+
+/// The ISO week of [d], as 2026-W43.
+String isoWeek(DateTime d) {
+  final thursday = d.add(Duration(days: 4 - d.weekday));
+  final week = ((thursday.difference(DateTime(thursday.year, 1, 1)).inDays) / 7).floor() + 1;
+  return '${thursday.year}-W${week.toString().padLeft(2, '0')}';
+}
+
+String _withoutFrontmatter(String text) => text.replaceFirst(RegExp(r'^---\n.*?\n---\n', dotAll: true), '');
+
+String? _heading(String text) => RegExp(r'^# (.+)$', multiLine: true).firstMatch(text)?.group(1)?.trim();
+
+/// Copies what a device without the vault shows of it (the newest morning
+/// and weekly pages, the goals, the projects) into the synced pages, so the
+/// phone has them after the next sync. Returns how many pages changed.
+int publishPages(Store store, String vault) {
+  var changed = 0;
+  for (final kind in ['morning', 'weekly']) {
+    final dir = Directory(p.join(vault, kind));
+    if (!dir.existsSync()) continue;
+    final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList()
+      ..sort((a, b) => b.path.compareTo(a.path));
+    for (final f in files.take(kind == 'morning' ? 7 : 4)) {
+      final text = _withoutFrontmatter(f.readAsStringSync()).trim();
+      if (store.putPage(kind, p.basenameWithoutExtension(f.path), text, title: _heading(text))) changed++;
+    }
+  }
+  if (store.putPage('goals', 'all', goals(vault).join('\n'), title: 'Goals')) changed++;
+  final projects = [
+    for (final x in listProjects(vault))
+      {
+        ...x.toJson(),
+        'overview': _withoutFrontmatter(
+          File(p.join(vault, 'projects', x.name, '${x.name}.md')).readAsStringSync(),
+        ).trim(),
+      },
+  ];
+  if (store.putPage('projects', 'all', jsonEncode(projects), title: 'Projects')) changed++;
+  return changed;
 }

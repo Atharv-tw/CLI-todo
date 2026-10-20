@@ -172,6 +172,34 @@ class UsageSpan {
   final DateTime end;
 }
 
+/// A page of the vault as other devices see it: a morning or weekly page,
+/// the goals, the projects (see `Store.putPage`).
+class VaultPage {
+  VaultPage.fromRow(Map<String, Object?> r)
+      : id = r['id'] as String,
+        kind = r['kind'] as String,
+        key = r['key'] as String,
+        title = r['title'] as String?,
+        body = r['body'] as String,
+        updatedAt = DateTime.parse(r['updated_at'] as String).toLocal();
+
+  final String id;
+
+  /// `morning`, `weekly`, `goals` or `projects`.
+  final String kind;
+
+  /// A date for a morning page, a week (2026-W43) for a weekly one, `all`
+  /// otherwise.
+  final String key;
+  final String? title;
+
+  /// Markdown, or JSON for `projects`.
+  final String body;
+  final DateTime updatedAt;
+
+  Map<String, Object?> toJson() => {'kind': kind, 'key': key, 'title': title, 'body': body};
+}
+
 /// One diary entry: anything the user wants to keep (an idea, a decision, how
 /// the day went), or the assistant's note of what it changed in the plan.
 class DiaryEntry {

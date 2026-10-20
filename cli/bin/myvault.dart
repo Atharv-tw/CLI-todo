@@ -785,6 +785,7 @@ class VaultCommand extends Cmd {
     addSubcommand(_VaultStatus());
     addSubcommand(_VaultLint());
     addSubcommand(_NotesSave());
+    addSubcommand(_NotesPublish());
     addSubcommand(_NotesLog());
   }
 
@@ -1161,8 +1162,9 @@ class InitCommand extends Cmd {
             '4. Back up your notes to a private GitHub repository? That also lets a nightly routine in the\n'
             '   cloud file your diary and plan your day while your laptop is off.',
           );
-          if (confirm('   Keep them on GitHub?', fallback: false))
+          if (confirm('   Keep them on GitHub?', fallback: false)) {
             repo = ask('   Repository name', 'my-vault');
+          }
           say('');
         }
         if (repo != null) {
@@ -1309,6 +1311,9 @@ class SyncCommand extends Cmd {
 
   @override
   Future<void> run() async {
+    // The phone cannot read the vault, so what it shows of it travels as pages.
+    final vault = vaultPath(store);
+    if (vault != null && Directory(vault).existsSync()) publishPages(store, vault);
     final r = await SyncEngine(store, SupabaseRemote(store)).sync();
     out(
       r.toJson(),
@@ -1584,6 +1589,23 @@ class PageCommand extends Cmd {
       );
     }
     out({'path': pg.path, 'text': pg.text}, () => pg.text.trimRight());
+  }
+}
+
+class _NotesPublish extends Cmd {
+  _NotesPublish()
+    : super(
+        'publish',
+        'Copy your morning and weekly pages, goals and projects into sync for the phone (sync does it too).',
+      );
+
+  @override
+  void run() {
+    final n = publishPages(store, _vault);
+    out(
+      {'changed': n},
+      () => n == 0 ? 'Nothing new to publish.' : 'Published $n pages; they reach the phone on the next sync.',
+    );
   }
 }
 

@@ -42,7 +42,7 @@ Database openMemoryDb() {
 
 /// Tables that sync. Each has `updated_at` (client clock, used for
 /// last-write-wins), `deleted_at` (tombstone) and `dirty` (needs pushing).
-const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage', 'diary'];
+const syncedTables = ['lists', 'tasks', 'habits', 'habit_checks', 'focus_sessions', 'screen_usage', 'diary', 'pages'];
 
 const _sync = '''
   created_at TEXT NOT NULL,
@@ -155,6 +155,21 @@ const _migrations = [
   ALTER TABLE tasks ADD COLUMN history TEXT;
   CREATE INDEX tasks_due ON tasks(due_date);
   ALTER TABLE diary ADD COLUMN outcome TEXT;
+  ''',
+  // Pages: what a device without the vault (the phone) shows of it: the
+  // morning and weekly pages, the goals, the projects. `kind` and `key` name
+  // one ('morning' and a date, 'goals' and 'all'); the laptop that has the
+  // vault writes them, every device reads them.
+  '''
+  CREATE TABLE pages (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    title TEXT,
+    body TEXT NOT NULL,
+    $_sync
+  );
+  CREATE INDEX pages_kind ON pages(kind, key);
   ''',
 ];
 
