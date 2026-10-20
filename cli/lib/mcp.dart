@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:vault_core/vault_core.dart';
 
+import 'brain.dart';
 import 'vault.dart';
 import 'vault_lint.dart';
 
@@ -346,6 +347,121 @@ final _tools = <_Tool>[
       };
     },
   ),
+  _Tool(
+    'search',
+    'Search the user\'s memory: their vault of notes (never the private raw/ diary), their diary and their tasks. Every '
+        'word must appear. Use it before answering anything about their projects, people, goals, past decisions or what '
+        'they learned. Returns where each match is (a note\'s path and line, a diary entry\'s date and time, a task id).',
+    {
+      'query': _str('The words to look for.'),
+      'in': {
+        'type': 'array',
+        'items': {
+          'type': 'string',
+          'enum': ['notes', 'diary', 'tasks'],
+        },
+        'description': 'Where to look; default everywhere.',
+      },
+    },
+    required: ['query'],
+    (store, a) {
+      final kinds = {
+        for (final k in ((a['in'] as List?) ?? const []).cast<String>())
+          k == 'notes' ? 'note' : (k == 'tasks' ? 'task' : k),
+      };
+      return {
+        'hits': [for (final h in search(store, vaultPath(store), _s(a, 'query')!, kinds: kinds)) h.toJson()],
+      };
+    },
+  ),
+  _Tool(
+    'read_note',
+    'Read one note from the user\'s vault by its path (projects/Helios/Helios) or its title. Start with INDEX.md to '
+        'find the right note. raw/ is refused: it is the word-for-word diary, read only by the filing agent.',
+    {'note': _str('The note\'s path in the vault or its title.')},
+    required: ['note'],
+    (store, a) {
+      final n = readNote(requireVault(vaultPath(store)), _s(a, 'note')!);
+      return {'path': n.path, 'text': n.text};
+    },
+  ),
+  _Tool(
+    'add_note',
+    'Save an answer worth keeping into the user\'s vault: an analysis, a comparison, a plan, a recommendation they '
+        'act on, or a summary of a link they shared. Goes to notes/<title>.md (or a project\'s folder), is listed in '
+        'INDEX.md and logged. Start the body with the question it answers; keep the substance, drop the chatter. Then '
+        'call save_notes.',
+    {
+      'title': _str('The note\'s title, which is also its file name.'),
+      'body': _str('Its Markdown text.'),
+      'project': _str('A project to put it under instead of notes/.'),
+      'source': _str('The link it summarises, if it is about something the user shared.'),
+    },
+    required: ['title', 'body'],
+    (store, a) => {
+      'path': newNote(
+        requireVault(vaultPath(store)),
+        _s(a, 'title')!,
+        body: _s(a, 'body')!,
+        project: _s(a, 'project'),
+        source: _s(a, 'source'),
+      ),
+    },
+  ),
+  _Tool(
+    'list_projects',
+    'The user\'s projects in their vault, most recently updated first, each with its status and what it is.',
+    {},
+    (store, a) => {
+      'projects': [for (final x in listProjects(requireVault(vaultPath(store)))) x.toJson()],
+    },
+  ),
+  _Tool(
+    'log_project_work',
+    'Record a finished piece of work on one of the user\'s projects (a feature or fix that works, a merged pull '
+        'request, a release, a decision): one dated line in projects/<name>/log.md. Results, not process; real '
+        'numbers only. Then call save_notes.',
+    {
+      'project': _str('The project\'s name, as list_projects gives it.'),
+      'text': _str('What was done, in one plain sentence.'),
+      'ref': _str('The pull request, commit or link, if any.'),
+    },
+    required: ['project', 'text'],
+    (store, a) => {
+      'path': logProject(requireVault(vaultPath(store)), _s(a, 'project')!, _s(a, 'text')!, ref: _s(a, 'ref')),
+    },
+  ),
+  _Tool(
+    'list_goals',
+    'The user\'s goals, from Me.md in their vault. Tie plans and suggestions to these.',
+    {},
+    (store, a) => {'goals': goals(requireVault(vaultPath(store)))},
+  ),
+  _Tool(
+    'morning_page',
+    'The user\'s morning page (written overnight: the day\'s plan, facts, guesses, what is waiting for their yes, '
+        'open questions), or with kind weekly the latest weekly look back.',
+    {
+      'kind': {
+        'type': 'string',
+        'enum': ['morning', 'weekly'],
+        'description': 'Default morning.',
+      },
+      'date': _str('A day ($_dateHelp); default the newest.'),
+    },
+    (store, a) {
+      final kind = _s(a, 'kind') == 'weekly' ? 'weekly' : 'morning';
+      final pg = page(
+        requireVault(vaultPath(store)),
+        kind,
+        date: _s(a, 'date') == null ? null : parseDate(_s(a, 'date')!),
+      );
+      return pg == null ? {'page': null} : {'path': pg.path, 'text': pg.text};
+    },
+  ),
+  _Tool('save_notes', 'Commit the user\'s vault and push it, after you changed notes in it.', {
+    'message': _str('The commit message; default "Notes: <date>".'),
+  }, (store, a) => {'done': saveVault(requireVault(vaultPath(store)), message: _s(a, 'message'))}),
   _Tool(
     'mark_diary_filed',
     'Record that diary entries have been filed into the user\'s vault, so they are not filed twice.',

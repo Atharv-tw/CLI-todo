@@ -82,10 +82,12 @@ List<String> connect(Assistant assistant, {required String todo, String? home}) 
         todo,
         'mcp',
       ]);
-      lines.add(added.exitCode == 0
-          ? '${assistant.name} can now read and change your tasks, diary and notes (tool server "myvault").'
-          : '${assistant.name} would not take the tool server: ${('${added.stderr}'.trim().split('\n').last)}\n'
-              '  Add it yourself with: ${assistant.command} mcp add myvault -- $todo mcp');
+      lines.add(
+        added.exitCode == 0
+            ? '${assistant.name} can now read and change your tasks, diary and notes (tool server "myvault").'
+            : '${assistant.name} would not take the tool server: ${('${added.stderr}'.trim().split('\n').last)}\n'
+                  '  Add it yourself with: ${assistant.command} mcp add myvault -- $todo mcp',
+      );
     }
   } on ProcessException {
     lines.add('${assistant.name} is not installed; skipped.');
