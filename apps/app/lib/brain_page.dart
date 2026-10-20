@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:vault_core/vault_core.dart';
 
+import 'brain_icon.dart';
 import 'markdown_view.dart';
-import 'screen_page.dart';
 import 'state.dart';
 import 'theme.dart';
 
 /// Your second brain, as far as the phone sees it: this morning's page, your
-/// goals, this week, your projects and your patterns. The notes themselves
+/// goals, this week and your projects. The notes themselves
 /// live in the vault on the laptop; it publishes these on every sync.
 class BrainPage extends StatelessWidget {
   const BrainPage({super.key});
@@ -72,26 +72,6 @@ class BrainPage extends StatelessWidget {
           _Heading('Projects', trailing: '${projects.length}'),
           for (final p in projects) ...[_ProjectTile(p), const SizedBox(height: 8)],
         ],
-        const _Heading('Patterns'),
-        Card(
-          clipBehavior: Clip.antiAlias,
-          child: ListTile(
-            key: const ValueKey('brain-screen'),
-            leading: const Icon(Icons.phone_android_rounded, color: AppColors.lavender),
-            title: const Text('Screen time'),
-            subtitle: const Text('Which apps, how long and when, on the phone and the laptop'),
-            trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Screen time')),
-                  body: const SafeArea(child: ScreenPage()),
-                ),
-              ),
-            ),
-          ),
-        ),
         if (store.pages('morning').length > 1) ...[
           const _Heading('Earlier mornings'),
           for (final m in store.pages('morning').skip(1))
@@ -313,7 +293,7 @@ class _ConnectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 8,
           children: [
-            const Icon(Icons.psychology_rounded, color: AppColors.lavender, size: 32),
+            const BrainIcon(color: AppColors.lavender, size: 34),
             Text('Your second brain shows up here', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
             Text(
               'Your notes live in a vault on your laptop: you, your goals, projects, people, what you learned. '

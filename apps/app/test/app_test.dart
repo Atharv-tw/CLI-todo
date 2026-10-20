@@ -9,6 +9,7 @@ import 'package:vault_app/reminders.dart';
 import 'package:vault_app/speech_models.dart';
 import 'package:vault_app/state.dart';
 import 'package:vault_app/sync_page.dart';
+import 'package:vault_app/today_page.dart';
 import 'package:vault_app/voice.dart';
 import 'package:vault_app/voice_sheet.dart';
 import 'package:vault_app/welcome_page.dart';
@@ -20,16 +21,31 @@ void main() {
   setUp(() => state = AppState(Store(openMemoryDb())..setMeta(welcomedKey, '1')));
   tearDown(() => state.dispose());
 
-  Future<void> pump(WidgetTester tester, Size size) async {
+  /// A tab, or Habits, which opens from Profile.
+  Future<void> go(WidgetTester tester, String page) async {
+    if (page == 'Habits') {
+      await go(tester, 'Profile');
+      await tester.tap(find.byKey(const ValueKey('profile-habits')));
+      await tester.pumpAndSettle();
+      return;
+    }
+    final pill = find.byKey(ValueKey('nav-$page'));
+    await tester.tap(pill.evaluate().isNotEmpty ? pill : find.text(page).last);
+    await tester.pumpAndSettle();
+  }
+
+  /// Opens the app; on the To-do tab unless [page] says otherwise.
+  Future<void> pump(WidgetTester tester, Size size, {String page = 'To-do'}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(TodoApp(state: state));
+    if (page != 'Brain') await go(tester, page);
   }
 
-  Future<void> go(WidgetTester tester, String page) async {
-    final pill = find.byKey(ValueKey('nav-$page'));
-    await tester.tap(pill.evaluate().isNotEmpty ? pill : find.text(page).last);
+  /// The + in the middle of the bar: the diary box.
+  Future<void> plus(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('nav-plus')));
     await tester.pumpAndSettle();
   }
 
@@ -115,38 +131,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the + button opens a diary box on the page and saves an entry', (tester) async {
-    await pump(tester, const Size(390, 800));
-    await tester.tap(find.byKey(const ValueKey('quick-log')));
-    await tester.pumpAndSettle();
+  testWidgets('the + in the middle of the bar opens a diary box and saves an entry', (tester) async {
+    await pump(tester, const Size(390, 800), page: 'Brain');
+    await plus(tester);
     expect(find.byKey(const ValueKey('quick-log-bar')), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'Only did Top K today');
     await tester.tap(find.byKey(const ValueKey('diary-save')));
     await tester.pumpAndSettle();
     expect(state.store.diary().single.body, 'Only did Top K today');
     expect(find.byKey(const ValueKey('quick-log-bar')), findsNothing);
-    expect(find.byKey(const ValueKey('quick-log')), findsOneWidget);
+    expect(find.byKey(const ValueKey('nav-plus')), findsOneWidget);
     expect(find.text('Saved to the diary'), findsOneWidget);
   });
 
-  testWidgets('adding a task through the sheet', (tester) async {
+  testWidgets('adding a task through the sheet, from the + or from To-do', (tester) async {
     await pump(tester, const Size(390, 800));
-    await tester.tap(find.byKey(const ValueKey('quick-log')));
+    await tester.tap(find.byKey(const ValueKey('add-task')));
     await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Task'), 'Read 20 pages');
+    await tester.tap(find.text('Add task'));
+    await tester.pumpAndSettle();
+    await plus(tester);
     await tester.tap(find.byKey(const ValueKey('quick-log-task')));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Task'), 'Buy milk');
     await tester.tap(find.text('Add task'));
     await tester.pumpAndSettle();
-    expect(state.store.tasks(from: today(), to: today()).single.title, 'Buy milk');
+    expect(state.store.tasks(from: today(), to: today()).map((t) => t.title), containsAll(['Read 20 pages', 'Buy milk']));
     expect(find.text('Buy milk'), findsWidgets);
   });
 
   testWidgets('a task can be protected from its sheet, and keeps its deadline when its day moves', (tester) async {
-    final t = state.store.addTask(title: "Dad's project", date: today(), dueDate: '2026-11-05');
+    final t = state.store.addTask(
+      title: "Dad's project",
+      date: today(),
+      startTime: '23:00',
+      endTime: '23:30',
+      dueDate: '2026-11-05',
+    );
     await pump(tester, const Size(390, 800));
-    await go(tester, 'Plan');
-    await tester.tap(find.text("Dad's project"));
+    // A tap on the timeline ticks it off; holding it opens its sheet.
+    final row = find.byKey(ValueKey('timeline-${t.id}'));
+    await tester.scrollUntilVisible(
+      row,
+      200,
+      scrollable: find.descendant(of: find.byType(TodayPage), matching: find.byType(Scrollable)).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(row);
     await tester.pumpAndSettle();
     expect(find.text('Due ${prettyDate('2026-11-05')}'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('task-protect')));
@@ -186,11 +218,19 @@ void main() {
     ]);
     for (final size in const [Size(360, 740), Size(390, 844), Size(1200, 800)]) {
       await pump(tester, size);
-      for (final page in ['Plan', 'Habits', 'Diary', 'Brain', 'Today']) {
+      for (final page in ['To-do', 'Diary', 'Profile', 'Brain']) {
         await go(tester, page);
         expect(tester.takeException(), isNull, reason: '$page at $size');
       }
-      // Focus is not a tab: it opens from the button beside Sync.
+      await go(tester, 'Habits');
+      expect(tester.takeException(), isNull, reason: 'Habits at $size');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await plus(tester);
+      expect(tester.takeException(), isNull, reason: 'the + at $size');
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      // Focus is not a tab: it opens from the button at the top.
       await tester.tap(find.byTooltip('Focus'));
       await tester.pumpAndSettle();
       expect(find.text('Start focus'), findsOneWidget);
@@ -199,18 +239,6 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(find.byType(NavigationRail), findsOneWidget);
-  });
-
-  testWidgets('Plan shows this week and folds the rest under Later', (tester) async {
-    state.store.addTask(title: 'Soon', date: addDays(today(), 2));
-    state.store.addTask(title: 'Far off', date: addDays(today(), 30));
-    await pump(tester, const Size(390, 844));
-    await go(tester, 'Plan');
-    expect(find.text('Soon'), findsOneWidget);
-    expect(find.text('Far off'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('later')));
-    await tester.pumpAndSettle();
-    expect(find.text('Far off'), findsOneWidget);
   });
 
   testWidgets('a habit group is one tile, done when every step is ticked', (tester) async {
@@ -247,16 +275,17 @@ void main() {
     expect(find.text('0 of 2 today · 0-day streak'), findsOneWidget);
   });
 
-  testWidgets('diary: write an entry, see it with its time, what it is about and Claude\'s note', (tester) async {
+  testWidgets('diary: write an entry, see it with its time, what it is about and the agent\'s note', (tester) async {
     final t = state.store.addTask(title: 'DSA: Two Sum', date: today());
     state.store.addDiary('Moved DSA to 13:30', author: DiaryEntry.assistant);
     state.store.addDiary('Finally got hash maps', taskId: t.id);
     await pump(tester, const Size(360, 740));
     await go(tester, 'Diary');
-    expect(find.text('Claude'), findsOneWidget);
+    expect(find.text('Your agent'), findsOneWidget);
     expect(find.text('DSA: Two Sum'), findsOneWidget); // the chip on the entry about the task
     expect(find.text('Today'), findsOneWidget);
 
+    await plus(tester);
     await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'Decided to park Onyx');
     await tester.tap(find.byKey(const ValueKey('diary-save')));
     await tester.pumpAndSettle();
@@ -291,7 +320,9 @@ void main() {
     // Tapping it opens that day, and tapping again folds it.
     await tester.tap(tile(1));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Evening of day 1'), 100, scrollable: list);
     expect(find.text('Evening of day 1'), findsOneWidget);
+    await tester.scrollUntilVisible(tile(1), -100, scrollable: list);
     await tester.tap(tile(1));
     await tester.pumpAndSettle();
     expect(find.text('Evening of day 1'), findsNothing);
@@ -299,12 +330,14 @@ void main() {
     // Ten earlier days are listed; the rest come ten at a time.
     final more = find.byKey(const ValueKey('diary-more'));
     await tester.scrollUntilVisible(more, 200, scrollable: list);
+    await tester.pumpAndSettle();
     expect(tile(10), findsOneWidget);
     expect(tile(11), findsNothing);
     expect(find.text('Show 10 more days'), findsOneWidget);
     await tester.tap(more);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(more, 200, scrollable: list);
+    await tester.pumpAndSettle();
     expect(find.text('Show 1 more days'), findsNothing);
     expect(find.text('Show 1 more day'), findsOneWidget);
     await tester.tap(more);
@@ -318,8 +351,8 @@ void main() {
     final mic = _FakeDictation();
     dictationForTest = () => mic;
     addTearDown(() => dictationForTest = null);
-    await pump(tester, const Size(360, 740));
-    await go(tester, 'Diary');
+    await pump(tester, const Size(360, 740), page: 'Diary');
+    await plus(tester);
     final box = find.byKey(const ValueKey('diary-draft'));
     String text() => tester.widget<TextField>(box).controller!.text;
 
@@ -342,27 +375,31 @@ void main() {
     expect(state.store.diary(author: DiaryEntry.me).single.body, 'I skipped the workout');
   });
 
-  testWidgets('diary: the box to write in sits below the entries, with a mic and a send button', (tester) async {
+  testWidgets('diary: the box has a mic and a send button in one row, and the page counts what you wrote', (tester) async {
     state.store.addDiary('Woke at seven');
-    await pump(tester, const Size(360, 740));
-    await go(tester, 'Diary');
+    await pump(tester, const Size(360, 740), page: 'Diary');
+    expect(find.descendant(of: find.byKey(const ValueKey('diary-stat-today')), matching: find.text('1')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('diary-filter-agent')));
+    await tester.pumpAndSettle();
+    expect(find.text('Woke at seven'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('diary-filter-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('Woke at seven'), findsOneWidget);
+
+    await plus(tester);
     final box = tester.getRect(find.byKey(const ValueKey('diary-draft')));
     final mic = tester.getRect(find.byKey(const ValueKey('diary-mic')));
     final send = tester.getRect(find.byKey(const ValueKey('diary-save')));
-    expect(box.top, greaterThan(tester.getRect(find.text('Woke at seven')).bottom));
-    // One row: the box, then the mic, then send, at the right edge.
     expect(mic.left, greaterThan(box.right));
     expect(send.left, greaterThan(mic.right));
     expect(send.center.dy, closeTo(mic.center.dy, 1));
-    // In the bottom third of the screen, within reach of a thumb.
-    expect(send.top, greaterThan(740 * 2 / 3));
     expect(find.text('Speak'), findsNothing);
     expect(find.text('Save'), findsNothing);
   });
 
   testWidgets('sync: a build with no server asks for one before signing in', (tester) async {
-    await pump(tester, const Size(360, 740));
-    await tester.tap(find.byTooltip('Sync'));
+    await pump(tester, const Size(360, 740), page: 'Profile');
+    await tester.tap(find.byKey(const ValueKey('profile-sync')));
     await tester.pumpAndSettle();
     expect(state.remote.configured, isFalse);
     expect(find.byKey(const ValueKey('sync-url')), findsOneWidget);
@@ -404,8 +441,8 @@ void main() {
       }
     }
 
-    await pump(tester, const Size(360, 740));
-    await go(tester, 'Diary');
+    await pump(tester, const Size(360, 740), page: 'Diary');
+    await plus(tester);
 
     // Nothing to listen with yet, so the mic opens the choice of models.
     await tester.tap(find.byKey(const ValueKey('diary-mic')));
@@ -426,6 +463,9 @@ void main() {
     final hinglish = speechModels.firstWhere((m) => m.id == 'hinglish');
     keep(base);
     keep(hinglish);
+    // Close the diary box; the voice button is at the top of the Diary.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('voice-settings')));
     await tester.pumpAndSettle();
     expect(find.text(base.size), findsNothing);
@@ -511,18 +551,19 @@ void main() {
 
   testWidgets('the welcome shows once on a new device', (tester) async {
     state.store.setMeta(welcomedKey, null);
-    await pump(tester, const Size(390, 800));
+    await pump(tester, const Size(390, 800), page: 'Brain');
     expect(find.text('A private second brain that your agents share.'), findsOneWidget);
     await tester.scrollUntilVisible(find.byKey(const ValueKey('welcome-start')), 200);
     await tester.tap(find.byKey(const ValueKey('welcome-start')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('nav-Today')), findsOneWidget);
+    // Brain is where the app opens.
+    expect(find.byKey(const ValueKey('nav-Brain')), findsOneWidget);
+    expect(find.byKey(const ValueKey('brain-connect')), findsOneWidget);
     expect(state.store.getMeta(welcomedKey), '1');
   });
 
   testWidgets('Brain: says how to connect the notes, then shows the morning page, goals and projects', (tester) async {
-    await pump(tester, const Size(390, 800));
-    await go(tester, 'Brain');
+    await pump(tester, const Size(390, 800), page: 'Brain');
     expect(find.byKey(const ValueKey('brain-connect')), findsOneWidget);
 
     state.store
@@ -547,14 +588,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Today shows the morning page, and it opens in full', (tester) async {
-    state.store.putPage('morning', today(), '# Today\n\n## The day\n\n- 07:00–08:00 Workout\n\n## Open questions\n\n- Which internship?');
-    await pump(tester, const Size(390, 800));
-    expect(find.byKey(const ValueKey('morning-card')), findsOneWidget);
+  testWidgets('Brain opens with the morning page, which opens in full, and Profile reads Me.md', (tester) async {
+    state.store
+      ..putPage('morning', today(), '# Today\n\n## The day\n\n- 07:00–08:00 Workout\n\n## Open questions\n\n- Which internship?')
+      ..putPage('me', 'all', '# Me\n\nCall me Atharv.\n\n## Goals\n\n- Ship Helios');
+    await pump(tester, const Size(390, 800), page: 'Brain');
+    expect(find.byKey(const ValueKey('brain-morning')), findsOneWidget);
     expect(find.text('Which internship?', findRichText: true), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('morning-card')));
+    await tester.tap(find.byKey(const ValueKey('brain-morning')));
     await tester.pumpAndSettle();
     expect(find.text('Which internship?', findRichText: true), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await go(tester, 'Profile');
+    expect(find.text('Atharv'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('profile-info')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ship Helios', findRichText: true), findsOneWidget);
   });
 
   testWidgets('a diary entry shows what Vault did with it', (tester) async {
