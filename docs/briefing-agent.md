@@ -61,7 +61,7 @@ todo lists                      # projects are lists
 If a vault is checked out (see below), read its `Rules.md` first, then
 `Me.md`: every correction they have made, then their goals and how they like
 their day. Both win over general advice in this file, and `Rules.md` wins
-over `Me.md`. Also read the newest note in `Reports/` if there is one (for
+over `Me.md`. Also read the newest note in each `reports/` folder if there is one (for
 example an overnight email check); it goes into the morning page.
 
 ## 2. Process every entry
@@ -215,7 +215,7 @@ Check that `todo sync` reports no error.
 ## The morning page
 
 Your report is the morning page. If the vault's `README.md` describes one,
-follow its sections and write it to `Morning/YYYY-MM-DD.md` (the planned
+follow its sections and write it to `morning/YYYY-MM-DD.md` (the planned
 day) before the vault's commit; your final message is the same text.
 Without a vault, use these sections as your final message:
 
@@ -230,13 +230,13 @@ Without a vault, use these sections as your final message:
 5. **Waiting for your yes:** changes you suggest but did not make.
 6. **Open questions:** anything you could not place.
 7. **The plan check:** "holds", or the errors left and why.
-8. **Reports:** a short summary of the newest note in `Reports/`, saying how
+8. **Reports:** a short summary of the newest note in each `reports/` folder, saying how
    old it is.
 
 ## The weekly page (the night before Sunday)
 
 When the planned day is a Sunday, also write the weekly page. If the vault's
-`README.md` describes one, follow it and write it to `Weekly/YYYY-Www.md`.
+`README.md` describes one, follow it and write it to `weekly/YYYY-Www.md`.
 Build it from `todo stats --days 7`, the week's diary, the vault's notes
 changed this week (`git log --since`) and the open tasks. Its point is what
 they decided and forgot: commitments from the week still open, projects
