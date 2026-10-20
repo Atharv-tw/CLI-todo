@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'calendar_sync.dart';
@@ -15,7 +15,7 @@ import 'reminders.dart';
 /// On the laptop the app shares one database with the CLI and top-bar widget.
 Future<String> appDbPath() async => Platform.isLinux
     ? defaultDbPath()
-    : p.join((await getApplicationSupportDirectory()).path, 'todo.db');
+    : p.join((await getApplicationSupportDirectory()).path, 'myvault.db');
 
 /// Server sync plus (on the phone) calendar sync. Network errors propagate.
 Future<void> fullSync(Store store) async {

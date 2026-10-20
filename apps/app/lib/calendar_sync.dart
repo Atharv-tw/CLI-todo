@@ -1,5 +1,5 @@
 import 'package:device_calendar_plus/device_calendar_plus.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 /// Two-way link between timed tasks and events in one device calendar.
 ///

@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:todo_app/speech_models.dart';
-import 'package:todo_app/whisper_dictation.dart';
-import 'package:todo_app/whisper_worker.dart';
+import 'package:vault_app/speech_models.dart';
+import 'package:vault_app/whisper_dictation.dart';
+import 'package:vault_app/whisper_worker.dart';
 
 Uint8List _bytes(int length, int seed) => Uint8List.fromList([for (var i = 0; i < length; i++) (i * 7 + seed) % 251]);
 

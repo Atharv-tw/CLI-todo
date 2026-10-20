@@ -13,9 +13,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:todo_app/speech_models.dart';
-import 'package:todo_app/whisper_dictation.dart';
-import 'package:todo_app/whisper_worker.dart';
+import 'package:vault_app/speech_models.dart';
+import 'package:vault_app/whisper_dictation.dart';
+import 'package:vault_app/whisper_worker.dart';
 
 const _wav = String.fromEnvironment('WAV');
 const _model = String.fromEnvironment('MODEL', defaultValue: 'base');
@@ -50,7 +50,7 @@ void main() {
     expect(_wav, isNotEmpty, reason: 'Pass --dart-define=WAV=/path/to/file.wav');
     final model = speechModels.firstWhere((m) => m.id == _model);
     final library = SpeechLibrary(
-      Directory(p.join(Platform.environment['HOME']!, '.local', 'share', 'dev.atharv.todo_app', 'speech')),
+      Directory(p.join(Platform.environment['HOME']!, '.local', 'share', 'dev.atharv.vault', 'speech')),
     );
     if (!library.has(model)) {
       stdout.writeln('Downloading ${model.name}, ${model.size}, to ${library.root.path}');

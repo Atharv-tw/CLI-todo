@@ -1,5 +1,5 @@
 // Copies the skills in plugin/skills and the server schema into
-// lib/embedded.g.dart, so the installed `todo` command can hand them out
+// lib/embedded.g.dart, so the installed `myvault` command can hand them out
 // without the repository. Run from `cli` after changing either:
 //
 //   dart run tool/embed_skills.dart

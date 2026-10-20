@@ -3,17 +3,17 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:http/http.dart' as http;
-import 'package:todo_cli/embedded.g.dart';
-import 'package:todo_cli/mcp.dart';
-import 'package:todo_cli/setup.dart';
-import 'package:todo_cli/vault.dart';
-import 'package:todo_cli/vault_lint.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_cli/embedded.g.dart';
+import 'package:vault_cli/mcp.dart';
+import 'package:vault_cli/setup.dart';
+import 'package:vault_cli/vault.dart';
+import 'package:vault_cli/vault_lint.dart';
+import 'package:vault_core/vault_core.dart';
 
 final Store store = Store(openDb());
 
 Future<void> main(List<String> args) async {
-  final runner = CommandRunner<void>('todo', 'Tasks, habits and focus sessions.')
+  final runner = CommandRunner<void>('myvault', 'Vault: a private second brain that your agents share. Plan your goals and days; keep your memory.')
     ..argParser.addFlag('json', negatable: false, help: 'Print JSON instead of text.')
     ..addCommand(InitCommand())
     ..addCommand(AddCommand())
@@ -149,7 +149,7 @@ Map<String, Object?> commitmentOptions(Cmd c) {
 }
 
 class AddCommand extends Cmd {
-  AddCommand() : super('add', 'Add a task: todo add Buy milk -d tomorrow -t 18:00') {
+  AddCommand() : super('add', 'Add a task: myvault add Buy milk -d tomorrow -t 18:00') {
     addTaskOptions(this);
   }
 
@@ -182,7 +182,7 @@ class AddCommand extends Cmd {
 }
 
 class ListCommand extends Cmd {
-  ListCommand() : super('list', 'List tasks: todo list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
+  ListCommand() : super('list', 'List tasks: myvault list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
     argParser
       ..addOption('list', abbr: 'l', help: 'Only this list.')
       ..addFlag('open', negatable: false, help: 'Hide ticked tasks.');
@@ -263,7 +263,7 @@ class EditCommand extends Cmd {
   EditCommand()
     : super(
         'edit',
-        'Change a task: todo edit ID -d fri -t 10:00. Use "none" to clear a field. Moving a protected task '
+        'Change a task: myvault edit ID -d fri -t 10:00. Use "none" to clear a field. Moving a protected task '
             'off its day, a fixed one at all, or changing a deadline needs --reason.',
       ) {
     argParser
@@ -318,7 +318,7 @@ class RmCommand extends Cmd {
 }
 
 class ListsCommand extends Cmd {
-  ListsCommand() : super('lists', 'Show lists; add one: todo lists add NAME; rename: todo lists rename OLD NEW');
+  ListsCommand() : super('lists', 'Show lists; add one: myvault lists add NAME; rename: myvault lists rename OLD NEW');
 
   @override
   void run() {
@@ -339,7 +339,7 @@ class HabitCommand extends Cmd {
   HabitCommand() : super('habit', 'Daily habits.') {
     addSubcommand(_HabitList());
     addSubcommand(_HabitAdd());
-    addSubcommand(_HabitCheck('check', 'Tick habits for a day: todo habit check ID... [-d DATE]', true));
+    addSubcommand(_HabitCheck('check', 'Tick habits for a day: myvault habit check ID... [-d DATE]', true));
     addSubcommand(_HabitCheck('uncheck', 'Untick habits for a day.', false));
     addSubcommand(_HabitTime());
     addSubcommand(_HabitRm());
@@ -376,7 +376,7 @@ class _HabitList extends Cmd {
 }
 
 class _HabitAdd extends Cmd {
-  _HabitAdd() : super('add', 'Add a habit: todo habit add Read 20 min --from today --to 2026-12-29') {
+  _HabitAdd() : super('add', 'Add a habit: myvault habit add Read 20 min --from today --to 2026-12-29') {
     argParser
       ..addOption('time', abbr: 't', help: 'Time of day it sits at in the timeline, e.g. 07:00.')
       ..addOption('from', help: 'First day (default: no start).')
@@ -415,7 +415,7 @@ class _HabitCheck extends Cmd {
 }
 
 class _HabitTime extends Cmd {
-  _HabitTime() : super('time', 'Set a habit\'s time of day: todo habit time ID 07:00 (or "none").');
+  _HabitTime() : super('time', 'Set a habit\'s time of day: myvault habit time ID 07:00 (or "none").');
 
   @override
   void run() {
@@ -450,7 +450,7 @@ class FocusCommand extends Cmd {
 }
 
 class _FocusStart extends Cmd {
-  _FocusStart() : super('start', 'Start a session: todo focus start [TASK_ID] [-m 25] [--break]') {
+  _FocusStart() : super('start', 'Start a session: myvault focus start [TASK_ID] [-m 25] [--break]') {
     argParser
       ..addOption('minutes', abbr: 'm', help: 'Length (default 25, or 5 for a break).')
       ..addFlag('break', negatable: false, help: 'A break instead of a focus session.');
@@ -498,10 +498,10 @@ class _FocusStatus extends Cmd {
   void run() => show(this);
 }
 
-/// `todo diary`: what was written, and a way to write more.
+/// `myvault diary`: what was written, and a way to write more.
 class DiaryCommand extends Cmd {
   DiaryCommand([String name = 'diary'])
-    : super(name, 'Diary: todo diary (recent entries), or todo diary Finally got hash maps --task 6e495e') {
+    : super(name, 'Diary: myvault diary (recent entries), or myvault diary Finally got hash maps --task 6e495e') {
     argParser
       ..addOption('date', abbr: 'd', help: 'Day the entry is about (default today).')
       ..addOption('task', help: 'A task the entry is about (id or prefix).')
@@ -521,7 +521,7 @@ class DiaryCommand extends Cmd {
       );
   }
 
-  // `todo brief` still works: the nightly routine was written against it.
+  // `myvault brief` still works: the nightly routine was written against it.
   @override
   bool get hidden => name != 'diary';
 
@@ -587,7 +587,7 @@ class DiaryCommand extends Cmd {
 }
 
 class _DiaryRm extends Cmd {
-  _DiaryRm() : super('diary-rm', 'Delete diary entries: todo diary-rm ID...');
+  _DiaryRm() : super('diary-rm', 'Delete diary entries: myvault diary-rm ID...');
 
   @override
   void run() {
@@ -602,7 +602,7 @@ class _DiaryRm extends Cmd {
 
 /// Used by an assistant once it has filed entries into the vault.
 class _DiaryFiled extends Cmd {
-  _DiaryFiled() : super('diary-filed', 'Mark diary entries as filed into the vault: todo diary-filed ID...');
+  _DiaryFiled() : super('diary-filed', 'Mark diary entries as filed into the vault: myvault diary-filed ID...');
 
   @override
   bool get hidden => true;
@@ -618,7 +618,7 @@ class _DiaryFiled extends Cmd {
 
 class _DiaryOutcome extends Cmd {
   _DiaryOutcome()
-    : super('diary-outcome', 'Record what became of a diary entry: todo diary-outcome ID Captured 3 commitments...');
+    : super('diary-outcome', 'Record what became of a diary entry: myvault diary-outcome ID Captured 3 commitments...');
 
   @override
   bool get hidden => true;
@@ -726,16 +726,21 @@ class CheckPlanCommand extends Cmd {
 }
 
 class VaultCommand extends Cmd {
-  VaultCommand() : super('vault', 'An optional folder of notes that your diary is filed into (opens in Obsidian).') {
+  VaultCommand()
+    : super('notes', 'Your vault of notes: the memory your diary is filed into and your agents read (opens in Obsidian).') {
     addSubcommand(_VaultInit());
     addSubcommand(_VaultUse());
     addSubcommand(_VaultStatus());
     addSubcommand(_VaultLint());
   }
+
+  // Its name before Vault became the product's name.
+  @override
+  List<String> get aliases => ['vault'];
 }
 
 String _vaultLine(Map<String, Object?> s) {
-  if (s['path'] == null) return 'No vault on this device. Create one with: todo vault init';
+  if (s['path'] == null) return 'No vault on this device. Create one with: myvault notes init';
   if (s['exists'] != true) return 'The vault is set to ${s['path']}, but that folder is missing.';
   final where = s['remote'] == null ? '' : '  (${s['remote']})';
   final waiting = s['unfiled'] as int;
@@ -764,7 +769,7 @@ class _VaultLint extends Cmd {
   void run() {
     final path = vaultStatus(store)['path'] as String?;
     if (path == null || !Directory(path).existsSync()) {
-      throw TodoException('No vault on this device. Create one with: todo vault init');
+      throw TodoException('No vault on this device. Create one with: myvault notes init');
     }
     final issues = lintVault(path);
     final errors = issues.where((i) => i.isError).length;
@@ -790,7 +795,7 @@ class _VaultLint extends Cmd {
 }
 
 class _VaultUse extends Cmd {
-  _VaultUse() : super('use', 'Point this device at a vault that already exists: todo vault use PATH');
+  _VaultUse() : super('use', 'Point this device at a vault that already exists: myvault notes use PATH');
 
   @override
   void run() {
@@ -804,7 +809,7 @@ class _VaultUse extends Cmd {
 }
 
 class _VaultInit extends Cmd {
-  _VaultInit() : super('init', 'Create a vault: todo vault init [PATH] [--github [NAME]]') {
+  _VaultInit() : super('init', 'Create a vault: myvault notes init [PATH] [--github [NAME]]') {
     argParser.addOption(
       'github',
       help: 'Also keep it in a new private GitHub repo with this name, so an assistant in the cloud can file into it.',
@@ -836,7 +841,7 @@ class _VaultInit extends Cmd {
 }
 
 class UsageCommand extends Cmd {
-  UsageCommand() : super('usage', 'Screen time: todo usage [today|yesterday|week|DATE]');
+  UsageCommand() : super('usage', 'Screen time: myvault usage [today|yesterday|week|DATE]');
 
   @override
   void run() {
@@ -881,7 +886,7 @@ class _UsageAdd extends Cmd {
   bool get hidden => true;
 
   _UsageAdd()
-    : super('usage-add', 'Record foreground time: todo usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'');
+    : super('usage-add', 'Record foreground time: myvault usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'');
 
   @override
   void run() {
@@ -1005,7 +1010,7 @@ class InitCommand extends Cmd {
         if (key != null && key.isNotEmpty) remote.configure(url: url, anonKey: key);
         final email = opt('email') ?? (asking ? prompt('   Email of that user') : '');
         if (email.isEmpty) {
-          left.add('Sync: the server is set. Sign in with: todo login');
+          left.add('Sync: the server is set. Sign in with: myvault login');
         } else {
           try {
             await remote.signIn(email, prompt('   Password', secret: true));
@@ -1013,15 +1018,15 @@ class InitCommand extends Cmd {
             done.add('Sync: signed in as $email.');
             if (r.missing.isNotEmpty) {
               left.add(
-                'Sync: the server has no ${r.missing.join(', ')} table yet. Run the SQL from `todo schema` in its SQL editor.',
+                'Sync: the server has no ${r.missing.join(', ')} table yet. Run the SQL from `myvault schema` in its SQL editor.',
               );
             }
           } on SyncException catch (e) {
-            left.add('Sync: could not sign in (${e.message}). Try again with: todo login');
+            left.add('Sync: could not sign in (${e.message}). Try again with: myvault login');
           } on SocketException {
-            left.add('Sync: could not reach the server. Try again with: todo login');
+            left.add('Sync: could not reach the server. Try again with: myvault login');
           } on http.ClientException {
-            left.add('Sync: could not reach the server. Try again with: todo login');
+            left.add('Sync: could not reach the server. Try again with: myvault login');
           }
         }
       } else {
@@ -1054,8 +1059,8 @@ class InitCommand extends Cmd {
     if (chosen.isEmpty) {
       left.add(
         found.isEmpty
-            ? 'Assistant: install Claude Code or Codex, then run `todo init` again to connect it.'
-            : 'Assistant: not connected. Run `todo init` again when you want it.',
+            ? 'Assistant: install Claude Code or Codex, then run `myvault init` again to connect it.'
+            : 'Assistant: not connected. Run `myvault init` again when you want it.',
       );
     }
 
@@ -1101,14 +1106,14 @@ class InitCommand extends Cmd {
         for (final line in done) '  $line',
         if (left.isNotEmpty) ...['Left to do:', for (final line in left) '  $line'],
         '',
-        'Try: todo add "Read 20 pages" -d today -t 21:00   then: todo today',
+        'Try: myvault add "Read 20 pages" -d today -t 21:00   then: myvault today',
       ].join('\n');
     });
   }
 }
 
 class LoginCommand extends Cmd {
-  LoginCommand() : super('login', 'Sign in to the sync server (set it first with: todo server).') {
+  LoginCommand() : super('login', 'Sign in to the sync server (set it first with: myvault server).') {
     argParser.addOption('email');
   }
 
@@ -1123,7 +1128,7 @@ class LoginCommand extends Cmd {
 }
 
 class ServerCommand extends Cmd {
-  ServerCommand() : super('server', 'Show the sync server, or set it: todo server URL PUBLISHABLE_KEY');
+  ServerCommand() : super('server', 'Show the sync server, or set it: myvault server URL PUBLISHABLE_KEY');
 
   @override
   void run() {
@@ -1165,7 +1170,7 @@ class SyncCommand extends Cmd {
           '${r.missing.isEmpty ? '' : '\nNot synced, the server has no table for: ${r.missing.join(', ')}. '
                     'Run the latest supabase/schema.sql.'}'
           '${r.missingColumns.isEmpty ? '' : '\nThe server is missing ${[for (final e in r.missingColumns.entries) ...e.value.map((c) => '${e.key}.$c')].join(', ')}; '
-                    'those values stay on this device until you run the output of `todo schema` in its SQL editor.'}',
+                    'those values stay on this device until you run the output of `myvault schema` in its SQL editor.'}',
     );
   }
 }

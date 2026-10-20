@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 const _channel = MethodChannel('todo/usage');
 

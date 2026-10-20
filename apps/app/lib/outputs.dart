@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 import 'reminders.dart';
 
@@ -19,7 +19,7 @@ Future<void> refreshOutputs(Store store) async {
   if (!Platform.isAndroid) return;
   await HomeWidget.saveWidgetData('snapshot', jsonEncode(store.snapshot()));
   for (final w in _widgets) {
-    await HomeWidget.updateWidget(qualifiedAndroidName: 'dev.atharv.todo_app.$w');
+    await HomeWidget.updateWidget(qualifiedAndroidName: 'dev.atharv.vault.$w');
   }
   await _focusNotification(store);
   await scheduleReminders(store);

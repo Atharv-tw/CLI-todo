@@ -11,8 +11,14 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-const TODO = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', 'todo']);
-const DATA_DIR = GLib.build_filenamev([GLib.get_user_data_dir(), 'todo']);
+// The `myvault` launcher; `myvault` is its older name.
+const TODO = ['myvault', 'todo']
+    .map(name => GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', name]))
+    .find(path => GLib.file_test(path, GLib.FileTest.EXISTS)) ?? 'myvault';
+// The folder of the shared database: `myvault`, or `myvault` from before the rename.
+const DATA_DIR = ['myvault', 'todo']
+    .map(name => GLib.build_filenamev([GLib.get_user_data_dir(), name]))
+    .find(path => GLib.file_test(path, GLib.FileTest.IS_DIR)) ?? GLib.build_filenamev([GLib.get_user_data_dir(), 'myvault']);
 const REFRESH_SECONDS = 30;
 const SAMPLE_SECONDS = 5;
 const FLUSH_SECONDS = 60;
@@ -68,7 +74,7 @@ function clock(seconds) {
 
 /**
  * Screen time: every few seconds notes which app has the focused window and
- * hands the stretches to `todo usage-add`. Time while the screen is locked or
+ * hands the stretches to `myvault usage-add`. Time while the screen is locked or
  * the machine has been idle for a while is not counted.
  */
 class UsageTracker {
@@ -148,7 +154,7 @@ class UsageTracker {
 const Indicator = GObject.registerClass(
 class Indicator extends PanelMenu.Button {
     _init() {
-        super._init(0.5, 'Todo');
+        super._init(0.5, 'Vault');
         this._label = new St.Label({text: '✓', y_align: Clutter.ActorAlign.CENTER});
         this.add_child(this._label);
         this._snapshot = null;
@@ -209,7 +215,7 @@ class Indicator extends PanelMenu.Button {
         try {
             await todo(args);
         } catch (e) {
-            Main.notifyError('Todo', e.message);
+            Main.notifyError('Vault', e.message);
         }
         this._refresh();
     }

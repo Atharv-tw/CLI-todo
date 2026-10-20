@@ -2,16 +2,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:todo_app/diary_page.dart';
-import 'package:todo_app/main.dart';
-import 'package:todo_app/reminder_page.dart';
-import 'package:todo_app/reminders.dart';
-import 'package:todo_app/speech_models.dart';
-import 'package:todo_app/state.dart';
-import 'package:todo_app/sync_page.dart';
-import 'package:todo_app/voice.dart';
-import 'package:todo_app/voice_sheet.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_app/diary_page.dart';
+import 'package:vault_app/main.dart';
+import 'package:vault_app/reminder_page.dart';
+import 'package:vault_app/reminders.dart';
+import 'package:vault_app/speech_models.dart';
+import 'package:vault_app/state.dart';
+import 'package:vault_app/sync_page.dart';
+import 'package:vault_app/voice.dart';
+import 'package:vault_app/voice_sheet.dart';
+import 'package:vault_core/vault_core.dart';
 
 void main() {
   late AppState state;

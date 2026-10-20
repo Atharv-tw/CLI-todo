@@ -19,7 +19,7 @@ Three things must hold after every run:
    holds no more than the time there really is, and gets lighter when they
    are worn out.
 
-The `todo` command enforces the hard rules (`todo check-plan`, and refusals
+The `myvault` command enforces the hard rules (`myvault check-plan`, and refusals
 when a protected task or a deadline is moved without a reason). Your job is
 the judgement in between.
 
@@ -47,15 +47,15 @@ person's timezone).
 ## 1. Read the facts
 
 ```bash
-todo stats                      # what recent days really looked like
-todo --json diary --unprocessed # every entry still without an outcome
-todo --json diary --days 3      # recent context, including your receipts
-todo today
-todo list yesterday
-todo list overdue
-todo --json list all --open     # every open task, to match commitments against
-todo list due                   # deadlines, soonest first
-todo lists                      # projects are lists
+myvault stats                      # what recent days really looked like
+myvault --json diary --unprocessed # every entry still without an outcome
+myvault --json diary --days 3      # recent context, including your receipts
+myvault today
+myvault list yesterday
+myvault list overdue
+myvault --json list all --open     # every open task, to match commitments against
+myvault list due                   # deadlines, soonest first
+myvault lists                      # projects are lists
 ```
 
 If a vault is checked out (see below), read its `Rules.md` first, then
@@ -84,14 +84,14 @@ it contains. One entry often holds several things.
 
 **Commitments.** Capture every one. There is no limit on how many you record.
 
-- First look for a task that already covers it in `todo --json list all
+- First look for a task that already covers it in `myvault --json list all
   --open`. If one does, do not add another: name it in the outcome, and add
-  the deadline if the entry gives a new one (`todo edit ID --due DATE
+  the deadline if the entry gives a new one (`myvault edit ID --due DATE
   --reason "said on 14 Oct"`).
 - Otherwise add it to the backlog, with no day:
-  `todo add "Finish Helios and put it out" -l Helios --from ENTRY_ID --due 2026-11-05 --estimate 120`.
+  `myvault add "Finish Helios and put it out" -l Helios --from ENTRY_ID --due 2026-11-05 --estimate 120`.
   Leave out `--due` unless they gave a deadline; never invent one. Use an
-  existing list for the project when one matches (`todo lists`).
+  existing list for the project when one matches (`myvault lists`).
 - Two phrasings of the same thing in one entry are one task.
 - "This week" is due on the coming Sunday. "By Friday" is that Friday. An
   expiry ("credits expire on 5 Nov") is a deadline on the work that needs it.
@@ -100,11 +100,11 @@ it contains. One entry often holds several things.
 **Outcomes.** When an entry is done, record what became of it:
 
 ```bash
-todo diary-outcome ENTRY_ID "4 commitments captured (a1b2c3, d4e5f6, ...); 1 already tracked (9f8e7d); 2 ideas for the vault; context: reset day. Question: which internships?"
+myvault diary-outcome ENTRY_ID "4 commitments captured (a1b2c3, d4e5f6, ...); 1 already tracked (9f8e7d); 2 ideas for the vault; context: reset day. Question: which internships?"
 ```
 
 Every entry from `--unprocessed` needs one, including "Nothing to act on: a
-note about the day." `todo check-plan` fails while any is missing.
+note about the day." `myvault check-plan` fails while any is missing.
 
 ## 3. Close the day (scheduled run only)
 
@@ -133,8 +133,8 @@ A deadline never moves when its task does.
 
 1. **When does the day start?** If an entry says when they woke or will wake,
    use that. Otherwise, if `Me.md` or `Rules.md` gives a firm wake time, use
-   it, and put it under Guesses if `todo stats` disagrees. Otherwise use the
-   typical wake time from `todo stats`, never an ideal the record
+   it, and put it under Guesses if `myvault stats` disagrees. Otherwise use the
+   typical wake time from `myvault stats`, never an ideal the record
    contradicts. The first block starts about half an hour to an hour after
    waking.
 2. **Lay the blocks out in the order `Me.md` gives,** from the start of the
@@ -156,13 +156,13 @@ A deadline never moves when its task does.
    habit's time, a habit is never ticked), say so under "Waiting for your
    yes" in the morning page, with the change you suggest.
 
-Move tasks with `todo edit ID -d DATE -t HH:MM-HH:MM`. A moved task keeps its
+Move tasks with `myvault edit ID -d DATE -t HH:MM-HH:MM`. A moved task keeps its
 deadline; the command records every move in the task's history.
 
 ## 5. Check the plan
 
 ```bash
-todo check-plan                 # the planned day; add --wake HH:MM if an entry gave one
+myvault check-plan                 # the planned day; add --wake HH:MM if an entry gave one
 ```
 
 It checks that nothing open is left in the past, no task sits after its
@@ -176,7 +176,7 @@ warning goes in the report too.
 ## Limits
 
 - Change only tasks that are unticked, and never move one to a date in the past.
-- Never delete anything (`todo rm`, `todo habit rm`). To drop a task, move it
+- Never delete anything (`myvault rm`, `myvault habit rm`). To drop a task, move it
   to the backlog or leave it and say so.
 - Never tick things done on their behalf unless the diary says it was done.
 - Never move a deadline unless the person changed it in the diary; say so in
@@ -192,7 +192,7 @@ beside this one. Look for it (`ls ..`); it has a `Me.md` and a `README.md`
 with filing rules. If there is none, skip this section.
 
 - **Before planning,** read `Rules.md` (if it exists) and `Me.md`.
-- **After writing back,** file the diary into it: run `todo vault use PATH`
+- **After writing back,** file the diary into it: run `myvault notes use PATH`
   with the vault's path, then follow
   [plugin/skills/file-diary/SKILL.md](../plugin/skills/file-diary/SKILL.md).
   Then write the morning page (and on Saturday night the weekly page),
@@ -206,11 +206,11 @@ with filing rules. If there is none, skip this section.
 Write one line into the app, a receipt, dated the planned day:
 
 ```bash
-todo diary --as claude -d 2026-10-15 "Handled the diary up to 19:11 on 14 Oct. Captured 8 commitments; slid DSA a day."
-todo sync
+myvault diary --as claude -d 2026-10-15 "Handled the diary up to 19:11 on 14 Oct. Captured 8 commitments; slid DSA a day."
+myvault sync
 ```
 
-Check that `todo sync` reports no error.
+Check that `myvault sync` reports no error.
 
 ## The morning page
 
@@ -237,13 +237,13 @@ Without a vault, use these sections as your final message:
 
 When the planned day is a Sunday, also write the weekly page. If the vault's
 `README.md` describes one, follow it and write it to `weekly/YYYY-Www.md`.
-Build it from `todo stats --days 7`, the week's diary, the vault's notes
+Build it from `myvault stats --days 7`, the week's diary, the vault's notes
 changed this week (`git log --since`) and the open tasks. Its point is what
 they decided and forgot: commitments from the week still open, projects
 that did not move, and how the routines really went. Put a link to it at the
 top of that night's morning page.
 
-The weekly run also looks after the vault. Run `todo vault lint` and fix
+The weekly run also looks after the vault. Run `myvault notes lint` and fix
 what is safe to fix (a broken link, a missing `INDEX.md` line, a note
 nothing links to). Then read for what code cannot see: claims that
 contradict each other, statuses that are stale, things mentioned on several

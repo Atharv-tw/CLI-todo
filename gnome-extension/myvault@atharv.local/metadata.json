@@ -1,6 +1,6 @@
 {
-  "uuid": "todo@atharv.local",
-  "name": "Todo",
+  "uuid": "myvault@atharv.local",
+  "name": "Vault",
   "description": "Today's tasks, habits and focus timer in the top bar.",
   "shell-version": ["50"]
 }

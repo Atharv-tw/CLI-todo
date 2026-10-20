@@ -1,5 +1,5 @@
-name: todo_core
-description: Shared data layer for the to-do apps, CLI and widgets.
+name: vault_core
+description: Shared data layer for Vault, used by the apps, the CLI and the widgets.
 version: 0.1.0
 publish_to: none
 

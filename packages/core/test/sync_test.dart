@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 /// In-memory stand-in for the server: same contract as the Postgres trigger.
 class FakeRemote implements Remote {

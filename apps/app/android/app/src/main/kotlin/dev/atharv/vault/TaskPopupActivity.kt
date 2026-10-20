@@ -1,4 +1,4 @@
-package dev.atharv.todo_app
+package dev.atharv.vault
 
 import android.app.Activity
 import android.content.Intent

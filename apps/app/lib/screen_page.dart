@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 import 'heatmap.dart';
 import 'state.dart';
@@ -80,7 +80,7 @@ class _ScreenPageState extends State<ScreenPage> with WidgetsBindingObserver {
                       style: text.titleMedium?.copyWith(color: AppColors.onLight, fontWeight: FontWeight.w800)),
                   Text(
                     'Android only tells an app how long other apps were used once you allow it. '
-                    'Turn on "Todo" in the list that opens; nothing leaves your own sync server.',
+                    'Turn on "Vault" in the list that opens; nothing leaves your own sync server.',
                     style: text.bodyMedium?.copyWith(color: AppColors.onLight),
                   ),
                   FilledButton(onPressed: openUsageSettings, child: const Text('Open settings')),

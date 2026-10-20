@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_core/vault_core.dart';
 
 /// Where this device keeps the vault. Stored locally and never synced: the
 /// same vault sits at a different path on each machine.
@@ -13,7 +13,7 @@ String defaultVaultPath() => p.join(Platform.environment['HOME'] ?? '.', 'Vault'
 String? vaultPath(Store store) => store.getMeta(vaultPathKey);
 
 /// The starter notes. An existing file is never overwritten, so running
-/// `todo vault init` on a vault that is already in use only adds what is
+/// `myvault notes init` on a vault that is already in use only adds what is
 /// missing.
 const vaultFiles = <String, String>{
   'README.md': _readme,
@@ -52,7 +52,7 @@ List<String> scaffoldVault(String path) {
   return written;
 }
 
-/// What `todo vault status` reports.
+/// What `myvault notes status` reports.
 Map<String, Object?> vaultStatus(Store store) {
   final path = vaultPath(store);
   final exists = path != null && Directory(path).existsSync();
@@ -263,7 +263,7 @@ talk, one-off facts and answers that only mattered that day are not filed.
 
 - **Every Sunday**, the weekly run checks the vault and writes what it found
   under "Vault health" in the weekly page, fixing what is safe to fix:
-  - `todo vault lint` first: broken links, links into `raw/`, notes missing
+  - `myvault notes lint` first: broken links, links into `raw/`, notes missing
     from `INDEX.md`, pages nothing links to, frontmatter missing or stale,
     days and raw notes that do not match, `log.md` lines out of format.
   - then by reading: claims that contradict each other, statuses that are

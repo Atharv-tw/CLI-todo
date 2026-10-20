@@ -15,7 +15,7 @@ val keyProperties = Properties().apply {
 }
 
 android {
-    namespace = "dev.atharv.todo_app"
+    namespace = "dev.atharv.vault"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -26,7 +26,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.atharv.todo_app"
+        applicationId = "dev.atharv.vault"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Scrolling widget lists use RemoteCollectionItems (Android 12+).

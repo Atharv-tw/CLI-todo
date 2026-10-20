@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:todo_cli/vault.dart';
-import 'package:todo_cli/vault_lint.dart';
-import 'package:todo_core/todo_core.dart';
+import 'package:vault_cli/vault.dart';
+import 'package:vault_cli/vault_lint.dart';
+import 'package:vault_core/vault_core.dart';
 
 void main() {
   late Directory dir;
