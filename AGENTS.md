@@ -11,7 +11,7 @@ the user owns, kept by agents. `README.md` has the full tour.
 | Path | What it is |
 | --- | --- |
 | `packages/core` | Pure Dart: store, migrations, sync engine. No Flutter. |
-| `cli` | The `myvault` command (`bin/myvault.dart`) and its MCP server (`lib/mcp.dart`). |
+| `cli` | The `myvault` command (`bin/myvault.dart`), its MCP server (`lib/mcp.dart`), the second-brain operations on the vault (`lib/brain.dart`), the vault template (`lib/vault.dart`) and its lint (`lib/vault_lint.dart`). |
 | `apps/app` | Flutter app. `android/` holds the home-screen widgets (Kotlin). |
 | `gnome-extension` | GNOME Shell top-bar widget (GJS). |
 | `plugin` | Claude Code plugin: skills and the MCP server entry. Codex reads the same `SKILL.md` files. |

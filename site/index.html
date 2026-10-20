@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Vault: a private second brain your agents share</title>
-  <meta name="description" content="Tasks, habits, focus timers and a spoken diary in one store on your own devices, with an AI assistant that fits the plan to the day you are actually having. Free and open source.">
+  <meta name="description" content="Say or write anything into a diary. Every night your agent files it into a memory of plain notes you own and plans your next day around how you really live. Claude Code, Codex and any MCP agent share it. Free and open source.">
   <meta property="og:title" content="Vault: a private second brain your agents share">
-  <meta property="og:description" content="Tasks, habits, focus timers and a spoken diary on your own devices, with an assistant that re-plans your day. Free and open source.">
+  <meta property="og:description" content="A diary that becomes your memory and your plan, shared by every agent you use. Your notes, your server, your git. Free and open source.">
   <meta property="og:image" content="https://atharv-tw.github.io/vault-app/img/desktop.png">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#0E0E10">
@@ -18,9 +18,9 @@
 <header class="top">
   <a class="brand" href="#top"><img src="logo.svg" alt="" width="32" height="32">Vault</a>
   <nav aria-label="Sections">
-    <a href="#features">What it does</a>
-    <a href="#assistant">Assistant</a>
-    <a href="#vault">Vault</a>
+    <a href="#how">How it works</a>
+    <a href="#agents">Agents</a>
+    <a href="#features">Apps</a>
     <a href="#start">Quick start</a>
     <a class="pill" href="https://github.com/Atharv-tw/vault-app">GitHub</a>
   </nav>
@@ -30,55 +30,88 @@
 
 <section class="hero">
   <div class="hero-text">
-    <p class="eyebrow">Free and open source · Linux and Android</p>
-    <h1>Plan the day. Then re-plan it when the day happens.</h1>
-    <p class="lead">Tasks, habits, focus timers and a diary you can speak, in one store on your own devices. Connect an AI assistant and it reads what actually happened, moves what you missed, and has tomorrow ready before you wake.</p>
+    <p class="eyebrow">Free and open source · Your notes, your server, your git</p>
+    <h1>A second brain your agents share.</h1>
+    <p class="lead">Say or write anything into a diary, whenever it happens. Every night your agent files it into a memory of plain notes you own, turns what you committed to into tasks, and has tomorrow planned around how you really live. Claude Code, Codex and any MCP agent read the same memory, so none of them starts from zero.</p>
     <div class="install">
       <code id="install-line">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/vault-app/main/scripts/install.sh | sh -s -- --app</code>
       <button type="button" data-copy="install-line">Copy</button>
     </div>
-    <p class="fine">One line on 64-bit Linux: no sudo, nothing to build. <a href="https://github.com/Atharv-tw/vault-app/releases/latest">Android app and other downloads</a></p>
+    <p class="fine">One line on 64-bit Linux: no sudo, nothing to build, five short questions. <a href="https://github.com/Atharv-tw/vault-app/releases/latest">Android app and other downloads</a></p>
   </div>
   <div class="hero-art">
     <img class="screen" src="img/desktop.png" alt="The desktop app: an activity grid, a card for the task on now, and today's timeline" width="1280" height="800">
-    <div class="phone hero-phone"><img src="img/today.png" alt="The same day on the phone" width="390" height="844"></div>
+    <div class="phone hero-phone"><img src="img/brain.png" alt="The Brain tab on the phone: this morning's page, goals and projects" width="390" height="844"></div>
   </div>
 </section>
 
-<section class="ways" aria-labelledby="ways-title">
-  <h2 id="ways-title">One store, five ways in</h2>
-  <p class="sub">Everything lives in one small database on each device. Whichever way you reach it, you see the same day.</p>
-  <ul class="cards five">
-    <li><h3>Terminal</h3><p><code>myvault add</code>, <code>myvault today</code>, <code>myvault done</code>. Every command also speaks JSON.</p></li>
-    <li><h3>Desktop</h3><p>A Linux app with the full picture, sharing the terminal's data.</p></li>
-    <li><h3>Phone</h3><p>An Android app, with home-screen widgets for today, habits, focus and a quick diary note.</p></li>
-    <li><h3>Top bar</h3><p>A GNOME widget: the task on now, the focus countdown, a tick from the menu.</p></li>
-    <li><h3>Assistant</h3><p>Claude Code or Codex can read and change it all, through tools that ship with it.</p></li>
+<section id="how" class="ways" aria-labelledby="how-title">
+  <h2 id="how-title">How it works</h2>
+  <p class="sub">One loop, every day. You only do the first step.</p>
+  <ul class="cards four">
+    <li><h3>1. Capture</h3><p>Write or say anything, from the phone, the laptop or the terminal: what you did, what you have to do, ideas, how the day went. Speech is written down on the device.</p></li>
+    <li><h3>2. Memory</h3><p>Your agent files it into your vault: the day, the people, your projects, what you learned and decided. Your corrections become rules, so a mistake fixed once stays fixed.</p></li>
+    <li><h3>3. Plan</h3><p>Every commitment becomes a task with its deadline. A morning page plans the day from when you really wake and what really fits, with your routines protected.</p></li>
+    <li><h3>4. Shared</h3><p>Every agent you use reads the same memory and plan through the same tools, and logs what it finished back into your projects.</p></li>
   </ul>
-  <pre class="term" aria-label="Example terminal session"><span class="p">$</span> myvault add Read two papers on graph sampling -d today -t 14:00-15:30 -l Thesis
-Added [ ] 3f9a1c  Tue 13 Oct 14:00–15:30 Read two papers on graph sampling  (Thesis)
-<span class="p">$</span> myvault today
-Tue 13 Oct: 7 of 16 done
-[x] 8b21d0  07:00–07:45  Morning run, 5 km  #Fitness
-[x] 5bb889  09:00–11:00  Write the methods section  #Writing  (Thesis)
-[ ] 3f9a1c  14:00–15:30  Read two papers on graph sampling  (Thesis)
-[ ] c07e44  16:00–16:30  Groceries for the week  (Home)
-…
-<span class="p">$</span> myvault done 3f9a1c</pre>
+  <pre class="term" aria-label="Example terminal session"><span class="p">$</span> myvault capture I have to send the methods draft to Priya by Friday
+Captured. It is filed into your notes and plans tonight.
+<span class="p">$</span> myvault morning
+# Wed 14 Oct
+## The day
+- 07:00–08:00 Run, 5 km
+- 09:00–11:00 Write the methods section        (due Fri)
+- 14:00–15:30 Supervisor meeting
+## Waiting for your yes
+- Move "Guitar" to 21:00 on weekdays? Skipped 4 of 5 days at 19:00.
+<span class="p">$</span> myvault search sampling
+note  projects/Thesis/log.md:12
+      - 2026-10-13: Methods: the sampling part needs a diagram.
+diary 2026-10-13 11:05
+      Took the full two hours. The sampling part needs a diagram.</pre>
 </section>
 
 <section id="features" aria-labelledby="features-title">
-  <h2 id="features-title">What it does</h2>
+  <h2 id="features-title">The apps</h2>
 
   <article class="feature">
-    <div class="phone"><img loading="lazy" src="img/today.png" alt="Today page: activity grid, the task on now with a progress ring, and the timeline" width="390" height="844"></div>
+    <div class="phone"><img loading="lazy" src="img/brain.png" alt="Brain tab: this morning's page, goals and projects" width="390" height="844"></div>
     <div>
-      <h3>A day you can see at a glance</h3>
-      <p>Tasks and habits sit on one timeline. The card on top always shows the task you should be on right now, with a ring for how much of the day is done. The grid above it fills in as the weeks go by.</p>
+      <h3>Your second brain, in your pocket</h3>
+      <p>The Brain tab shows what your notes know: this morning's page, your goals, this week, and your projects, each with its overview. The laptop publishes them on every sync.</p>
       <ul>
-        <li>Tasks take a date, a time slot, a list, a tag and notes. All optional.</li>
-        <li>Timed tasks can appear in your phone's calendar, and moving the event moves the task.</li>
-        <li>The Plan page shows the next seven days and folds the rest away.</li>
+        <li>The morning page: the day, the facts, the planner's guesses, what waits for your yes, open questions.</li>
+        <li>On Saturday night, a weekly page: what you decided and forgot, projects that stalled, how your routines went.</li>
+        <li>Your patterns, such as screen time on the phone and the laptop together.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="feature flip two-phones">
+    <div class="pair">
+      <div class="phone"><img loading="lazy" src="img/diary.png" alt="Diary page: entries with times, and what Vault did with each" width="390" height="844"></div>
+      <div class="phone"><img loading="lazy" src="img/diary-earlier.png" alt="Further down the diary: each earlier day folded into one line, with yesterday opened" width="390" height="844"></div>
+    </div>
+    <div>
+      <h3>A diary you can just say</h3>
+      <p>Log anything, any time. Type it, or tap the mic and say it. Each entry later shows what Vault did with it: the commitments it captured, where it was filed.</p>
+      <ul>
+        <li>Speech is written down <strong>on the device</strong> by an open-source Whisper model. No account, no connection, nothing you say is sent anywhere.</li>
+        <li>The <b>+</b> on Today opens the diary right there, and a home-screen widget starts listening in one tap.</li>
+        <li>Your exact words are kept apart, in a part of the vault only the filing agent reads.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="feature">
+    <div class="phone"><img loading="lazy" src="img/today.png" alt="Today page: the morning page's plan, the task on now with a progress ring, and the timeline" width="390" height="844"></div>
+    <div>
+      <h3>A plan you can actually keep</h3>
+      <p>Today opens with the morning page's plan and a timeline of tasks and habits, with the task you should be on right now on top.</p>
+      <ul>
+        <li>A deadline is kept apart from the day a task is planned for; moving one never moves the other.</li>
+        <li>Routines you protect stay on their day. Missed project work goes back to the backlog instead of piling onto tomorrow.</li>
+        <li>No day is planned past 75% of the time you really have, and a plan checker in code says so before anything changes.</li>
       </ul>
     </div>
   </article>
@@ -86,103 +119,54 @@ Tue 13 Oct: 7 of 16 done
   <article class="feature flip">
     <div class="phone"><img loading="lazy" src="img/reminder.png" alt="A full-screen reminder with Doing it, Snooze 10 min and Dismiss buttons" width="390" height="844"></div>
     <div>
-      <h3>Reminders you answer, not swipe away</h3>
-      <p>When a task starts and the phone is locked, the reminder takes the whole screen: what it is, until when, and your notes. One tap on <em>Doing it</em> ticks it. <em>Snooze</em> brings it back in ten minutes.</p>
+      <h3>Reminders, habits and focus</h3>
+      <p>When a task starts and the phone is locked, the reminder takes the whole screen; one tap on <em>Doing it</em> ticks it. Habits can have steps, such as three meals, each reminding at its own time.</p>
       <ul>
-        <li>While you are using the phone it is a banner with the same two buttons.</li>
-        <li>It follows the ringer: sound, vibration, or nothing on silent.</li>
-        <li>On the laptop the top-bar widget rings instead.</li>
-      </ul>
-    </div>
-  </article>
-
-  <article class="feature">
-    <div class="phone"><img loading="lazy" src="img/habits.png" alt="Habits page: streaks, and habits made of timed steps such as three meals" width="390" height="844"></div>
-    <div>
-      <h3>Habits that can have steps</h3>
-      <p>Some habits are one tick. Others are a day's worth of small ones: three meals, three litres of water. Name them <code>Water 3 L / 1 L down</code> and each step reminds you at its own time, while the habit counts as done only when every step is.</p>
-      <ul>
-        <li>Streaks, and how many of the last thirty days you kept each one.</li>
-        <li>Habits with a time sit in the day's timeline beside your tasks.</li>
-      </ul>
-    </div>
-  </article>
-
-  <article class="feature flip">
-    <div class="phone"><img loading="lazy" src="img/focus.png" alt="Focus page with a 25 minute countdown" width="390" height="844"></div>
-    <div>
-      <h3>A focus timer that knows the task</h3>
-      <p>Start 15, 25 or 50 minutes on a task from the app, a widget, the top bar or the terminal. The countdown shows everywhere, and the minutes are logged against the day.</p>
-    </div>
-  </article>
-
-  <article class="feature">
-    <div class="phone"><img loading="lazy" src="img/screen.png" alt="Screen time page: total for the day, split by laptop and phone, by hour and by app" width="390" height="844"></div>
-    <div>
-      <h3>Screen time, on both devices</h3>
-      <p>Which apps, for how long, and at what hour, for the laptop and the phone together. The same app on both is one line. Ask your assistant where Tuesday afternoon went and it can tell you.</p>
-      <ul>
-        <li>The phone reads Android's own record. The laptop notes the focused window.</li>
-        <li>Locked or idle time is not counted.</li>
-      </ul>
-    </div>
-  </article>
-
-  <article class="feature flip two-phones">
-    <div class="pair">
-      <div class="phone"><img loading="lazy" src="img/diary.png" alt="Diary page: entries with times, one attached to a task, one left by the assistant" width="390" height="844"></div>
-      <div class="phone"><img loading="lazy" src="img/diary-earlier.png" alt="Further down the diary: each earlier day folded into one line, with yesterday opened" width="390" height="844"></div>
-    </div>
-    <div>
-      <h3>A diary you can just say</h3>
-      <p>Log anything, any time: when you woke, an idea, a decision, how a task went. Type it, or tap the mic and say it. Every entry carries the time you logged it and can be attached to a task or a habit.</p>
-      <ul>
-        <li>Speech is written down <strong>on the device</strong> by an open-source Whisper model. No account, no connection, and nothing you say is sent anywhere.</li>
-        <li>Pick the model once: any single language, or one tuned for mixed Hindi and English that writes in Roman letters.</li>
-        <li>Today stays open. Each day that is over folds into one line you can open again.</li>
-        <li>It works on the phone and on the Linux desktop.</li>
+        <li>A focus timer that knows the task, from the app, a widget, the top bar or the terminal.</li>
+        <li>A two-way calendar on Android, and a GNOME top-bar widget on the laptop.</li>
       </ul>
     </div>
   </article>
 </section>
 
-<section id="assistant" class="band" aria-labelledby="assistant-title">
-  <h2 id="assistant-title">An assistant that plans with you</h2>
-  <p class="sub">The program contains no AI and needs no key. It gives your own assistant, Claude Code or Codex, the tools to read and change your day, and two skills that tell it how to do the bigger jobs.</p>
+<section id="agents" class="band" aria-labelledby="agents-title">
+  <h2 id="agents-title">Your agents share it</h2>
+  <p class="sub">Vault contains no AI and needs no key. It gives the agents you already use, Claude Code or Codex, one memory and one plan, through tools that ship with it.</p>
 
   <div class="split">
     <div class="chat" aria-label="An example conversation">
       <p class="label">For example</p>
-      <p class="me">I woke at ten and skipped the run. Re-plan my day.</p>
+      <p class="me">What did I decide about the second experiment, and what is left on the thesis this week?</p>
       <div class="it">
-        <p>Done. I started from now and kept your order:</p>
-        <pre>10:45–12:45  Write the methods section
-13:30–15:00  Read two papers on graph sampling
-16:00–16:30  Groceries for the week
-17:00–18:00  Guitar: practise the new piece</pre>
-        <p>The run moved to tomorrow at 07:00. I did not squeeze it in. Must-dos: the methods section, the two papers, groceries.</p>
+        <p>On 13 Oct you dropped it: "one done well beats two rushed". This week:</p>
+        <pre>Wed  09:00–11:00  Write the methods section
+Thu  14:00–15:30  Supervisor meeting
+Fri  due          Methods draft to Priya</pre>
+        <p>The methods section needs the sampling diagram first, from your log on Monday. Want me to plan it in tomorrow morning?</p>
       </div>
     </div>
     <div>
-      <h3>Ask in your own words</h3>
-      <p>"What is on today?" "Move the review to Friday." "Where did my afternoon go?" The assistant uses the same store as the apps, so a change shows up on your phone a moment later.</p>
-      <h3>Or let it run while you sleep</h3>
-      <p>A scheduled session in the cloud can read the diary every night, move what was missed, time the new day around when you actually wake, and leave a one-line receipt. Your laptop can be off. You read the report over breakfast.</p>
+      <h3>It knows you, and only what it needs</h3>
+      <p>An agent reads your rules, then you, then the index, and opens only the notes the task needs. Your words stay where you wrote them.</p>
+      <h3>Answers worth keeping are kept</h3>
+      <p>A comparison, a plan, a summary of a link you shared: your agent saves it as a note, so the next agent finds it instead of asking again.</p>
+      <h3>Work gets logged where it belongs</h3>
+      <p>Link a code folder to a project and the agent working there records what it finished in that project's log.</p>
     </div>
   </div>
 
   <ol class="flow" aria-label="The nightly loop">
-    <li><strong>Through the day</strong><span>You tick tasks and log the diary, by typing or speaking.</span></li>
-    <li><strong>At night</strong><span>The assistant reads every entry it has not handled yet.</span></li>
-    <li><strong>It re-plans</strong><span>Missed tasks move forward. A skipped course slides a day; it never stacks.</span></li>
-    <li><strong>In the morning</strong><span>The new day is in your apps, with a short report of what moved and why.</span></li>
+    <li><strong>Through the day</strong><span>You tick tasks and talk to the diary.</span></li>
+    <li><strong>After midnight</strong><span>A routine in the cloud reads every new entry, with your laptop off.</span></li>
+    <li><strong>It files and plans</strong><span>Memory updated, commitments captured, tomorrow planned and checked.</span></li>
+    <li><strong>In the morning</strong><span>Your morning page is on the phone, with what moved and why.</span></li>
   </ol>
-  <p class="fine center">It never deletes a task, never ticks one for you, and treats a diary entry as a note, not an order.</p>
+  <p class="fine center">It never deletes a task, never ticks one for you, never moves a deadline silently, and treats a diary entry as a note, not an order.</p>
 </section>
 
 <section id="vault" aria-labelledby="vault-title">
   <h2 id="vault-title">A memory of your own, filed for you</h2>
-  <p class="sub">Optional. A vault is a folder of plain Markdown notes that you open in <a href="https://obsidian.md">Obsidian</a>. You keep logging the diary; the assistant puts each entry where it belongs. You never sort anything.</p>
+  <p class="sub">Your vault is a folder of plain Markdown notes in your own git repository. Open it in <a href="https://obsidian.md">Obsidian</a>, or any editor. You never sort anything.</p>
 
   <div class="filing">
     <div class="from">
@@ -195,20 +179,21 @@ Tue 13 Oct: 7 of 16 done
     <div class="to">
       <p class="label">Where it went</p>
       <ul class="tree">
-        <li><b>raw/2026-10-13.md</b><span>all three, word for word, with their times</span></li>
+        <li><b>raw/2026-10-13.md</b><span>all three, word for word, read only by the filing agent</span></li>
         <li><b>days/2026-10-13.md</b><span>the day in short, linked to where each part went</span></li>
-        <li><b>Ideas.md</b><span>the two-minute summaries</span></li>
-        <li><b>Decisions.md</b><span>dropping the second experiment, and why</span></li>
         <li><b>projects/Thesis/log.md</b><span>the methods section needs a diagram</span></li>
-        <li class="quiet"><b>people/, learning/</b><span>one note per person and per topic, added to over time</span></li>
-        <li class="quiet"><b>Me.md</b><span>your goals, and how you like your day planned</span></li>
+        <li><b>Decisions.md</b><span>dropping the second experiment, and why</span></li>
+        <li><b>Ideas.md</b><span>the two-minute summaries</span></li>
+        <li class="quiet"><b>people/, learning/, notes/</b><span>a note per person and topic, and answers worth keeping</span></li>
+        <li class="quiet"><b>Me.md, Rules.md, Voice.md</b><span>you and your goals, your corrections, how you write</span></li>
       </ul>
     </div>
   </div>
-  <ul class="cards three">
-    <li><h3>The rules are yours</h3><p>A note in the vault says what goes where and how each note looks. Edit it and the filing follows.</p></li>
-    <li><h3>It only ever adds</h3><p>Nothing you wrote is reworded or removed, and an entry is never filed twice.</p></li>
-    <li><h3>It informs the plan</h3><p><code>Me.md</code> is what the assistant reads before it times your day. Change your routine by editing a note.</p></li>
+  <ul class="cards four">
+    <li><h3>Its rules are in it</h3><p>The vault's own README says what goes where. Edit it and the filing follows. Every agent opened in the folder finds it.</p></li>
+    <li><h3>You are never rewritten</h3><p>What you wrote stays as you wrote it. Logs only grow; summaries stay current, with a trace where a claim changed.</p></li>
+    <li><h3>It learns from you</h3><p>Correct an agent once and the rule is written down for every agent after it.</p></li>
+    <li><h3>It checks itself</h3><p><code>myvault notes lint</code> finds broken links, stale pages and notes nothing points to; the weekly run fixes what it can.</p></li>
   </ul>
 </section>
 
@@ -216,8 +201,8 @@ Tue 13 Oct: 7 of 16 done
   <h2 id="yours-title">It is yours</h2>
   <ul class="cards four">
     <li><h3>Works offline</h3><p>Each device holds a full copy. Nothing waits on a server.</p></li>
-    <li><h3>Your own sync</h3><p>Devices sync through a free Supabase project that you create. Nobody else holds your data.</p></li>
-    <li><h3>Speech stays put</h3><p>Voice is written down on the device. No audio leaves it.</p></li>
+    <li><h3>Your own sync and git</h3><p>Devices sync through a free Supabase project you create; your notes live in your repository.</p></li>
+    <li><h3>No paid AI</h3><p>Speech is written down on the device. Your agents run on your own Claude or Codex account.</p></li>
     <li><h3>Open source</h3><p>MIT licensed. No account with us, because there is no us: read it, change it, run it.</p></li>
   </ul>
 </section>
@@ -227,7 +212,7 @@ Tue 13 Oct: 7 of 16 done
   <ol class="steps">
     <li>
       <h3>Install</h3>
-      <p>On 64-bit Linux, one line installs the <code>todo</code> command and the desktop app into your home folder.</p>
+      <p>On 64-bit Linux, one line installs the <code>myvault</code> command and the desktop app into your home folder.</p>
       <div class="install">
         <code id="install-line-2">curl -fsSL https://raw.githubusercontent.com/Atharv-tw/vault-app/main/scripts/install.sh | sh -s -- --app</code>
         <button type="button" data-copy="install-line-2">Copy</button>
@@ -235,20 +220,23 @@ Tue 13 Oct: 7 of 16 done
       <p>For the phone, download the APK from the <a href="https://github.com/Atharv-tw/vault-app/releases/latest">latest release</a>. It needs Android 12 or newer.</p>
     </li>
     <li>
-      <h3>Answer three questions</h3>
-      <p>The installer ends with <code>myvault init</code>. Each answer is optional, and you can run it again to change one.</p>
+      <h3>Answer five short questions</h3>
+      <p>The installer ends with <code>myvault init</code>. Enter takes the default; <code>--yes</code> takes them all.</p>
       <table>
-        <tr><th>Sync between devices?</th><td>It walks you through a free Supabase project of your own.</td></tr>
-        <tr><th>Connect Claude Code or Codex?</th><td>It registers the tools and installs the two skills.</td></tr>
-        <tr><th>Keep a vault?</th><td>It creates the folder and its starter notes, in a private GitHub repo if you want one.</td></tr>
+        <tr><th>Your notes</th><td>Creates your vault, with its rules and starter notes.</td></tr>
+        <tr><th>About you</th><td>Your name, goals and hours, so your agents never start from zero.</td></tr>
+        <tr><th>Your agents</th><td>Connects Claude Code or Codex: the tools and the skills.</td></tr>
+        <tr><th>GitHub</th><td>Optional: a private repository, so a nightly routine can reach your notes.</td></tr>
+        <tr><th>Sync</th><td>Optional: your own Supabase project, for the phone.</td></tr>
       </table>
     </li>
     <li>
       <h3>Use it</h3>
-      <pre class="term"><span class="p">$</span> myvault add Revise unit 2 -d tomorrow -t 18:00-20:45
-<span class="p">$</span> myvault habit add Read 20 min --time 22:15
-<span class="p">$</span> myvault today</pre>
-      <p>Or say it to your assistant: "what is on today?", "I woke at ten, re-plan my day", "file my diary".</p>
+      <pre class="term"><span class="p">$</span> myvault capture Finish the report by Friday
+<span class="p">$</span> myvault today
+<span class="p">$</span> myvault doctor
+<span class="p">$</span> myvault routine</pre>
+      <p>Or say it to your agent: "what is on today?", "I woke at ten, re-plan my day", "save this as a note".</p>
     </li>
   </ol>
 </section>
@@ -258,9 +246,9 @@ Tue 13 Oct: 7 of 16 done
   <ul>
     <li>The ready-made programs are for 64-bit Linux and Android 12 or newer. There is no iPhone, Windows or Mac build. The desktop pieces are built and used on GNOME.</li>
     <li>ChatGPT and other chat apps are not supported: they need a tool server on the internet, and this one runs on your machine.</li>
-    <li>Sync and the nightly planner take some setting up: a Supabase project of your own, and for the planner a Claude subscription that can run scheduled sessions.</li>
+    <li>The nightly routine needs some setting up: sync through a Supabase project of your own, your notes in a private GitHub repository, and a Claude subscription that runs scheduled sessions. <code>myvault routine</code> prints the steps.</li>
+    <li>The phone shows what your laptop publishes of the vault (pages, goals, projects), not every note; reading them all on a phone needs Obsidian and a git app.</li>
     <li>Speech models are a one-time download of 100 to 375 MB, and words appear when you pause, not as you speak.</li>
-    <li>Reading the vault on a phone needs Obsidian and a way to sync the folder, which this does not provide.</li>
     <li>I built it for my own days. Expect rough edges, and <a href="https://github.com/Atharv-tw/vault-app/issues">tell me about them</a>.</li>
   </ul>
 </section>
