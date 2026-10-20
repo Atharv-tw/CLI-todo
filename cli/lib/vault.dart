@@ -70,9 +70,9 @@ Map<String, Object?> vaultStatus(Store store) {
   };
 }
 
-/// Puts the vault under git and, when the GitHub CLI is signed in, into a new
-/// private repository. Returns lines saying what happened.
-List<String> vaultToGitHub(String path, String repo) {
+/// Puts the vault under git with a first commit. False when git is missing
+/// or could not commit (usually because it has no name and email yet).
+bool gitInit(String path) {
   ProcessResult git(List<String> args) => Process.runSync('git', ['-C', path, ...args]);
   try {
     if (!Directory('$path/.git').existsSync()) git(['init', '-q', '-b', 'main']);
@@ -80,9 +80,17 @@ List<String> vaultToGitHub(String path, String repo) {
     if ((git(['status', '--porcelain']).stdout as String).trim().isNotEmpty) {
       git(['commit', '-q', '-m', 'Start the vault']);
     }
+    return git(['rev-parse', '-q', '--verify', 'HEAD']).exitCode == 0;
   } on ProcessException {
-    return ['git is not installed, so the vault was not put under version control.'];
+    return false;
   }
+}
+
+/// Puts the vault under git and, when the GitHub CLI is signed in, into a new
+/// private repository. Returns lines saying what happened.
+List<String> vaultToGitHub(String path, String repo) {
+  ProcessResult git(List<String> args) => Process.runSync('git', ['-C', path, ...args]);
+  if (!gitInit(path)) return ['git is not installed, so the vault was not put under version control.'];
   if (git(['remote', 'get-url', 'origin']).exitCode == 0) {
     return ['It already has a remote; left that as it is.'];
   }

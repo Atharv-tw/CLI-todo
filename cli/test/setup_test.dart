@@ -48,12 +48,14 @@ void main() {
       log = File(p.join(dir.path, 'calls.log'));
       final added = p.join(dir.path, 'added');
       final program = File(p.join(dir.path, 'assistant'))
-        ..writeAsStringSync('#!/bin/sh\n'
-            'echo "\$*" >> "${log.path}"\n'
-            'case "\$1 \$2" in\n'
-            '  "mcp get") [ -f "$added" ] || exit 1;;\n'
-            '  "mcp add") touch "$added";;\n'
-            'esac\n');
+        ..writeAsStringSync(
+          '#!/bin/sh\n'
+          'echo "\$*" >> "${log.path}"\n'
+          'case "\$1 \$2" in\n'
+          '  "mcp get") [ -f "$added" ] || exit 1;;\n'
+          '  "mcp add") touch "$added";;\n'
+          'esac\n',
+        );
       Process.runSync('chmod', ['+x', program.path]);
       stub = Assistant(id: 'claude', name: 'Stub', command: program.path, skillsDir: 'skills');
     });

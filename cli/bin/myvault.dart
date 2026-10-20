@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:http/http.dart' as http;
+import 'package:vault_cli/brain.dart';
 import 'package:vault_cli/embedded.g.dart';
 import 'package:vault_cli/mcp.dart';
 import 'package:vault_cli/setup.dart';
@@ -13,36 +14,51 @@ import 'package:vault_core/vault_core.dart';
 final Store store = Store(openDb());
 
 Future<void> main(List<String> args) async {
-  final runner = CommandRunner<void>('myvault', 'Vault: a private second brain that your agents share. Plan your goals and days; keep your memory.')
-    ..argParser.addFlag('json', negatable: false, help: 'Print JSON instead of text.')
-    ..addCommand(InitCommand())
-    ..addCommand(AddCommand())
-    ..addCommand(ListCommand())
-    ..addCommand(TodayCommand())
-    ..addCommand(DoneCommand('done', 'Tick tasks.', true))
-    ..addCommand(DoneCommand('undo', 'Untick tasks.', false))
-    ..addCommand(EditCommand())
-    ..addCommand(RmCommand())
-    ..addCommand(ListsCommand())
-    ..addCommand(HabitCommand())
-    ..addCommand(FocusCommand())
-    ..addCommand(UsageCommand())
-    ..addCommand(VaultCommand())
-    ..addCommand(ShowCommand())
-    ..addCommand(StatsCommand())
-    ..addCommand(CheckPlanCommand())
-    ..addCommand(DiaryCommand())
-    ..addCommand(DiaryCommand('brief'))
-    ..addCommand(_DiaryRm())
-    ..addCommand(_DiaryFiled())
-    ..addCommand(_DiaryOutcome())
-    ..addCommand(_UsageAdd())
-    ..addCommand(SchemaCommand())
-    ..addCommand(ServerCommand())
-    ..addCommand(LoginCommand())
-    ..addCommand(LogoutCommand())
-    ..addCommand(SyncCommand())
-    ..addCommand(McpCommand());
+  final runner =
+      CommandRunner<void>(
+          'myvault',
+          'Vault: a private second brain that your agents share. Plan your goals and days; keep your memory.',
+        )
+        ..argParser.addFlag('json', negatable: false, help: 'Print JSON instead of text.')
+        ..addCommand(InitCommand())
+        ..addCommand(DoctorCommand())
+        ..addCommand(CaptureCommand())
+        ..addCommand(SearchCommand())
+        ..addCommand(
+          PageCommand('morning', 'morning', 'Today\'s morning page, written overnight: myvault morning [DATE]'),
+        )
+        ..addCommand(PageCommand('week', 'weekly', 'The latest weekly look back: myvault week'))
+        ..addCommand(GoalsCommand())
+        ..addCommand(ProjectCommand())
+        ..addCommand(NoteCommand())
+        ..addCommand(RoutineCommand())
+        ..addCommand(AddCommand())
+        ..addCommand(ListCommand())
+        ..addCommand(TodayCommand())
+        ..addCommand(DoneCommand('done', 'Tick tasks.', true))
+        ..addCommand(DoneCommand('undo', 'Untick tasks.', false))
+        ..addCommand(EditCommand())
+        ..addCommand(RmCommand())
+        ..addCommand(ListsCommand())
+        ..addCommand(HabitCommand())
+        ..addCommand(FocusCommand())
+        ..addCommand(UsageCommand())
+        ..addCommand(VaultCommand())
+        ..addCommand(ShowCommand())
+        ..addCommand(StatsCommand())
+        ..addCommand(CheckPlanCommand())
+        ..addCommand(DiaryCommand())
+        ..addCommand(DiaryCommand('brief'))
+        ..addCommand(_DiaryRm())
+        ..addCommand(_DiaryFiled())
+        ..addCommand(_DiaryOutcome())
+        ..addCommand(_UsageAdd())
+        ..addCommand(SchemaCommand())
+        ..addCommand(ServerCommand())
+        ..addCommand(LoginCommand())
+        ..addCommand(LogoutCommand())
+        ..addCommand(SyncCommand())
+        ..addCommand(McpCommand());
   try {
     await runner.run(args);
   } on UsageException catch (e) {
@@ -727,11 +743,16 @@ class CheckPlanCommand extends Cmd {
 
 class VaultCommand extends Cmd {
   VaultCommand()
-    : super('notes', 'Your vault of notes: the memory your diary is filed into and your agents read (opens in Obsidian).') {
+    : super(
+        'notes',
+        'Your vault of notes: the memory your diary is filed into and your agents read (opens in Obsidian).',
+      ) {
     addSubcommand(_VaultInit());
     addSubcommand(_VaultUse());
     addSubcommand(_VaultStatus());
     addSubcommand(_VaultLint());
+    addSubcommand(_NotesSave());
+    addSubcommand(_NotesLog());
   }
 
   // Its name before Vault became the product's name.
@@ -949,35 +970,169 @@ class SchemaCommand extends Cmd {
 
 class InitCommand extends Cmd {
   InitCommand()
-    : super('init', 'Set up sync, your assistant and a vault of notes, one question at a time. Safe to run again.') {
+    : super(
+        'init',
+        'Set up Vault: your notes, a few questions about you, your agents, then (optionally) GitHub and sync. '
+            'Safe to run again.',
+      ) {
     argParser
+      ..addOption('vault', help: 'Keep your notes in this folder (default ~/Vault).')
+      ..addOption('name', help: 'What your agents should call you.')
+      ..addMultiOption('goal', help: 'A goal, for Me.md. Repeat for more.')
+      ..addOption('wake', help: 'When you usually wake up, HH:MM.')
+      ..addOption('sleep', help: 'When you usually go to sleep, HH:MM.')
+      ..addMultiOption('assistant', allowed: [for (final a in assistants) a.id], help: 'Connect this assistant.')
+      ..addOption('github', help: 'Keep your notes in a new private GitHub repository with this name.')
       ..addOption('server', help: 'Sync: your Supabase project URL.')
       ..addOption('key', help: 'Sync: its publishable key.')
       ..addOption(
         'email',
         help: 'Sync: the account to sign in with. The password is asked for, or read from standard input.',
       )
-      ..addMultiOption('assistant', allowed: [for (final a in assistants) a.id], help: 'Connect this assistant.')
-      ..addOption('vault', help: 'Create a vault of notes in this folder.')
-      ..addOption('github', help: 'Keep the vault in a new private GitHub repository with this name.')
+      ..addFlag(
+        'yes',
+        abbr: 'y',
+        negatable: false,
+        help:
+            'Take every default without asking: notes in ~/Vault, '
+            'every agent found connected, no GitHub, no sync.',
+      )
       ..addFlag('defaults', negatable: false, help: 'Ask nothing: do only what the options above say.');
   }
 
   @override
   Future<void> run() async {
-    final asking = stdin.hasTerminal && !argResults!.flag('defaults');
+    final yes = argResults!.flag('yes');
+    final asking = stdin.hasTerminal && !argResults!.flag('defaults') && !yes;
     final done = <String>[];
     final left = <String>[];
     void say(String text) => stderr.writeln(text);
 
     if (asking) {
       say(
-        'Setting up Todo. Three questions; Enter takes the answer in capitals.\n'
-        'Everything here is optional and can be changed by running this again.\n',
+        'Setting up Vault: a private second brain that your agents share.\n'
+        'Five short steps; Enter takes the answer in capitals. Run this again any time to change an answer.\n',
       );
     }
 
-    // 1. Sync.
+    // 1. Notes: the vault itself.
+    String? vault = vaultPath(store);
+    if (vault != null && opt('vault') == null && Directory(vault).existsSync()) {
+      done.add('Notes: $vault');
+    } else {
+      var path = opt('vault');
+      if (asking && path == null) {
+        say(
+          '1. Your notes. A folder of plain Markdown (it opens in Obsidian) that your diary is filed into:\n'
+          '   you, your goals, projects, people, what you learn and decide. Your agents read it.',
+        );
+        if (confirm('   Keep your notes?', fallback: true)) path = ask('   Where', defaultVaultPath());
+        say('');
+      } else if (path == null && yes) {
+        path = defaultVaultPath();
+      }
+      if (path != null) {
+        path = Directory(_expandHome(path)).absolute.path;
+        final written = scaffoldVault(path);
+        store.setMeta(vaultPathKey, path);
+        vault = path;
+        done.add(written.isEmpty ? 'Notes: $path (already there).' : 'Notes: created at $path.');
+      } else {
+        vault = null;
+        done.add('Notes: none. Tasks, habits and the diary still work.');
+      }
+    }
+
+    // 2. About you: the start of Me.md.
+    if (vault != null && meIsBlank(vault)) {
+      var name = opt('name');
+      var goalList = argResults!.multiOption('goal');
+      var wake = opt('wake');
+      var sleep = opt('sleep');
+      if (asking) {
+        say('2. About you. Your agents read this first, so they never start from zero. Leave any blank.');
+        name ??= prompt('   What should your agents call you?');
+        if (goalList.isEmpty) {
+          say('   What are you working towards? One goal per line; an empty line ends.');
+          goalList = [for (String? line = prompt('   -'); line != null && line.isNotEmpty; line = prompt('   -')) line];
+        }
+        wake ??= prompt('   When do you usually wake up? (HH:MM)');
+        sleep ??= prompt('   And go to sleep? (HH:MM)');
+        say('');
+      }
+      if ((name ?? '').isNotEmpty || goalList.isNotEmpty || (wake ?? '').isNotEmpty || (sleep ?? '').isNotEmpty) {
+        fillMe(vault, name: name, goals: goalList, wake: wake, sleep: sleep);
+        done.add('About you: written to Me.md. Add to it any time; agents read it first.');
+      } else {
+        left.add('About you: fill in $vault/Me.md, or run: myvault goals add ...');
+      }
+    }
+
+    // 3. Agents.
+    final wanted = argResults!.multiOption('assistant');
+    final found = [
+      for (final a in assistants)
+        if (isInstalled(a.command)) a,
+    ];
+    final chosen = <Assistant>[
+      for (final a in assistants)
+        if (wanted.contains(a.id)) a,
+    ];
+    if (yes && wanted.isEmpty) chosen.addAll(found);
+    if (asking && wanted.isEmpty) {
+      say(
+        '3. Your agents. Connected, they share this memory and your plan: they can read your notes, save what\n'
+        '   is worth keeping, log their work to your projects and plan your day.',
+      );
+      if (found.isEmpty) say('   Neither Claude Code nor Codex is installed on this machine.');
+      for (final a in found) {
+        if (confirm('   Connect ${a.name}?', fallback: true)) chosen.add(a);
+      }
+      say('');
+    }
+    final command = todoCommand();
+    for (final a in chosen) {
+      done.addAll(connect(a, todo: command));
+    }
+    if (chosen.isEmpty) {
+      left.add(
+        found.isEmpty
+            ? 'Agents: install Claude Code or Codex, then run `myvault init` again to connect it.'
+            : 'Agents: not connected. Run `myvault init` again when you want it.',
+      );
+    }
+
+    // 4. GitHub, so a cloud routine can reach the notes.
+    if (vault != null) {
+      var repo = opt('github');
+      final hasRemote = Process.runSync('git', ['-C', vault, 'remote', 'get-url', 'origin']).exitCode == 0;
+      if (hasRemote) {
+        done.add('GitHub: the notes already have a remote.');
+      } else {
+        if (asking && repo == null) {
+          say(
+            '4. Back up your notes to a private GitHub repository? That also lets a nightly routine in the\n'
+            '   cloud file your diary and plan your day while your laptop is off.',
+          );
+          if (confirm('   Keep them on GitHub?', fallback: false)) repo = ask('   Repository name', 'my-vault');
+          say('');
+        }
+        if (repo != null) {
+          done.addAll(vaultToGitHub(vault, repo));
+        } else if (!Directory('$vault/.git').existsSync()) {
+          if (gitInit(vault)) {
+            done.add('Notes: kept under git on this machine, so every change has a history.');
+          } else {
+            left.add(
+              'Notes: git could not make a first commit. Tell it who you are '
+              '(git config --global user.name "..." and user.email "..."), then run: myvault notes save',
+            );
+          }
+        }
+      }
+    }
+
+    // 5. Sync, for the phone and other computers.
     final remote = SupabaseRemote(store);
     if (remote.signedIn) {
       done.add('Sync: signed in as ${remote.email}.');
@@ -986,12 +1141,12 @@ class InitCommand extends Cmd {
       var key = opt('key');
       if (asking) {
         say(
-          '1. Sync. Your tasks live in a file on this machine. To have them on your phone or another\n'
-          '   computer too, they sync through a free Supabase project of your own.',
+          '5. Sync with your phone? Your diary, tasks and plan live on this machine. To have them in the Vault\n'
+          '   app too, they sync through a free Supabase project of your own; nobody else holds your data.',
         );
         if (confirm('   Set up sync now?', fallback: false)) {
           if (url == null || !confirm('   Use the server already set ($url)?', fallback: true)) {
-            final sql = File('${Directory.systemTemp.path}/todo-schema.sql')..writeAsStringSync(schemaSql);
+            final sql = File('${Directory.systemTemp.path}/myvault-schema.sql')..writeAsStringSync(schemaSql);
             say(
               '   a. Create a project at https://supabase.com/dashboard\n'
               '   b. Open its SQL editor, paste the contents of ${sql.path} and run it.\n'
@@ -1005,6 +1160,8 @@ class InitCommand extends Cmd {
           url = null;
         }
         say('');
+      } else if (opt('server') == null) {
+        url = null;
       }
       if (url != null && url.isNotEmpty) {
         if (key != null && key.isNotEmpty) remote.configure(url: url, anonKey: key);
@@ -1030,73 +1187,7 @@ class InitCommand extends Cmd {
           }
         }
       } else {
-        done.add('Sync: off. Everything works on this device.');
-      }
-    }
-
-    // 2. Assistants.
-    final wanted = argResults!.multiOption('assistant');
-    final found = [
-      for (final a in assistants)
-        if (isInstalled(a.command)) a,
-    ];
-    final chosen = <Assistant>[
-      for (final a in assistants)
-        if (wanted.contains(a.id)) a,
-    ];
-    if (asking && wanted.isEmpty) {
-      say('2. Assistant. Connected, it can read and change your tasks, plan your day and file your diary.');
-      if (found.isEmpty) say('   Neither Claude Code nor Codex is installed on this machine.');
-      for (final a in found) {
-        if (confirm('   Connect ${a.name}?', fallback: true)) chosen.add(a);
-      }
-      say('');
-    }
-    final todo = todoCommand();
-    for (final a in chosen) {
-      done.addAll(connect(a, todo: todo));
-    }
-    if (chosen.isEmpty) {
-      left.add(
-        found.isEmpty
-            ? 'Assistant: install Claude Code or Codex, then run `myvault init` again to connect it.'
-            : 'Assistant: not connected. Run `myvault init` again when you want it.',
-      );
-    }
-
-    // 3. Vault.
-    final existing = vaultPath(store);
-    if (existing != null && opt('vault') == null) {
-      done.add('Vault: $existing');
-    } else {
-      var path = opt('vault');
-      var repo = opt('github');
-      if (asking && path == null) {
-        say(
-          '3. Vault. A folder of notes that your diary is filed into: each day, decisions, ideas, what\n'
-          '   you learned. It opens in Obsidian. Skip it if you only want tasks.',
-        );
-        if (confirm('   Create a vault?', fallback: false)) {
-          path = ask('   Where', defaultVaultPath());
-          if (confirm(
-            '   Also keep it in a private GitHub repository? An assistant in the cloud needs that.',
-            fallback: false,
-          )) {
-            repo = ask('   Repository name', 'vault');
-          }
-        }
-        say('');
-      }
-      if (path != null) {
-        path = Directory(_expandHome(path)).absolute.path;
-        final written = scaffoldVault(path);
-        store.setMeta(vaultPathKey, path);
-        done.add(
-          written.isEmpty ? 'Vault: $path (already there).' : 'Vault: created at $path. Start by filling in Me.md.',
-        );
-        if (repo != null) done.addAll(vaultToGitHub(path, repo));
-      } else {
-        done.add('Vault: none.');
+        done.add('Sync: off. Everything works on this device; `myvault init` again to add the phone.');
       }
     }
 
@@ -1106,7 +1197,12 @@ class InitCommand extends Cmd {
         for (final line in done) '  $line',
         if (left.isNotEmpty) ...['Left to do:', for (final line in left) '  $line'],
         '',
-        'Try: myvault add "Read 20 pages" -d today -t 21:00   then: myvault today',
+        'Start here:',
+        '  myvault capture Finish the report by Friday     put anything in your diary',
+        '  myvault today                                   your day',
+        '  myvault search report                           your notes, diary and tasks',
+        '  myvault doctor                                  check the setup',
+        '  myvault routine                                 a nightly routine that plans tomorrow',
       ].join('\n');
     });
   }
@@ -1171,6 +1267,394 @@ class SyncCommand extends Cmd {
                     'Run the latest supabase/schema.sql.'}'
           '${r.missingColumns.isEmpty ? '' : '\nThe server is missing ${[for (final e in r.missingColumns.entries) ...e.value.map((c) => '${e.key}.$c')].join(', ')}; '
                     'those values stay on this device until you run the output of `myvault schema` in its SQL editor.'}',
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The second brain: capture, search, notes, projects, goals, pages, health.
+
+String get _vault => requireVault(vaultPath(store));
+
+String _readAllStdin() {
+  final b = StringBuffer();
+  String? line;
+  while ((line = stdin.readLineSync()) != null) {
+    b.writeln(line);
+  }
+  return b.toString().trim();
+}
+
+class CaptureCommand extends Cmd {
+  CaptureCommand()
+    : super('capture', 'Put a thought in your diary, fast: myvault capture Call Ansh about fellowships tomorrow') {
+    argParser.addOption('task', help: 'A task it is about (id or prefix).');
+  }
+
+  @override
+  List<String> get aliases => ['c'];
+
+  @override
+  void run() {
+    needArgs('what to capture');
+    final body = rest.length == 1 && rest.first == '-' ? _readAllStdin() : rest.join(' ');
+    if (body.trim().isEmpty) usageException('Give what to capture.');
+    final e = store.addDiary(body, taskId: opt('task') == null ? null : store.resolveId('tasks', opt('task')!));
+    out(e.toJson(), () => 'Captured. It is filed into your notes and plans tonight.');
+  }
+}
+
+class SearchCommand extends Cmd {
+  SearchCommand()
+    : super('search', 'Search your notes, diary and tasks: myvault search hash maps [--in notes|diary|tasks]') {
+    argParser
+      ..addMultiOption('in', allowed: ['notes', 'diary', 'tasks'], help: 'Where to look (default: everywhere).')
+      ..addOption('limit', abbr: 'n', defaultsTo: '20');
+  }
+
+  @override
+  List<String> get aliases => ['s'];
+
+  @override
+  void run() {
+    needArgs('what to look for');
+    final kinds = {
+      for (final k in argResults!.multiOption('in'))
+        k == 'notes'
+            ? 'note'
+            : k == 'tasks'
+            ? 'task'
+            : k,
+    };
+    final hits = search(store, vaultPath(store), rest.join(' '), kinds: kinds, limit: int.parse(opt('limit')!));
+    out([for (final h in hits) h.toJson()], () {
+      if (hits.isEmpty) return 'Nothing found.';
+      return [
+        for (final h in hits)
+          '${h.kind.padRight(5)} ${h.where}${h.line == null ? '' : ':${h.line}'}\n      ${h.text.length > 110 ? '${h.text.substring(0, 110)}…' : h.text}',
+      ].join('\n');
+    });
+  }
+}
+
+class NoteCommand extends Cmd {
+  NoteCommand() : super('note', 'Notes worth keeping: myvault note new TITLE, note show TITLE, note list') {
+    addSubcommand(_NoteNew());
+    addSubcommand(_NoteShow());
+    addSubcommand(_NoteList());
+  }
+}
+
+class _NoteNew extends Cmd {
+  _NoteNew() : super('new', 'Save a note: myvault note new "CS229 or Karpathy" --body "..." (or --body - for stdin)') {
+    argParser
+      ..addOption('body', help: 'Its text; - reads standard input.')
+      ..addOption('project', abbr: 'p', help: 'Put it in this project\'s folder instead of notes/.')
+      ..addOption('source', help: 'The link it summarises, for something you shared.');
+  }
+
+  @override
+  void run() {
+    needArgs('a title');
+    final body = opt('body') == '-' ? _readAllStdin() : (opt('body') ?? '');
+    final rel = newNote(_vault, rest.join(' '), body: body, project: opt('project'), source: opt('source'));
+    out({'path': rel}, () => 'Saved $rel. Run `myvault notes save` to commit it.');
+  }
+}
+
+class _NoteShow extends Cmd {
+  _NoteShow() : super('show', 'Print a note: myvault note show TITLE (or a path in the vault)');
+
+  @override
+  void run() {
+    needArgs('a title or path');
+    final n = readNote(_vault, rest.join(' '));
+    out({'path': n.path, 'text': n.text}, () => n.text.trimRight());
+  }
+}
+
+class _NoteList extends Cmd {
+  _NoteList() : super('list', 'List the notes in notes/.');
+
+  @override
+  void run() {
+    final dir = Directory('$_vault/notes');
+    final names = dir.existsSync()
+        ? ([
+            for (final f in dir.listSync().whereType<File>())
+              if (f.path.endsWith('.md')) f.uri.pathSegments.last.replaceAll('.md', ''),
+          ]..sort())
+        : <String>[];
+    out(names, () => names.isEmpty ? 'No notes yet. Save one with: myvault note new TITLE' : names.join('\n'));
+  }
+}
+
+class ProjectCommand extends Cmd {
+  ProjectCommand() : super('project', 'Your projects in the vault: project list, new, log, link') {
+    addSubcommand(_ProjectList());
+    addSubcommand(_ProjectNew());
+    addSubcommand(_ProjectLog());
+    addSubcommand(_ProjectLink());
+  }
+}
+
+class _ProjectList extends Cmd {
+  _ProjectList() : super('list', 'List projects, most recently updated first.');
+
+  @override
+  void run() {
+    final ps = listProjects(_vault);
+    out([for (final x in ps) x.toJson()], () {
+      if (ps.isEmpty) return 'No projects yet. Start one with: myvault project new NAME';
+      return [
+        for (final x in ps) '${x.name.padRight(28)} ${(x.status ?? '').padRight(9)} ${x.updated ?? ''}',
+      ].join('\n');
+    });
+  }
+}
+
+class _ProjectNew extends Cmd {
+  _ProjectNew()
+    : super(
+        'new',
+        'Start a project: myvault project new Helios --what "security scanning that ships fixes" [--repo URL]',
+      ) {
+    argParser
+      ..addOption('what', help: 'What it is, in a line.')
+      ..addOption('repo', help: 'Its repository.')
+      ..addOption('folder', help: 'A code folder to link to it (see: project link).');
+  }
+
+  @override
+  void run() {
+    needArgs('a name');
+    final name = rest.join(' ');
+    final base = newProject(_vault, name, what: opt('what'), repo: opt('repo'));
+    final linked = opt('folder') == null ? const <String>[] : linkFolder(_vault, opt('folder')!, name);
+    out({'path': base, 'linked': linked}, () => ['Started $base (overview, log and info).', ...linked].join('\n'));
+  }
+}
+
+class _ProjectLog extends Cmd {
+  _ProjectLog()
+    : super('log', 'Log finished work: myvault project log Helios "Sessions and API tokens done" --ref "PR #12"') {
+    argParser.addOption('ref', help: 'The pull request, commit or link it came from.');
+  }
+
+  @override
+  void run() {
+    if (rest.length < 2) usageException('Give the project and what was done.');
+    final rel = logProject(_vault, rest.first, rest.skip(1).join(' '), ref: opt('ref'));
+    out({'path': rel}, () => 'Logged in $rel.');
+  }
+}
+
+class _ProjectLink extends Cmd {
+  _ProjectLink()
+    : super(
+        'link',
+        'Tie a code folder to a project, so agents working there log to it: myvault project link Helios [FOLDER]',
+      );
+
+  @override
+  void run() {
+    needArgs('the project');
+    final lines = linkFolder(_vault, rest.length > 1 ? rest[1] : Directory.current.path, rest.first);
+    out({'done': lines}, () => lines.join('\n'));
+  }
+}
+
+class GoalsCommand extends Cmd {
+  GoalsCommand()
+    : super('goals', 'Your goals, from Me.md: myvault goals, or add one: myvault goals add Land an ML internship');
+
+  @override
+  void run() {
+    if (rest.isNotEmpty && rest.first == 'add') {
+      if (rest.length < 2) usageException('Give the goal.');
+      addGoal(_vault, rest.skip(1).join(' '));
+      out({'added': rest.skip(1).join(' ')}, () => 'Added to Me.md.');
+      return;
+    }
+    final gs = goals(_vault);
+    out(
+      gs,
+      () => gs.isEmpty
+          ? 'No goals in Me.md yet. Add one: myvault goals add ...'
+          : [for (final g in gs) '- $g'].join('\n'),
+    );
+  }
+}
+
+class PageCommand extends Cmd {
+  PageCommand(String name, this.folder, String what) : super(name, what);
+  final String folder;
+
+  @override
+  void run() {
+    final pg = page(_vault, folder, date: rest.isEmpty ? null : parseDate(rest.first));
+    if (pg == null) {
+      throw TodoException(
+        folder == 'morning'
+            ? 'No morning page yet. The nightly routine writes one into morning/ (see docs/briefing-agent.md).'
+            : 'No weekly page yet. The Saturday night run writes one into weekly/.',
+      );
+    }
+    out({'path': pg.path, 'text': pg.text}, () => pg.text.trimRight());
+  }
+}
+
+class _NotesSave extends Cmd {
+  _NotesSave() : super('save', 'Commit the vault and push it: myvault notes save [-m MESSAGE]') {
+    argParser.addOption('message', abbr: 'm');
+  }
+
+  @override
+  void run() {
+    final lines = saveVault(_vault, message: opt('message'));
+    out({'done': lines}, () => lines.join('\n'));
+  }
+}
+
+class _NotesLog extends Cmd {
+  _NotesLog() : super('log', 'Add a line to the vault\'s log.md: myvault notes log query "CS229 or Karpathy"');
+
+  @override
+  void run() {
+    if (rest.length < 2 || !logOps.contains(rest.first)) {
+      usageException('Give one of ${logOps.join(', ')}, then the text.');
+    }
+    appendLog(_vault, rest.first, rest.skip(1).join(' '));
+    out({'ok': true}, () => 'Logged.');
+  }
+}
+
+class DoctorCommand extends Cmd {
+  DoctorCommand() : super('doctor', 'Check the setup: data, sync, notes, agents and the nightly routine.');
+
+  @override
+  void run() {
+    final checks = <Check>[];
+    checks.add(Check(true, 'Data', defaultDbPath()));
+    final remote = SupabaseRemote(store);
+    checks.add(
+      remote.signedIn
+          ? Check(true, 'Sync', 'signed in as ${remote.email}')
+          : Check(
+              false,
+              'Sync',
+              remote.url == null ? 'off (this device only)' : 'server set, not signed in',
+              fix: remote.url == null ? 'myvault init (optional)' : 'myvault login',
+            ),
+    );
+    final v = vaultStatus(store);
+    if (v['path'] == null || v['exists'] != true) {
+      checks.add(const Check(false, 'Notes', 'no vault', fix: 'myvault notes init'));
+    } else {
+      checks.add(Check(true, 'Notes', '${v['path']}${v['remote'] == null ? ' (no git remote)' : ''}'));
+      final issues = lintVault(v['path'] as String);
+      final errors = issues.where((i) => i.isError).length;
+      checks.add(
+        Check(
+          errors == 0,
+          'Notes health',
+          '$errors errors, ${issues.length - errors} warnings',
+          fix: errors == 0 ? null : 'myvault notes lint',
+        ),
+      );
+      checks.add(
+        Check(
+          (v['unfiled'] as int) == 0,
+          'Diary',
+          "${v['unfiled']} ${v['unfiled'] == 1 ? 'entry' : 'entries'} waiting to be filed",
+          fix: (v['unfiled'] as int) == 0 ? null : 'ask your agent to "file my diary", or wait for the nightly run',
+        ),
+      );
+      final m = page(v['path'] as String, 'morning');
+      checks.add(
+        Check(
+          m != null,
+          'Morning page',
+          m?.path ?? 'none yet',
+          fix: m == null ? 'set up the nightly routine: myvault routine' : null,
+        ),
+      );
+    }
+    for (final a in assistants) {
+      if (!isInstalled(a.command)) continue;
+      final known = Process.runSync(a.command, ['mcp', 'get', 'myvault']).exitCode == 0;
+      checks.add(
+        Check(
+          known,
+          a.name,
+          known ? 'connected (tool server myvault)' : 'not connected',
+          fix: known ? null : 'myvault init --assistant ${a.id}',
+        ),
+      );
+    }
+    out(
+      [for (final c in checks) c.toJson()],
+      () => [
+        for (final c in checks)
+          '${c.ok ? 'ok  ' : 'todo'}  ${c.what.padRight(13)} ${c.detail}${c.fix == null ? '' : '\n                     → ${c.fix}'}',
+      ].join('\n'),
+    );
+  }
+}
+
+/// The prompt for a scheduled cloud session that runs every night: it plans
+/// the next day, files the diary into the vault and writes the morning page.
+/// [notesRepo] is the vault's GitHub repository, if it has one.
+String routinePrompt({String? notesRepo, String? timezone}) => [
+  'You are the nightly assistant for the owner of these repositories: you keep track of everything they commit '
+      'to, plan their next day, file their diary into their vault of notes, and write their morning page. Nobody '
+      'is watching this run.',
+  'First run `export TZ=${timezone ?? 'YOUR/Timezone'}` and keep it set for every command.',
+  'The repositories checked out are vault-app (Vault, the tool; its command is `myvault`)'
+      '${notesRepo == null ? '' : ' and $notesRepo (their private notes)'}. Find them with `pwd; ls; ls ..`.',
+  'Go into vault-app and read docs/briefing-agent.md. Follow it completely: setup, reading the facts, processing '
+      'every unprocessed diary entry, closing the day, planning, `myvault check-plan` until the plan holds, the '
+      'limits, the vault and writing back. The setup script needs MYVAULT_SUPABASE_URL, MYVAULT_SUPABASE_KEY, '
+      'MYVAULT_EMAIL and MYVAULT_PASSWORD from this environment; if any is missing or setup fails, stop and report '
+      'it without printing the values.',
+  if (notesRepo != null)
+    'In the vault, before planning, read `Rules.md`, then `Me.md`, then `README.md` (the schema: layout, filing, '
+        'editing rules, lint, log format, the morning and weekly pages) and `INDEX.md`. Rules.md wins over '
+        'everything, Me.md over general advice. File the diary as README.md says, run `myvault notes lint` and fix '
+        'its errors, write the morning page into `morning/` (and on the night before Sunday the weekly page into '
+        '`weekly/`), then commit in the vault and `git push origin HEAD:main`, never forcing it.',
+  'Your final message is the morning page. Do not edit, commit or push anything in the vault-app repository.',
+].join('\n\n');
+
+class RoutineCommand extends Cmd {
+  RoutineCommand() : super('routine', 'Set up the nightly routine: prints the steps and the prompt to paste.');
+
+  @override
+  void run() {
+    final v = vaultStatus(store);
+    final remote = v['remote'] as String?;
+    final notesRepo = remote == null ? null : RegExp(r'github\.com[:/](.+?)(\.git)?$').firstMatch(remote)?.group(1);
+    final tz = Platform.environment['TZ'] ?? DateTime.now().timeZoneName;
+    final prompt = routinePrompt(notesRepo: notesRepo?.split('/').last, timezone: tz.contains('/') ? tz : null);
+    final syncOn = SupabaseRemote(store).signedIn;
+    out(
+      {'prompt': prompt, 'notes_repo': notesRepo, 'sync': syncOn},
+      () => [
+        'The nightly routine is a Claude Code session in the cloud that runs every night, even with your laptop off.',
+        '',
+        'Before you start:',
+        '  ${syncOn ? 'ok' : 'todo'}  Sync is on (the cloud reads your diary through it).${syncOn ? '' : '  → myvault init'}',
+        '  ${notesRepo != null ? 'ok' : 'todo'}  Your notes are in a private GitHub repository${notesRepo == null ? '.  → myvault notes init --github NAME' : ' ($notesRepo).'}',
+        '',
+        'Then:',
+        '  1. Open https://claude.ai/code/routines and create a routine, every day just after midnight.',
+        '  2. Repositories: Atharv-tw/vault-app${notesRepo == null ? '' : ' and $notesRepo (allow pushes to main)'}.',
+        '  3. Environment variables: MYVAULT_SUPABASE_URL, MYVAULT_SUPABASE_KEY, MYVAULT_EMAIL, MYVAULT_PASSWORD, TZ.',
+        '  4. Tools: Bash, Read, Write, Edit, Glob, Grep.',
+        '  5. Paste this prompt:',
+        '',
+        prompt,
+      ].join('\n'),
     );
   }
 }
