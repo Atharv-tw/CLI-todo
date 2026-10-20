@@ -74,7 +74,12 @@ List<LintIssue> lintVault(String root, {DateTime? today}) {
       final target = m.group(1)!.trim();
       if (target.toLowerCase().startsWith('raw/')) {
         issues.add(
-          LintIssue('error', 'raw_link', rel, 'Links into raw/ ([[$target]]); only filing agents read the diary.'),
+          LintIssue(
+            'error',
+            'raw_link',
+            rel,
+            'Links into raw/ ([[$target]]); only filing agents read the diary.',
+          ),
         );
         continue;
       }
@@ -122,7 +127,8 @@ List<LintIssue> lintVault(String root, {DateTime? today}) {
     }
     final fields = {
       for (final line in fm.group(1)!.split('\n'))
-        if (line.contains(':')) line.split(':').first.trim(): line.split(':').skip(1).join(':').split('#').first.trim(),
+        if (line.contains(':'))
+          line.split(':').first.trim(): line.split(':').skip(1).join(':').split('#').first.trim(),
     };
     for (final key in ['type', 'updated']) {
       if ((fields[key] ?? '').isEmpty) {
@@ -147,7 +153,9 @@ List<LintIssue> lintVault(String root, {DateTime? today}) {
       if (rel.startsWith('days/') && rel.split('/').length == 2) p.basenameWithoutExtension(rel),
   };
   for (final d in rawDays.difference(dayNotes).toList()..sort()) {
-    issues.add(LintIssue('warning', 'day_not_written', 'raw/$d.md', 'The diary for $d has no summary in days/.'));
+    issues.add(
+      LintIssue('warning', 'day_not_written', 'raw/$d.md', 'The diary for $d has no summary in days/.'),
+    );
   }
   for (final d in dayNotes.difference(rawDays).toList()..sort()) {
     issues.add(LintIssue('warning', 'day_without_raw', 'days/$d.md', 'There is no raw diary for $d.'));

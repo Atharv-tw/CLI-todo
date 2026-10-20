@@ -25,7 +25,11 @@ Future<void> main(List<String> args) async {
         ..addCommand(CaptureCommand())
         ..addCommand(SearchCommand())
         ..addCommand(
-          PageCommand('morning', 'morning', 'Today\'s morning page, written overnight: myvault morning [DATE]'),
+          PageCommand(
+            'morning',
+            'morning',
+            'Today\'s morning page, written overnight: myvault morning [DATE]',
+          ),
         )
         ..addCommand(PageCommand('week', 'weekly', 'The latest weekly look back: myvault week'))
         ..addCommand(GoalsCommand())
@@ -94,7 +98,8 @@ abstract class Cmd extends Command<void> {
   String? opt(String name) => argResults!.option(name);
 
   /// Prints [data] as JSON under `--json`, otherwise the lines from [text].
-  void out(Object? data, String Function() text) => print(globalResults!.flag('json') ? jsonEncode(data) : text());
+  void out(Object? data, String Function() text) =>
+      print(globalResults!.flag('json') ? jsonEncode(data) : text());
 
   void needArgs(String what) {
     if (rest.isEmpty) usageException('Give $what.');
@@ -160,7 +165,8 @@ Map<String, Object?> commitmentOptions(Cmd c) {
           ? null
           : int.tryParse(opt('estimate')!) ?? (throw TodoException('The estimate is a number of minutes')),
     if (opt('protect') != null) 'protect': clear(opt('protect')!) ? null : opt('protect'),
-    if (opt('from') != null) 'source_entry': clear(opt('from')!) ? null : store.resolveId('diary', opt('from')!),
+    if (opt('from') != null)
+      'source_entry': clear(opt('from')!) ? null : store.resolveId('diary', opt('from')!),
   };
 }
 
@@ -198,7 +204,8 @@ class AddCommand extends Cmd {
 }
 
 class ListCommand extends Cmd {
-  ListCommand() : super('list', 'List tasks: myvault list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
+  ListCommand()
+    : super('list', 'List tasks: myvault list [today|tomorrow|week|overdue|backlog|due|all|undated|DATE]') {
     argParser
       ..addOption('list', abbr: 'l', help: 'Only this list.')
       ..addFlag('open', negatable: false, help: 'Hide ticked tasks.');
@@ -221,13 +228,20 @@ class ListCommand extends Cmd {
     final tasks = switch (when) {
       'all' => store.tasks(undated: true, listId: listId, includeDone: includeDone),
       'undated' =>
-        store.tasks(undated: true, listId: listId, includeDone: includeDone).where((t) => t.date == null).toList(),
+        store
+            .tasks(undated: true, listId: listId, includeDone: includeDone)
+            .where((t) => t.date == null)
+            .toList(),
       'overdue' => store.tasks(overdueBefore: now, listId: listId),
       // Open commitments with no day yet.
-      'backlog' => store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.date == null).toList(),
+      'backlog' =>
+        store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.date == null).toList(),
       // Open tasks with a deadline, soonest first.
       'due' =>
-        store.tasks(undated: true, listId: listId, includeDone: false).where((t) => t.dueDate != null).toList()
+        store
+            .tasks(undated: true, listId: listId, includeDone: false)
+            .where((t) => t.dueDate != null)
+            .toList()
           ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!)),
       'week' => store.tasks(from: now, to: addDays(now, 6), listId: listId, includeDone: includeDone),
       _ => store.tasks(from: parseDate(when), to: parseDate(when), listId: listId, includeDone: includeDone),
@@ -334,7 +348,8 @@ class RmCommand extends Cmd {
 }
 
 class ListsCommand extends Cmd {
-  ListsCommand() : super('lists', 'Show lists; add one: myvault lists add NAME; rename: myvault lists rename OLD NEW');
+  ListsCommand()
+    : super('lists', 'Show lists; add one: myvault lists add NAME; rename: myvault lists rename OLD NEW');
 
   @override
   void run() {
@@ -507,7 +522,10 @@ class _FocusStatus extends Cmd {
   static void show(Cmd c) {
     final s = store.currentFocus();
     final minutes = store.focusedMinutes(today());
-    c.out({'session': s?.toJson(), 'focused_min': minutes}, () => '${focusLine(s)} $minutes min focused today.');
+    c.out({
+      'session': s?.toJson(),
+      'focused_min': minutes,
+    }, () => '${focusLine(s)} $minutes min focused today.');
   }
 
   @override
@@ -517,7 +535,10 @@ class _FocusStatus extends Cmd {
 /// `myvault diary`: what was written, and a way to write more.
 class DiaryCommand extends Cmd {
   DiaryCommand([String name = 'diary'])
-    : super(name, 'Diary: myvault diary (recent entries), or myvault diary Finally got hash maps --task 6e495e') {
+    : super(
+        name,
+        'Diary: myvault diary (recent entries), or myvault diary Finally got hash maps --task 6e495e',
+      ) {
     argParser
       ..addOption('date', abbr: 'd', help: 'Day the entry is about (default today).')
       ..addOption('task', help: 'A task the entry is about (id or prefix).')
@@ -594,7 +615,9 @@ class DiaryCommand extends Cmd {
         }
         final who = e.author == DiaryEntry.me ? '' : 'Claude: ';
         final about = e.about == null ? '' : '[${e.about}] ';
-        lines.add('  ${short(e.id)}  ${hm(e.createdAt)}  $who$about${e.body.replaceAll('\n', '\n                 ')}');
+        lines.add(
+          '  ${short(e.id)}  ${hm(e.createdAt)}  $who$about${e.body.replaceAll('\n', '\n                 ')}',
+        );
         if (e.outcome != null) lines.add('                 -> ${e.outcome}');
       }
       return lines.join('\n');
@@ -618,7 +641,8 @@ class _DiaryRm extends Cmd {
 
 /// Used by an assistant once it has filed entries into the vault.
 class _DiaryFiled extends Cmd {
-  _DiaryFiled() : super('diary-filed', 'Mark diary entries as filed into the vault: myvault diary-filed ID...');
+  _DiaryFiled()
+    : super('diary-filed', 'Mark diary entries as filed into the vault: myvault diary-filed ID...');
 
   @override
   bool get hidden => true;
@@ -634,7 +658,10 @@ class _DiaryFiled extends Cmd {
 
 class _DiaryOutcome extends Cmd {
   _DiaryOutcome()
-    : super('diary-outcome', 'Record what became of a diary entry: myvault diary-outcome ID Captured 3 commitments...');
+    : super(
+        'diary-outcome',
+        'Record what became of a diary entry: myvault diary-outcome ID Captured 3 commitments...',
+      );
 
   @override
   bool get hidden => true;
@@ -649,13 +676,16 @@ class _DiaryOutcome extends Cmd {
 }
 
 class ShowCommand extends Cmd {
-  ShowCommand() : super('show', 'Everything about one task, with its history and the diary entry it came from.');
+  ShowCommand()
+    : super('show', 'Everything about one task, with its history and the diary entry it came from.');
 
   @override
   void run() {
     needArgs('a task id');
     final t = store.task(store.resolveId('tasks', rest.first));
-    final source = t.sourceEntry == null ? null : store.diary().where((e) => e.id == t.sourceEntry).firstOrNull;
+    final source = t.sourceEntry == null
+        ? null
+        : store.diary().where((e) => e.id == t.sourceEntry).firstOrNull;
     out(
       {...t.toJson(), 'source': source?.toJson()},
       () => [
@@ -710,7 +740,10 @@ class CheckPlanCommand extends Cmd {
             'the day no fuller than the time there really is. Exits 1 if anything must be fixed.',
       ) {
     argParser
-      ..addOption('wake', help: 'When the day starts (HH:MM); default: the typical wake time of the last 3 days.')
+      ..addOption(
+        'wake',
+        help: 'When the day starts (HH:MM); default: the typical wake time of the last 3 days.',
+      )
       ..addOption('end', help: 'When the day ends (HH:MM); default 22:30.')
       ..addOption('capacity', defaultsTo: '0.75', help: 'Share of the available time that may be planned.');
   }
@@ -833,7 +866,8 @@ class _VaultInit extends Cmd {
   _VaultInit() : super('init', 'Create a vault: myvault notes init [PATH] [--github [NAME]]') {
     argParser.addOption(
       'github',
-      help: 'Also keep it in a new private GitHub repo with this name, so an assistant in the cloud can file into it.',
+      help:
+          'Also keep it in a new private GitHub repo with this name, so an assistant in the cloud can file into it.',
     );
   }
 
@@ -874,7 +908,8 @@ class UsageCommand extends Cmd {
       if (total == 0) return 'No screen time recorded.';
       final lines = [
         '${from == to ? prettyDate(from) : '${prettyDate(from)} – ${prettyDate(to)}'}: ${formatDuration(total)}',
-        for (final e in (s['by_device'] as Map<String, int>).entries) '  ${e.key}: ${formatDuration(e.value)}',
+        for (final e in (s['by_device'] as Map<String, int>).entries)
+          '  ${e.key}: ${formatDuration(e.value)}',
         '',
       ];
       for (final a in (s['apps'] as List).cast<Map<String, Object?>>().take(15)) {
@@ -907,7 +942,10 @@ class _UsageAdd extends Cmd {
   bool get hidden => true;
 
   _UsageAdd()
-    : super('usage-add', 'Record foreground time: myvault usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'');
+    : super(
+        'usage-add',
+        'Record foreground time: myvault usage-add \'[{"app":..,"name":..,"start":ISO,"end":ISO}]\'',
+      );
 
   @override
   void run() {
@@ -981,7 +1019,11 @@ class InitCommand extends Cmd {
       ..addMultiOption('goal', help: 'A goal, for Me.md. Repeat for more.')
       ..addOption('wake', help: 'When you usually wake up, HH:MM.')
       ..addOption('sleep', help: 'When you usually go to sleep, HH:MM.')
-      ..addMultiOption('assistant', allowed: [for (final a in assistants) a.id], help: 'Connect this assistant.')
+      ..addMultiOption(
+        'assistant',
+        allowed: [for (final a in assistants) a.id],
+        help: 'Connect this assistant.',
+      )
       ..addOption('github', help: 'Keep your notes in a new private GitHub repository with this name.')
       ..addOption('server', help: 'Sync: your Supabase project URL.')
       ..addOption('key', help: 'Sync: its publishable key.')
@@ -1054,13 +1096,18 @@ class InitCommand extends Cmd {
         name ??= prompt('   What should your agents call you?');
         if (goalList.isEmpty) {
           say('   What are you working towards? One goal per line; an empty line ends.');
-          goalList = [for (String? line = prompt('   -'); line != null && line.isNotEmpty; line = prompt('   -')) line];
+          goalList = [
+            for (String? line = prompt('   -'); line != null && line.isNotEmpty; line = prompt('   -')) line,
+          ];
         }
         wake ??= prompt('   When do you usually wake up? (HH:MM)');
         sleep ??= prompt('   And go to sleep? (HH:MM)');
         say('');
       }
-      if ((name ?? '').isNotEmpty || goalList.isNotEmpty || (wake ?? '').isNotEmpty || (sleep ?? '').isNotEmpty) {
+      if ((name ?? '').isNotEmpty ||
+          goalList.isNotEmpty ||
+          (wake ?? '').isNotEmpty ||
+          (sleep ?? '').isNotEmpty) {
         fillMe(vault, name: name, goals: goalList, wake: wake, sleep: sleep);
         done.add('About you: written to Me.md. Add to it any time; agents read it first.');
       } else {
@@ -1114,7 +1161,8 @@ class InitCommand extends Cmd {
             '4. Back up your notes to a private GitHub repository? That also lets a nightly routine in the\n'
             '   cloud file your diary and plan your day while your laptop is off.',
           );
-          if (confirm('   Keep them on GitHub?', fallback: false)) repo = ask('   Repository name', 'my-vault');
+          if (confirm('   Keep them on GitHub?', fallback: false))
+            repo = ask('   Repository name', 'my-vault');
           say('');
         }
         if (repo != null) {
@@ -1219,7 +1267,10 @@ class LoginCommand extends Cmd {
     final email = opt('email') ?? prompt('Email');
     await remote.signIn(email, prompt('Password', secret: true));
     final r = await SyncEngine(store, remote).sync();
-    out({'email': email, ...r.toJson()}, () => 'Signed in as $email. Pulled ${r.pulled}, pushed ${r.pushed}.');
+    out({
+      'email': email,
+      ...r.toJson(),
+    }, () => 'Signed in as $email. Pulled ${r.pulled}, pushed ${r.pushed}.');
   }
 }
 
@@ -1287,7 +1338,10 @@ String _readAllStdin() {
 
 class CaptureCommand extends Cmd {
   CaptureCommand()
-    : super('capture', 'Put a thought in your diary, fast: myvault capture Call Ansh about fellowships tomorrow') {
+    : super(
+        'capture',
+        'Put a thought in your diary, fast: myvault capture Call Ansh about fellowships tomorrow',
+      ) {
     argParser.addOption('task', help: 'A task it is about (id or prefix).');
   }
 
@@ -1299,16 +1353,26 @@ class CaptureCommand extends Cmd {
     needArgs('what to capture');
     final body = rest.length == 1 && rest.first == '-' ? _readAllStdin() : rest.join(' ');
     if (body.trim().isEmpty) usageException('Give what to capture.');
-    final e = store.addDiary(body, taskId: opt('task') == null ? null : store.resolveId('tasks', opt('task')!));
+    final e = store.addDiary(
+      body,
+      taskId: opt('task') == null ? null : store.resolveId('tasks', opt('task')!),
+    );
     out(e.toJson(), () => 'Captured. It is filed into your notes and plans tonight.');
   }
 }
 
 class SearchCommand extends Cmd {
   SearchCommand()
-    : super('search', 'Search your notes, diary and tasks: myvault search hash maps [--in notes|diary|tasks]') {
+    : super(
+        'search',
+        'Search your notes, diary and tasks: myvault search hash maps [--in notes|diary|tasks]',
+      ) {
     argParser
-      ..addMultiOption('in', allowed: ['notes', 'diary', 'tasks'], help: 'Where to look (default: everywhere).')
+      ..addMultiOption(
+        'in',
+        allowed: ['notes', 'diary', 'tasks'],
+        help: 'Where to look (default: everywhere).',
+      )
       ..addOption('limit', abbr: 'n', defaultsTo: '20');
   }
 
@@ -1326,7 +1390,13 @@ class SearchCommand extends Cmd {
             ? 'task'
             : k,
     };
-    final hits = search(store, vaultPath(store), rest.join(' '), kinds: kinds, limit: int.parse(opt('limit')!));
+    final hits = search(
+      store,
+      vaultPath(store),
+      rest.join(' '),
+      kinds: kinds,
+      limit: int.parse(opt('limit')!),
+    );
     out([for (final h in hits) h.toJson()], () {
       if (hits.isEmpty) return 'Nothing found.';
       return [
@@ -1346,7 +1416,8 @@ class NoteCommand extends Cmd {
 }
 
 class _NoteNew extends Cmd {
-  _NoteNew() : super('new', 'Save a note: myvault note new "CS229 or Karpathy" --body "..." (or --body - for stdin)') {
+  _NoteNew()
+    : super('new', 'Save a note: myvault note new "CS229 or Karpathy" --body "..." (or --body - for stdin)') {
     argParser
       ..addOption('body', help: 'Its text; - reads standard input.')
       ..addOption('project', abbr: 'p', help: 'Put it in this project\'s folder instead of notes/.')
@@ -1385,7 +1456,10 @@ class _NoteList extends Cmd {
               if (f.path.endsWith('.md')) f.uri.pathSegments.last.replaceAll('.md', ''),
           ]..sort())
         : <String>[];
-    out(names, () => names.isEmpty ? 'No notes yet. Save one with: myvault note new TITLE' : names.join('\n'));
+    out(
+      names,
+      () => names.isEmpty ? 'No notes yet. Save one with: myvault note new TITLE' : names.join('\n'),
+    );
   }
 }
 
@@ -1431,13 +1505,19 @@ class _ProjectNew extends Cmd {
     final name = rest.join(' ');
     final base = newProject(_vault, name, what: opt('what'), repo: opt('repo'));
     final linked = opt('folder') == null ? const <String>[] : linkFolder(_vault, opt('folder')!, name);
-    out({'path': base, 'linked': linked}, () => ['Started $base (overview, log and info).', ...linked].join('\n'));
+    out({
+      'path': base,
+      'linked': linked,
+    }, () => ['Started $base (overview, log and info).', ...linked].join('\n'));
   }
 }
 
 class _ProjectLog extends Cmd {
   _ProjectLog()
-    : super('log', 'Log finished work: myvault project log Helios "Sessions and API tokens done" --ref "PR #12"') {
+    : super(
+        'log',
+        'Log finished work: myvault project log Helios "Sessions and API tokens done" --ref "PR #12"',
+      ) {
     argParser.addOption('ref', help: 'The pull request, commit or link it came from.');
   }
 
@@ -1466,7 +1546,10 @@ class _ProjectLink extends Cmd {
 
 class GoalsCommand extends Cmd {
   GoalsCommand()
-    : super('goals', 'Your goals, from Me.md: myvault goals, or add one: myvault goals add Land an ML internship');
+    : super(
+        'goals',
+        'Your goals, from Me.md: myvault goals, or add one: myvault goals add Land an ML internship',
+      );
 
   @override
   void run() {
@@ -1517,7 +1600,8 @@ class _NotesSave extends Cmd {
 }
 
 class _NotesLog extends Cmd {
-  _NotesLog() : super('log', 'Add a line to the vault\'s log.md: myvault notes log query "CS229 or Karpathy"');
+  _NotesLog()
+    : super('log', 'Add a line to the vault\'s log.md: myvault notes log query "CS229 or Karpathy"');
 
   @override
   void run() {
@@ -1567,7 +1651,9 @@ class DoctorCommand extends Cmd {
           (v['unfiled'] as int) == 0,
           'Diary',
           "${v['unfiled']} ${v['unfiled'] == 1 ? 'entry' : 'entries'} waiting to be filed",
-          fix: (v['unfiled'] as int) == 0 ? null : 'ask your agent to "file my diary", or wait for the nightly run',
+          fix: (v['unfiled'] as int) == 0
+              ? null
+              : 'ask your agent to "file my diary", or wait for the nightly run',
         ),
       );
       final m = page(v['path'] as String, 'morning');
@@ -1627,15 +1713,21 @@ String routinePrompt({String? notesRepo, String? timezone}) => [
 ].join('\n\n');
 
 class RoutineCommand extends Cmd {
-  RoutineCommand() : super('routine', 'Set up the nightly routine: prints the steps and the prompt to paste.');
+  RoutineCommand()
+    : super('routine', 'Set up the nightly routine: prints the steps and the prompt to paste.');
 
   @override
   void run() {
     final v = vaultStatus(store);
     final remote = v['remote'] as String?;
-    final notesRepo = remote == null ? null : RegExp(r'github\.com[:/](.+?)(\.git)?$').firstMatch(remote)?.group(1);
+    final notesRepo = remote == null
+        ? null
+        : RegExp(r'github\.com[:/](.+?)(\.git)?$').firstMatch(remote)?.group(1);
     final tz = Platform.environment['TZ'] ?? DateTime.now().timeZoneName;
-    final prompt = routinePrompt(notesRepo: notesRepo?.split('/').last, timezone: tz.contains('/') ? tz : null);
+    final prompt = routinePrompt(
+      notesRepo: notesRepo?.split('/').last,
+      timezone: tz.contains('/') ? tz : null,
+    );
     final syncOn = SupabaseRemote(store).signedIn;
     out(
       {'prompt': prompt, 'notes_repo': notesRepo, 'sync': syncOn},

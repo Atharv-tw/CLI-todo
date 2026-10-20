@@ -21,8 +21,11 @@ class SearchHit {
   Map<String, Object?> toJson() => {'kind': kind, 'where': where, 'line': line, 'text': text, 'score': score};
 }
 
-List<String> _terms(String query) =>
-    query.toLowerCase().split(RegExp(r'\s+')).where((t) => t.length > 1 || RegExp(r'\d').hasMatch(t)).toList();
+List<String> _terms(String query) => query
+    .toLowerCase()
+    .split(RegExp(r'\s+'))
+    .where((t) => t.length > 1 || RegExp(r'\d').hasMatch(t))
+    .toList();
 
 int _score(String text, List<String> terms) {
   final lower = text.toLowerCase();
@@ -46,7 +49,8 @@ List<SearchHit> search(Store store, String? vault, String query, {Set<String>? k
   if (want('note') && vault != null && Directory(vault).existsSync()) {
     for (final f in Directory(vault).listSync(recursive: true).whereType<File>()) {
       final rel = p.relative(f.path, from: vault).replaceAll(r'\', '/');
-      if (!rel.endsWith('.md') || rel.startsWith('raw/') || rel.split('/').any((s) => s.startsWith('.'))) continue;
+      if (!rel.endsWith('.md') || rel.startsWith('raw/') || rel.split('/').any((s) => s.startsWith('.')))
+        continue;
       final lines = f.readAsLinesSync();
       // A note scores as a whole (so a word in the title and another in the
       // body still match) and is shown by its best line.
@@ -58,13 +62,16 @@ List<SearchHit> search(Store store, String? vault, String query, {Set<String>? k
         if (s > bestScore) (best, bestScore) = (i, s);
       }
       final titleBonus = _score(rel, terms) > 0 ? 5 : 0;
-      hits.add(SearchHit('note', rel, lines.isEmpty ? '' : lines[best].trim(), whole + titleBonus, line: best + 1));
+      hits.add(
+        SearchHit('note', rel, lines.isEmpty ? '' : lines[best].trim(), whole + titleBonus, line: best + 1),
+      );
     }
   }
   if (want('diary')) {
     for (final e in store.diary(author: DiaryEntry.me)) {
       final s = _score(e.body, terms);
-      if (s > 0) hits.add(SearchHit('diary', '${e.date} ${hm(e.createdAt)}', e.body.replaceAll('\n', ' '), s));
+      if (s > 0)
+        hits.add(SearchHit('diary', '${e.date} ${hm(e.createdAt)}', e.body.replaceAll('\n', ' '), s));
     }
   }
   if (want('task')) {
@@ -89,7 +96,11 @@ String requireVault(String? path) {
 
 /// A file name that is safe on every system, keeping the title readable.
 String fileTitle(String title) {
-  final t = title.trim().replaceAll(RegExp(r'[\\/:*?"<>|#^\[\]]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final t = title
+      .trim()
+      .replaceAll(RegExp(r'[\\/:*?"<>|#^\[\]]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
   if (t.isEmpty) throw TodoException('Give a title.');
   return t;
 }
@@ -101,7 +112,9 @@ void appendLog(String vault, String op, String text) {
     f.writeAsStringSync('# Log\n\nOne line per change to the vault, oldest first, appended at the end.\n\n');
   }
   final s = f.readAsStringSync();
-  f.writeAsStringSync('${s.endsWith('\n') ? s : '$s\n'}- [${_today()}] $op | ${text.replaceAll('\n', ' ')}\n');
+  f.writeAsStringSync(
+    '${s.endsWith('\n') ? s : '$s\n'}- [${_today()}] $op | ${text.replaceAll('\n', ' ')}\n',
+  );
 }
 
 /// Adds [line] under the `## [section]` heading of the vault's `INDEX.md`
@@ -177,7 +190,8 @@ Map<String, String> _fields(String text) {
   if (m == null) return const {};
   return {
     for (final line in m.group(1)!.split('\n'))
-      if (line.contains(':')) line.split(':').first.trim(): line.split(':').skip(1).join(':').split('#').first.trim(),
+      if (line.contains(':'))
+        line.split(':').first.trim(): line.split(':').skip(1).join(':').split('#').first.trim(),
   };
 }
 
@@ -212,11 +226,18 @@ String newProject(String vault, String name, {String? what, String? repo, String
     '**Status:** started ${_today()}.\n\n'
     'Details: [[$base/info|info]]. Work log: [[$base/log|log]].\n',
   );
-  File(p.join(dir.path, 'log.md')).writeAsStringSync('# $folder: log\n\nOldest first.\n\n- ${_today()}: Started.\n');
   File(
-    p.join(dir.path, 'info.md'),
-  ).writeAsStringSync('# $folder: info\n\n- **Repo:** ${repo ?? 'none yet.'}\n- **Hosting:** none recorded.\n');
-  addToIndex(vault, 'Projects', '$base/$folder', '- [[$base/$folder|$folder]]: ${what?.trim() ?? ''}'.trimRight());
+    p.join(dir.path, 'log.md'),
+  ).writeAsStringSync('# $folder: log\n\nOldest first.\n\n- ${_today()}: Started.\n');
+  File(p.join(dir.path, 'info.md')).writeAsStringSync(
+    '# $folder: info\n\n- **Repo:** ${repo ?? 'none yet.'}\n- **Hosting:** none recorded.\n',
+  );
+  addToIndex(
+    vault,
+    'Projects',
+    '$base/$folder',
+    '- [[$base/$folder|$folder]]: ${what?.trim() ?? ''}'.trimRight(),
+  );
   appendLog(vault, 'setup', 'new project $folder ($base/)');
   return base;
 }
@@ -328,14 +349,18 @@ void addGoal(String vault, String goal) {
 ({String path, String text}) readNote(String vault, String ref) {
   final r = ref.trim().replaceAll(r'\', '/');
   if (r.toLowerCase().startsWith('raw/')) {
-    throw TodoException('raw/ is the word-for-word diary; only the filing agent reads it. See days/ instead.');
+    throw TodoException(
+      'raw/ is the word-for-word diary; only the filing agent reads it. See days/ instead.',
+    );
   }
   final direct = File(p.join(vault, r.endsWith('.md') ? r : '$r.md'));
-  if (direct.existsSync()) return (path: p.relative(direct.path, from: vault), text: direct.readAsStringSync());
+  if (direct.existsSync())
+    return (path: p.relative(direct.path, from: vault), text: direct.readAsStringSync());
   final want = p.basenameWithoutExtension(r).toLowerCase();
   for (final f in Directory(vault).listSync(recursive: true).whereType<File>()) {
     final rel = p.relative(f.path, from: vault).replaceAll(r'\', '/');
-    if (rel.startsWith('raw/') || !rel.endsWith('.md') || rel.split('/').any((s) => s.startsWith('.'))) continue;
+    if (rel.startsWith('raw/') || !rel.endsWith('.md') || rel.split('/').any((s) => s.startsWith('.')))
+      continue;
     if (p.basenameWithoutExtension(rel).toLowerCase() == want) return (path: rel, text: f.readAsStringSync());
   }
   throw TodoException('No note called "$ref". Try: myvault search $ref');
@@ -345,7 +370,8 @@ void addGoal(String vault, String goal) {
 List<String> saveVault(String vault, {String? message}) {
   ProcessResult git(List<String> args) => Process.runSync('git', ['-C', vault, ...args]);
   try {
-    if (!Directory(p.join(vault, '.git')).existsSync()) return ['The vault is not a git repository; nothing to save.'];
+    if (!Directory(p.join(vault, '.git')).existsSync())
+      return ['The vault is not a git repository; nothing to save.'];
     git(['add', '-A']);
     if ((git(['status', '--porcelain']).stdout as String).trim().isEmpty) return ['Nothing new to save.'];
     final c = git(['commit', '-q', '-m', message ?? 'Notes: ${_today()}']);
