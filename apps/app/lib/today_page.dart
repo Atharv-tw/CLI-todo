@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:todo_core/todo_core.dart';
 
+import 'diary_page.dart';
 import 'heatmap.dart';
 import 'state.dart';
 import 'task_widgets.dart';
@@ -19,6 +20,9 @@ class TodayPage extends StatefulWidget {
 class _TodayPageState extends State<TodayPage> {
   /// Null means "today", so the page rolls over at midnight on its own.
   String? _picked;
+
+  /// The + button has been opened into the diary box.
+  bool _logging = false;
 
   // Keeps the "now" marker and the date current while the page sits open.
   late final Timer _tick = Timer.periodic(const Duration(seconds: 20), (_) => setState(() {}));
@@ -46,75 +50,143 @@ class _TodayPageState extends State<TodayPage> {
     final overdue = date == now ? app.store.tasks(overdueBefore: now) : const <Task>[];
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Add task',
-        shape: const CircleBorder(),
-        onPressed: () => showTaskSheet(context, date: date),
-        child: const Icon(Icons.add),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      floatingActionButton: _logging
+          ? null
+          : FloatingActionButton(
+              key: const ValueKey('quick-log'),
+              tooltip: 'Log an entry',
+              shape: const CircleBorder(),
+              onPressed: () => setState(() => _logging = true),
+              child: const Icon(Icons.add),
+            ),
+      body: Stack(
         children: [
-          Row(
+          ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
             children: [
-              IconButton(
-                tooltip: 'Previous day',
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () => setState(() => _picked = addDays(date, -1)),
-              ),
-              Expanded(
-                child: TextButton(
-                  onPressed: date == now ? null : () => setState(() => _picked = null),
-                  child: Text(
-                    date == now ? 'Today, ${prettyDate(date)}' : '${prettyDate(date)}  ·  back to today',
-                    style: text.titleSmall?.copyWith(color: AppColors.ink),
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Previous day',
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () => setState(() => _picked = addDays(date, -1)),
                   ),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: date == now ? null : () => setState(() => _picked = null),
+                      child: Text(
+                        date == now ? 'Today, ${prettyDate(date)}' : '${prettyDate(date)}  ·  back to today',
+                        style: text.titleSmall?.copyWith(color: AppColors.ink),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Next day',
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () => setState(() => _picked = addDays(date, 1)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              _ActivityCard(selected: date, onPick: (d) => setState(() => _picked = d == now ? null : d)),
+              const SizedBox(height: 12),
+              _NowCard(date: date, items: items, tasks: tasks, overdue: overdue.length),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 24, 4, 4),
+                child: Text(
+                  date == now ? "Today's timeline" : 'Timeline',
+                  style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              IconButton(
-                tooltip: 'Next day',
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () => setState(() => _picked = addDays(date, 1)),
-              ),
+              if (items.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text('Nothing scheduled', style: TextStyle(color: AppColors.muted)),
+                  ),
+                ),
+              for (final (index, i) in items.indexed)
+                TimelineRow(
+                  item: i,
+                  date: date,
+                  first: index == 0,
+                  last: index == items.length - 1,
+                  task: tasks[i['id']],
+                ),
+              if (overdue.isNotEmpty)
+                ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                  shape: const Border(),
+                  title: Text(
+                    '${overdue.length} overdue',
+                    style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w600),
+                  ),
+                  children: [
+                    for (final t in overdue) ...[TaskTile(t, showDate: true), const SizedBox(height: 8)],
+                  ],
+                ),
             ],
           ),
-          const SizedBox(height: 4),
-          _ActivityCard(selected: date, onPick: (d) => setState(() => _picked = d == now ? null : d)),
-          const SizedBox(height: 12),
-          _NowCard(date: date, items: items, tasks: tasks, overdue: overdue.length),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 24, 4, 4),
-            child: Text(
-              date == now ? "Today's timeline" : 'Timeline',
-              style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: Text('Nothing scheduled', style: TextStyle(color: AppColors.muted))),
-            ),
-          for (final (index, i) in items.indexed)
-            TimelineRow(
-              item: i,
-              date: date,
-              first: index == 0,
-              last: index == items.length - 1,
-              task: tasks[i['id']],
-            ),
-          if (overdue.isNotEmpty)
-            ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              shape: const Border(),
-              title: Text(
-                '${overdue.length} overdue',
-                style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w600),
+          if (_logging)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _QuickLog(
+                onClose: () => setState(() => _logging = false),
+                onSaved: () {
+                  setState(() => _logging = false);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved to the diary')));
+                },
+                onAddTask: () {
+                  setState(() => _logging = false);
+                  showTaskSheet(context, date: date);
+                },
               ),
-              children: [
-                for (final t in overdue) ...[TaskTile(t, showDate: true), const SizedBox(height: 8)],
-              ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The + button opened up: a diary box right on the page, to log whatever
+/// is on your mind without leaving it. A task can still be added from here.
+class _QuickLog extends StatelessWidget {
+  const _QuickLog({required this.onClose, required this.onSaved, required this.onAddTask});
+
+  final VoidCallback onClose;
+  final VoidCallback onSaved;
+  final VoidCallback onAddTask;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      key: const ValueKey('quick-log-bar'),
+      elevation: 6,
+      color: AppColors.raised,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(cardRadius)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text('Log an entry', style: text.titleSmall)),
+                TextButton(
+                  key: const ValueKey('quick-log-task'),
+                  onPressed: onAddTask,
+                  child: const Text('Add a task instead'),
+                ),
+                IconButton(tooltip: 'Close', icon: const Icon(Icons.close_rounded), onPressed: onClose),
+              ],
+            ),
+            DiaryComposer(autofocus: true, onSaved: onSaved),
+          ],
+        ),
       ),
     );
   }
@@ -224,10 +296,10 @@ class _NowCard extends StatelessWidget {
       title = total == 0
           ? 'Nothing scheduled'
           : done == total
-              ? 'All done'
-              : onToday
-                  ? 'Nothing on right now'
-                  : '${total - done} left undone';
+          ? 'All done'
+          : onToday
+          ? 'Nothing on right now'
+          : '${total - done} left undone';
     }
     final details = [?task?.tag, ?task?.list].join(' · ');
 
@@ -313,15 +385,17 @@ class _NowCard extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text.rich(
-                          TextSpan(children: [
-                            if (details.isNotEmpty) TextSpan(text: details),
-                            if (details.isNotEmpty && overdue > 0) const TextSpan(text: '  ·  '),
-                            if (overdue > 0)
-                              TextSpan(
-                                text: '$overdue overdue',
-                                style: const TextStyle(color: Color(0xFFB3261E), fontWeight: FontWeight.w600),
-                              ),
-                          ]),
+                          TextSpan(
+                            children: [
+                              if (details.isNotEmpty) TextSpan(text: details),
+                              if (details.isNotEmpty && overdue > 0) const TextSpan(text: '  ·  '),
+                              if (overdue > 0)
+                                TextSpan(
+                                  text: '$overdue overdue',
+                                  style: const TextStyle(color: Color(0xFFB3261E), fontWeight: FontWeight.w600),
+                                ),
+                            ],
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: text.bodySmall?.copyWith(color: dark.withValues(alpha: 0.6)),
