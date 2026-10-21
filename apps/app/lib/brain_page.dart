@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:vault_core/vault_core.dart';
 
 import 'brain_icon.dart';
+import 'diary_page.dart';
 import 'markdown_view.dart';
 import 'state.dart';
 import 'theme.dart';
@@ -111,7 +112,7 @@ Future<void> openPage(BuildContext context, VaultPage page) => Navigator.push(
                 constraints: const BoxConstraints(maxWidth: 760),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  child: MarkdownView(page.body),
+                  child: _Answerable(page.body),
                 ),
               ),
             ),
@@ -311,6 +312,117 @@ class _ConnectCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Sections of a morning or weekly page that ask you something.
+final _asks = RegExp(r'^##\s+(open questions|waiting for (your|my) yes)', caseSensitive: false);
+
+/// A page, with a + beside each section that asks you something: pick the
+/// item and answer it, and the answer goes into the diary with the question.
+class _Answerable extends StatelessWidget {
+  const _Answerable(this.body);
+
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    // Split at the section headings, keeping each heading with its section.
+    final sections = <List<String>>[[]];
+    for (final line in body.split('\n')) {
+      if (line.startsWith('## ')) sections.add([]);
+      sections.last.add(line);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final lines in sections)
+          if (lines.isNotEmpty && _asks.hasMatch(lines.first))
+            _AskSection(heading: lines.first.substring(3).trim(), lines: lines.skip(1).toList())
+          else if (lines.any((l) => l.trim().isNotEmpty))
+            MarkdownView(lines.join('\n')),
+      ],
+    );
+  }
+}
+
+class _AskSection extends StatelessWidget {
+  const _AskSection({required this.heading, required this.lines});
+
+  final String heading;
+  final List<String> lines;
+
+  /// The section's items, as plain text.
+  List<String> get items => [
+    for (final l in lines)
+      if (RegExp(r'^\s*([-*]|\d+\.)\s+').hasMatch(l))
+        l.replaceFirst(RegExp(r'^\s*([-*]|\d+\.)\s+'), '').replaceAll('**', '').replaceAll('`', '').trim(),
+  ];
+
+  Future<void> _answer(BuildContext context) async {
+    final options = items;
+    var question = options.length == 1 ? options.first : null;
+    if (options.isEmpty) question = heading;
+    question ??= await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                child: Text(
+                  'Which one are you answering?',
+                  style: Theme.of(sheet).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              for (final (i, o) in options.indexed)
+                Card(
+                  child: ListTile(
+                    key: ValueKey('answer-item-$i'),
+                    title: Text(o),
+                    trailing: const Icon(Icons.reply_rounded, color: AppColors.orange),
+                    onTap: () => Navigator.pop(sheet, o),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (question == null || !context.mounted) return;
+    await showQuickLog(context, replyTo: question);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Row(
+            children: [
+              Expanded(child: Text(heading, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+              IconButton.filledTonal(
+                key: ValueKey<String>('answer-${heading.toLowerCase()}'),
+                tooltip: 'Answer',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.add_rounded),
+                onPressed: () => _answer(context),
+              ),
+            ],
+          ),
+        ),
+        MarkdownView(lines.join('\n')),
+      ],
     );
   }
 }

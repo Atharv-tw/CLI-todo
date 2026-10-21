@@ -38,6 +38,7 @@ class DiaryComposer extends StatefulWidget {
     this.taskId,
     this.habitId,
     this.about,
+    this.replyTo,
     this.listen = false,
     this.autofocus = false,
     this.onSaved,
@@ -48,6 +49,10 @@ class DiaryComposer extends StatefulWidget {
 
   /// Title of the task or habit the entry is about, shown above the box.
   final String? about;
+
+  /// A question from the morning page this entry answers. It is quoted in
+  /// the entry, so the nightly agent knows what the answer is to.
+  final String? replyTo;
   final bool listen;
   final bool autofocus;
   final VoidCallback? onSaved;
@@ -133,8 +138,9 @@ class _DiaryComposerState extends State<DiaryComposer> {
 
   Future<void> _save() async {
     await _dictation?.stop();
-    final body = _text.text.trim();
-    if (body.isEmpty || !mounted) return;
+    final words = _text.text.trim();
+    if (words.isEmpty || !mounted) return;
+    final body = widget.replyTo == null ? words : 'Answer to "${widget.replyTo}": $words';
     AppScope.of(context).change((s) => s.addDiary(body, taskId: widget.taskId, habitId: widget.habitId));
     _text.clear();
     _draft.begin('');
@@ -160,6 +166,17 @@ class _DiaryComposerState extends State<DiaryComposer> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: text.labelLarge?.copyWith(color: AppColors.lavender, fontWeight: FontWeight.w700),
+          ),
+        if (widget.replyTo != null)
+          Container(
+            key: const ValueKey('diary-reply-to'),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            decoration: BoxDecoration(
+              color: AppColors.raised,
+              borderRadius: BorderRadius.circular(12),
+              border: const Border(left: BorderSide(color: AppColors.orange, width: 3)),
+            ),
+            child: Text(widget.replyTo!, maxLines: 4, overflow: TextOverflow.ellipsis, style: text.bodyMedium),
           ),
         if (dictation?.problem case final problem?)
           Text(problem, style: text.bodySmall?.copyWith(color: AppColors.red))
@@ -329,7 +346,7 @@ class DiaryEntryCard extends StatelessWidget {
 
 /// Opens the diary box from anywhere (the + in the middle of the bar): write
 /// or say anything; a task can be added from here instead.
-Future<void> showQuickLog(BuildContext context, {String? date}) => showModalBottomSheet<void>(
+Future<void> showQuickLog(BuildContext context, {String? date, String? replyTo}) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
@@ -346,10 +363,11 @@ Future<void> showQuickLog(BuildContext context, {String? date}) => showModalBott
             children: [
               Expanded(
                 child: Text(
-                  'What is on your mind?',
+                  replyTo == null ? 'What is on your mind?' : 'Your answer',
                   style: Theme.of(sheet).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
+              if (replyTo == null)
               TextButton.icon(
                 key: const ValueKey('quick-log-task'),
                 icon: const Icon(Icons.add_task_rounded, size: 18),
@@ -364,13 +382,16 @@ Future<void> showQuickLog(BuildContext context, {String? date}) => showModalBott
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
-              'Anything: what you did, what you have to do, an idea, how it went. '
-              'Tonight it is filed into your notes and your plan.',
+              replyTo == null
+                  ? 'Anything: what you did, what you have to do, an idea, how it went. '
+                        'Tonight it is filed into your notes and your plan.'
+                  : 'It goes into your diary with the question, and tonight your plan follows it.',
               style: Theme.of(sheet).textTheme.bodySmall?.copyWith(color: AppColors.muted),
             ),
           ),
           DiaryComposer(
             autofocus: true,
+            replyTo: replyTo,
             onSaved: () {
               Navigator.pop(sheet);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved to the diary')));
