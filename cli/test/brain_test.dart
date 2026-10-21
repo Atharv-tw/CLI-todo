@@ -130,18 +130,4 @@ void main() {
     expect(store.page('me')!.body, contains('Call me Sam.'));
     expect(isoWeek(DateTime(2026, 10, 21)), '2026-W43');
   });
-
-  test('goals and projects added on the phone are filed into the vault, once', () {
-    newProject(vault, 'Helios', what: 'Security scanning');
-    store.addRequest('goal', {'text': 'Run a half marathon'});
-    store.addRequest('project', {'text': 'Robo', 'what': 'A robot arm'});
-    store.addRequest('project', {'text': 'helios'});
-    store.addRequest('someday', {'text': 'From a newer app'});
-    expect(fileRequests(store, vault), 3);
-    expect(goals(vault).single, startsWith('Run a half marathon'));
-    expect(listProjects(vault).map((x) => x.name), unorderedEquals(['Helios', 'Robo']));
-    expect(File(p.join(vault, 'projects', 'Robo', 'Robo.md')).readAsStringSync(), contains('A robot arm'));
-    expect(store.requests().single.title, 'someday');
-    expect(fileRequests(store, vault), 0);
-  });
 }

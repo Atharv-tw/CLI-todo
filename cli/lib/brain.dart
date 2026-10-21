@@ -456,33 +456,6 @@ String? _heading(String text) => RegExp(r'^# (.+)$', multiLine: true).firstMatch
 /// Copies what a device without the vault shows of it (the newest morning
 /// and weekly pages, the goals, the projects) into the synced pages, so the
 /// phone has them after the next sync. Returns how many pages changed.
-/// Files what the phone asked for, since it cannot write the vault: goals
-/// into `Me.md`, new projects into `projects/`. A request is removed once
-/// filed; one already in the vault is just removed. Returns how many.
-int fileRequests(Store store, String vault) {
-  var filed = 0;
-  for (final r in store.requests()) {
-    final data = (jsonDecode(r.body) as Map).cast<String, Object?>();
-    final text = (data['text'] as String? ?? '').trim();
-    switch (r.title) {
-      case 'goal':
-        final known = goals(vault).map((g) => g.toLowerCase());
-        if (text.isNotEmpty && !known.any((g) => g.startsWith(text.toLowerCase()))) addGoal(vault, text);
-      case 'project':
-        final known = listProjects(vault).map((x) => x.name.toLowerCase());
-        if (text.isNotEmpty && !known.contains(fileTitle(text).toLowerCase())) {
-          final what = (data['what'] as String?)?.trim();
-          newProject(vault, text, what: what == null || what.isEmpty ? null : what);
-        }
-      default:
-        continue; // from a newer app; leave it for a newer myvault
-    }
-    store.deletePage(r.id);
-    filed++;
-  }
-  return filed;
-}
-
 int publishPages(Store store, String vault) {
   var changed = 0;
   for (final kind in ['morning', 'weekly']) {

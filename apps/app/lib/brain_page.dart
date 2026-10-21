@@ -22,11 +22,7 @@ class BrainPage extends StatelessWidget {
     final weekly = store.page('weekly');
     final goals = store.page('goals')?.body.split('\n').where((g) => g.trim().isNotEmpty).toList() ?? const [];
     final projects = _projects(store.page('projects'));
-    // Added here, not yet filed into the vault by the laptop.
-    final waiting = store.requests();
-    final newGoals = [for (final r in waiting) if (r.title == 'goal') r];
-    final newProjects = [for (final r in waiting) if (r.title == 'project') r];
-    final nothing = morning == null && weekly == null && goals.isEmpty && projects.isEmpty && waiting.isEmpty;
+    final nothing = morning == null && weekly == null && goals.isEmpty && projects.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
@@ -39,80 +35,43 @@ class BrainPage extends StatelessWidget {
             page: morning,
             color: AppColors.cream,
           ),
-        _Heading(
-          'Goals',
-          addKey: 'brain-add-goal',
-          onAdd: () => _add(context, goal: true, taken: [for (final g in goals) _withoutDate(g)]),
-        ),
-        Card(
-          key: const ValueKey('brain-goals'),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (goals.isEmpty && newGoals.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      'No goals yet. Add what you are working towards; your agents plan around it.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+        if (goals.isNotEmpty) ...[
+          const _Heading('Goals'),
+          Card(
+            key: const ValueKey('brain-goals'),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final g in goals)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 10,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Icons.flag_rounded, size: 18, color: AppColors.orange),
+                          ),
+                          Expanded(child: Text(_withoutDate(g), style: Theme.of(context).textTheme.bodyLarge)),
+                        ],
+                      ),
                     ),
-                  ),
-                for (final g in goals)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 10,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(Icons.flag_rounded, size: 18, color: AppColors.orange),
-                        ),
-                        Expanded(child: Text(_withoutDate(g), style: Theme.of(context).textTheme.bodyLarge)),
-                      ],
-                    ),
-                  ),
-                for (final r in newGoals) _Waiting(r, title: _text(r)),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+        ],
         if (weekly != null) ...[
           const _Heading('This week'),
           _PageCard(key: const ValueKey('brain-weekly'), label: weekly.title ?? weekly.key, page: weekly),
         ],
-        _Heading(
-          'Projects',
-          trailing: projects.isEmpty ? null : '${projects.length}',
-          addKey: 'brain-add-project',
-          onAdd: () => _add(
-            context,
-            goal: false,
-            taken: [for (final p in projects) p['name'] as String? ?? '', for (final r in newProjects) _text(r)],
-          ),
-        ),
-        for (final r in newProjects) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-              child: _Waiting(r, title: _text(r), detail: _what(r)),
-            ),
-          ),
-          const SizedBox(height: 8),
+        if (projects.isNotEmpty) ...[
+          _Heading('Projects', trailing: '${projects.length}'),
+          for (final p in projects) ...[_ProjectTile(p), const SizedBox(height: 8)],
         ],
-        if (projects.isEmpty && newProjects.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'No projects yet. Start one; it gets its own notes and a work log your agents keep.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
-              ),
-            ),
-          ),
-        for (final p in projects) ...[_ProjectTile(p), const SizedBox(height: 8)],
         if (store.pages('morning').length > 1) ...[
           const _Heading('Earlier mornings'),
           for (final m in store.pages('morning').skip(1))
@@ -127,31 +86,6 @@ class BrainPage extends StatelessWidget {
       ],
     );
   }
-}
-
-String _text(VaultPage request) => _field(request, 'text') ?? '';
-String? _what(VaultPage request) => _field(request, 'what');
-String? _field(VaultPage request, String name) {
-  try {
-    return (jsonDecode(request.body) as Map)[name] as String?;
-  } on FormatException {
-    return null;
-  }
-}
-
-/// Asks for a goal or a project, and leaves it for the laptop to file into
-/// the vault, which the phone cannot write.
-Future<void> _add(BuildContext context, {required bool goal, required List<String> taken}) async {
-  final app = AppScope.of(context);
-  final added = await showModalBottomSheet<(String, String)>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) => _AddSheet(goal: goal, taken: taken),
-  );
-  if (added == null) return;
-  final (text, what) = added;
-  app.change((s) => s.addRequest(goal ? 'goal' : 'project', {'text': text, if (what.isNotEmpty) 'what': what}));
 }
 
 String _withoutDate(String goal) => goal.replaceFirst(RegExp(r'\s*\(\d{4}-\d{2}-\d{2}\)\.?$'), '');
@@ -187,12 +121,10 @@ Future<void> openPage(BuildContext context, VaultPage page) => Navigator.push(
     );
 
 class _Heading extends StatelessWidget {
-  const _Heading(this.text, {this.trailing, this.onAdd, this.addKey});
+  const _Heading(this.text, {this.trailing});
 
   final String text;
   final String? trailing;
-  final VoidCallback? onAdd;
-  final String? addKey;
 
   @override
   Widget build(BuildContext context) {
@@ -203,16 +135,6 @@ class _Heading extends StatelessWidget {
         children: [
           Expanded(child: Text(text, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w700))),
           if (trailing != null) Text(trailing!, style: t.labelLarge?.copyWith(color: AppColors.muted)),
-          if (onAdd != null) ...[
-            const SizedBox(width: 8),
-            IconButton.filledTonal(
-              key: addKey == null ? null : ValueKey<String>(addKey!),
-              tooltip: 'Add ${text.toLowerCase().replaceFirst(RegExp(r's$'), '')}',
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.add_rounded),
-              onPressed: onAdd,
-            ),
-          ],
         ],
       ),
     );
@@ -388,132 +310,6 @@ class _ConnectCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// A goal or project added here that the laptop has not filed yet. It can
-/// still be taken back.
-class _Waiting extends StatelessWidget {
-  const _Waiting(this.request, {required this.title, this.detail});
-
-  final VaultPage request;
-  final String title;
-  final String? detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Row(
-      key: ValueKey('waiting-${request.id}'),
-      spacing: 10,
-      children: [
-        const Icon(Icons.schedule_rounded, size: 18, color: AppColors.muted),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 2,
-            children: [
-              Text(title, style: t.bodyLarge),
-              if (detail != null && detail!.isNotEmpty)
-                Text(detail!, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(color: AppColors.muted)),
-              Text(
-                'Goes into your notes when your laptop syncs',
-                style: t.labelSmall?.copyWith(color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-        IconButton(
-          key: ValueKey('waiting-${request.id}-remove'),
-          tooltip: 'Take back',
-          icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.muted),
-          onPressed: () => AppScope.of(context).change((s) => s.deletePage(request.id)),
-        ),
-      ],
-    );
-  }
-}
-
-/// The sheet for a new goal (one line) or project (a name and what it is).
-class _AddSheet extends StatefulWidget {
-  const _AddSheet({required this.goal, required this.taken});
-
-  final bool goal;
-  final List<String> taken;
-
-  @override
-  State<_AddSheet> createState() => _AddSheetState();
-}
-
-class _AddSheetState extends State<_AddSheet> {
-  final _text = TextEditingController();
-  final _what = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _text.dispose();
-    _what.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final text = _text.text.trim();
-    if (text.isEmpty) return setState(() => _error = widget.goal ? 'Write the goal.' : 'Give it a name.');
-    if (widget.taken.any((x) => x.toLowerCase() == text.toLowerCase())) {
-      return setState(() => _error = widget.goal ? 'That goal is already there.' : 'There is a project by that name.');
-    }
-    Navigator.pop(context, (text, _what.text.trim()));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 12,
-        children: [
-          Text(widget.goal ? 'A new goal' : 'A new project', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          Text(
-            widget.goal
-                ? 'Something you are working towards. It goes into Me.md, and your agents plan around it.'
-                : 'It gets its own folder in your notes, with an overview and a work log your agents keep.',
-            style: t.bodyMedium?.copyWith(color: AppColors.muted),
-          ),
-          TextField(
-            key: ValueKey(widget.goal ? 'goal-text' : 'project-name'),
-            controller: _text,
-            autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: widget.goal ? TextInputAction.done : TextInputAction.next,
-            onSubmitted: widget.goal ? (_) => _save() : null,
-            decoration: InputDecoration(
-              labelText: widget.goal ? 'Goal' : 'Name',
-              hintText: widget.goal ? 'Land an ML internship by March' : 'Helios',
-              errorText: _error,
-            ),
-          ),
-          if (!widget.goal)
-            TextField(
-              key: const ValueKey('project-what'),
-              controller: _what,
-              textCapitalization: TextCapitalization.sentences,
-              minLines: 1,
-              maxLines: 3,
-              onSubmitted: (_) => _save(),
-              decoration: const InputDecoration(labelText: 'What it is (optional)', hintText: 'Security scanning that ships fixes'),
-            ),
-          FilledButton(
-            key: ValueKey(widget.goal ? 'goal-save' : 'project-save'),
-            onPressed: _save,
-            child: Text(widget.goal ? 'Add goal' : 'Start project'),
-          ),
-        ],
       ),
     );
   }
