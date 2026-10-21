@@ -431,12 +431,8 @@ final _tools = <_Tool>[
     'list_projects',
     'The user\'s projects in their vault, most recently updated first, each with its status and what it is.',
     {},
-    (store, a) {
-      final vault = requireVault(vaultPath(store));
-      fileRequests(store, vault); // projects started on the phone
-      return {
-        'projects': [for (final x in listProjects(vault)) x.toJson()],
-      };
+    (store, a) => {
+      'projects': [for (final x in listProjects(requireVault(vaultPath(store)))) x.toJson()],
     },
   ),
   _Tool(
@@ -463,11 +459,7 @@ final _tools = <_Tool>[
     'list_goals',
     'The user\'s goals, from Me.md in their vault. Tie plans and suggestions to these.',
     {},
-    (store, a) {
-      final vault = requireVault(vaultPath(store));
-      fileRequests(store, vault); // goals added on the phone
-      return {'goals': goals(vault)};
-    },
+    (store, a) => {'goals': goals(requireVault(vaultPath(store)))},
   ),
   _Tool(
     'morning_page',
