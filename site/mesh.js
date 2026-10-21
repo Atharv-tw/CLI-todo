@@ -13,12 +13,16 @@
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const pick = (list, r = Math.random) => list[Math.floor(r() * list.length)];
 
+  // Two colours only: white for what you know, orange for what is moving.
+  const WHITE = '244,241,234';
+  const ORANGE = '242,84,27';
+  const TAU = Math.PI * 2;
   const KINDS = {
-    note: { rgb: '237,230,214', size: 4.2 },
-    day: { rgb: '255,154,110', size: 5 },
-    person: { rgb: '142,155,239', size: 6 },
-    learning: { rgb: '111,217,67', size: 5 },
-    project: { rgb: '242,84,27', size: 9 },
+    note: { rgb: WHITE, size: 4.2 },
+    day: { rgb: ORANGE, size: 4.6 },
+    person: { rgb: WHITE, size: 5.6 },
+    learning: { rgb: WHITE, size: 4.8 },
+    project: { rgb: ORANGE, size: 8 },
   };
   const kindAt = () => {
     const r = rnd();
@@ -200,29 +204,19 @@
 
   // The agents, circling it.
   const agents = [
-    { name: 'Claude Code', rgb: '242,84,27', verbs: ['read', 'logged work to', 'searched'] },
-    { name: 'Nightly routine', rgb: '142,155,239', verbs: ['filed into', 'planned from', 'updated'] },
-    { name: 'Codex', rgb: '111,217,67', verbs: ['read', 'searched'] },
-    { name: 'Your phone', rgb: '237,230,214', verbs: ['synced'] },
-    { name: 'Any MCP agent', rgb: '255,154,110', verbs: ['read', 'searched'] },
+    { name: 'Claude Code', rgb: ORANGE, verbs: ['read', 'logged work to', 'searched'] },
+    { name: 'Nightly routine', rgb: ORANGE, verbs: ['filed into', 'planned from', 'updated'] },
+    { name: 'Codex', rgb: WHITE, verbs: ['read', 'searched'] },
+    { name: 'Your phone', rgb: WHITE, verbs: ['synced'] },
+    { name: 'Any MCP agent', rgb: WHITE, verbs: ['read', 'searched'] },
   ].map((a, i) => ({ ...a, phase: (i / 5) * Math.PI * 2, lift: [0.18, -0.12, 0.3, -0.26, 0.04][i], px: 0, py: 0, pz: 0, ps: 1 }));
   const ORBIT = 1.38;
 
-  // A soft dot per colour, drawn once.
-  const sprites = {};
-  const sprite = (rgb) => {
-    if (sprites[rgb]) return sprites[rgb];
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    const g = c.getContext('2d');
-    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, `rgba(${rgb},1)`);
-    grad.addColorStop(0.16, `rgba(${rgb},0.95)`);
-    grad.addColorStop(0.32, `rgba(${rgb},0.32)`);
-    grad.addColorStop(1, `rgba(${rgb},0)`);
-    g.fillStyle = grad;
-    g.fillRect(0, 0, 64, 64);
-    return (sprites[rgb] = c);
+  const disc = (x, y, r) => {
+    if (!(r > 0)) return;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
   };
 
   let W = 0;
@@ -357,7 +351,6 @@
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'lighter';
 
     // The orbit.
     if (built > 0) {
@@ -386,10 +379,10 @@
       near[k].moveTo(A.px, A.py);
       near[k].lineTo(B.px, B.py);
     }
-    const linkAlpha = [0.05, 0.09, 0.15, 0.24];
+    const linkAlpha = [0.04, 0.07, 0.11, 0.18];
     ctx.lineWidth = 0.8;
     for (let k = 0; k < 4; k++) {
-      ctx.strokeStyle = `rgba(190,180,255,${linkAlpha[k] * built})`;
+      ctx.strokeStyle = `rgba(${WHITE},${linkAlpha[k] * built})`;
       ctx.stroke(near[k]);
     }
     const across = new Path2D();
@@ -397,7 +390,7 @@
       across.moveTo(nodes[a].px, nodes[a].py);
       across.lineTo(nodes[b].px, nodes[b].py);
     }
-    ctx.strokeStyle = `rgba(242,110,60,${0.06 * built})`;
+    ctx.strokeStyle = `rgba(${ORANGE},${0.1 * built})`;
     ctx.stroke(across);
 
     // The points.
@@ -405,13 +398,21 @@
     for (const n of nodes) {
       const kind = KINDS[n.kind];
       const depth = Math.min(1, Math.max(0.16, 0.62 - n.pz * 0.5));
-      const size = kind.size * unit * n.ps * 2.2;
+      // While flying in, points can pass the camera: skip them, and cap the
+      // ones close to it.
+      if (n.ps <= 0) continue;
+      const r = Math.min(kind.size * unit * n.ps * 0.3, kind.size * unit * 0.8);
       ctx.globalAlpha = depth * (0.35 + 0.65 * n.p);
-      ctx.drawImage(sprite(kind.rgb), n.px - size / 2, n.py - size / 2, size, size);
+      ctx.fillStyle = `rgb(${n.flash > 0.3 ? ORANGE : kind.rgb})`;
+      disc(n.px, n.py, r);
       if (n.flash > 0) {
-        const big = size * (1.6 + n.flash * 1.8);
-        ctx.globalAlpha = n.flash * 0.7;
-        ctx.drawImage(sprite(kind.rgb), n.px - big / 2, n.py - big / 2, big, big);
+        // Reached: a ring that widens and fades.
+        ctx.globalAlpha = n.flash * 0.8;
+        ctx.strokeStyle = `rgb(${ORANGE})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(n.px, n.py, r + 1 + (1 - n.flash) * 10 * unit, 0, TAU);
+        ctx.stroke();
       }
     }
 
@@ -433,46 +434,32 @@
       const to = nodes[s.path[s.leg + 1]];
       const hx = from.px + (to.px - from.px) * s.t;
       const hy = from.py + (to.py - from.py) * s.t;
-      if (s.leg < 0) {
-        const beam = ctx.createLinearGradient(from.px, from.py, hx, hy);
-        beam.addColorStop(0, `rgba(${s.agent.rgb},0)`);
-        beam.addColorStop(1, `rgba(${s.agent.rgb},0.55)`);
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = beam;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(from.px, from.py);
-        ctx.lineTo(hx, hy);
-        ctx.stroke();
-      } else {
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = `rgba(${s.agent.rgb},0.7)`;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(from.px, from.py);
-        ctx.lineTo(hx, hy);
-        ctx.stroke();
-      }
-      const size = 16 * unit;
+      ctx.globalAlpha = s.leg < 0 ? 0.45 : 0.7;
+      ctx.strokeStyle = `rgb(${ORANGE})`;
+      ctx.lineWidth = s.leg < 0 ? 1 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(from.px, from.py);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
       ctx.globalAlpha = 1;
-      ctx.drawImage(sprite(s.agent.rgb), hx - size / 2, hy - size / 2, size, size);
+      ctx.fillStyle = `rgb(${ORANGE})`;
+      disc(hx, hy, 2.4 * unit);
     }
 
     // The agents themselves.
     for (const a of agents) {
       const depth = Math.min(1, Math.max(0.3, 0.75 - a.pz * 0.4));
-      const size = 30 * unit * a.ps;
       ctx.globalAlpha = depth * built;
-      ctx.drawImage(sprite(a.rgb), a.px - size / 2, a.py - size / 2, size, size);
-      ctx.strokeStyle = `rgba(${a.rgb},0.9)`;
+      ctx.fillStyle = '#0b0b0d';
+      disc(a.px, a.py, 7 * unit * a.ps);
+      ctx.strokeStyle = `rgb(${a.rgb})`;
       ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(a.px, a.py, 7 * unit * a.ps, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.fillStyle = `rgb(${a.rgb})`;
+      disc(a.px, a.py, 2.6 * unit * a.ps);
     }
 
     // Names: the notes facing you, and every agent.
-    ctx.globalCompositeOperation = 'source-over';
     ctx.textBaseline = 'middle';
     const small = Math.max(10, Math.min(12, R / 17));
     ctx.font = `500 ${small}px ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, monospace`;
@@ -481,7 +468,7 @@
       const a = Math.min(0.85, Math.max(0, (-n.pz - 0.05) * 1.8)) * n.p + n.flash * 0.5;
       if (a <= 0.02) continue;
       ctx.globalAlpha = Math.min(1, a);
-      ctx.fillStyle = n.flash > 0.3 ? `rgb(${KINDS[n.kind].rgb})` : '#d9d4ca';
+      ctx.fillStyle = n.flash > 0.3 ? `rgb(${ORANGE})` : '#d9d4ca';
       // Names on the right read leftwards, so none runs off the edge.
       const right = n.px > W * 0.6;
       ctx.textAlign = right ? 'right' : 'left';

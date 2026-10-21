@@ -58,15 +58,6 @@
     steps.forEach((s) => s.classList.toggle('on', s === step));
   }, { rootMargin: '-45% 0px -45% 0px' });
 
-  // A soft light follows the pointer over cards.
-  for (const el of document.querySelectorAll('.spot')) {
-    el.addEventListener('pointermove', (e) => {
-      const box = el.getBoundingClientRect();
-      el.style.setProperty('--mx', `${e.clientX - box.left}px`);
-      el.style.setProperty('--my', `${e.clientY - box.top}px`);
-    });
-  }
-
   // Scroll: the bar at the top, the header, and the laptop tilting upright.
   const root = document.documentElement;
   const header = document.querySelector('.top');
