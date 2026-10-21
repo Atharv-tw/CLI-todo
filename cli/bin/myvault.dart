@@ -1311,14 +1311,27 @@ class SyncCommand extends Cmd {
 
   @override
   Future<void> run() async {
-    // The phone cannot read the vault, so what it shows of it travels as pages.
+    // The phone cannot read the vault, so what it shows of it travels as
+    // pages, and what it adds to it (goals, projects) travels as requests.
     final vault = vaultPath(store);
-    if (vault != null && Directory(vault).existsSync()) publishPages(store, vault);
-    final r = await SyncEngine(store, SupabaseRemote(store)).sync();
+    final hasVault = vault != null && Directory(vault).existsSync();
+    if (hasVault) publishPages(store, vault);
+    final engine = SyncEngine(store, SupabaseRemote(store));
+    var r = await engine.sync();
+    var filed = 0;
+    if (hasVault) {
+      filed = fileRequests(store, vault);
+      if (filed > 0) {
+        publishPages(store, vault);
+        final again = await engine.sync();
+        r = SyncResult(r.pulled + again.pulled, r.pushed + again.pushed, r.missing, r.missingColumns);
+      }
+    }
     out(
-      r.toJson(),
+      {...r.toJson(), 'filed': filed},
       () =>
           'Pulled ${r.pulled}, pushed ${r.pushed}.'
+          '${filed == 0 ? '' : '\nFiled $filed from the phone into your notes (goals, projects).'}'
           '${r.missing.isEmpty ? '' : '\nNot synced, the server has no table for: ${r.missing.join(', ')}. '
                     'Run the latest supabase/schema.sql.'}'
           '${r.missingColumns.isEmpty ? '' : '\nThe server is missing ${[for (final e in r.missingColumns.entries) ...e.value.map((c) => '${e.key}.$c')].join(', ')}; '
@@ -1482,6 +1495,7 @@ class _ProjectList extends Cmd {
 
   @override
   void run() {
+    fileRequests(store, _vault); // projects started on the phone
     final ps = listProjects(_vault);
     out([for (final x in ps) x.toJson()], () {
       if (ps.isEmpty) return 'No projects yet. Start one with: myvault project new NAME';
@@ -1564,6 +1578,7 @@ class GoalsCommand extends Cmd {
       out({'added': rest.skip(1).join(' ')}, () => 'Added to Me.md.');
       return;
     }
+    fileRequests(store, _vault); // goals added on the phone
     final gs = goals(_vault);
     out(
       gs,

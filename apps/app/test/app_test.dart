@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vault_app/brain_page.dart';
 import 'package:vault_app/diary_page.dart';
 import 'package:vault_app/main.dart';
 import 'package:vault_app/reminder_page.dart';
@@ -606,6 +607,44 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('profile-info')));
     await tester.pumpAndSettle();
     expect(find.text('Ship Helios', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('Brain adds goals and projects for the laptop to file, and can take them back', (tester) async {
+    state.store.putPage('goals', 'all', 'Ship Helios (2026-10-20).');
+    await pump(tester, const Size(390, 800), page: 'Brain');
+    await tester.pumpAndSettle();
+    Finder brainList() => find.descendant(of: find.byType(BrainPage), matching: find.byType(Scrollable)).first;
+
+    await tester.tap(find.byKey(const ValueKey('brain-add-goal')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('goal-text')), 'ship helios');
+    await tester.tap(find.byKey(const ValueKey('goal-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('That goal is already there.'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('goal-text')), 'Run a half marathon');
+    await tester.tap(find.byKey(const ValueKey('goal-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Run a half marathon'), findsOneWidget);
+    expect(state.store.requests().single.title, 'goal');
+
+    final addProject = find.byKey(const ValueKey('brain-add-project'));
+    await tester.scrollUntilVisible(addProject, 200, scrollable: brainList());
+    await tester.pumpAndSettle();
+    await tester.tap(addProject);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('project-name')), 'Robo');
+    await tester.enterText(find.byKey(const ValueKey('project-what')), 'A robot arm');
+    await tester.tap(find.byKey(const ValueKey('project-save')));
+    await tester.pumpAndSettle();
+    final robo = state.store.requests().last;
+    expect(robo.body, contains('A robot arm'));
+    expect(find.text('Robo'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('waiting-${robo.id}-remove')));
+    await tester.pumpAndSettle();
+    expect(find.text('Robo'), findsNothing);
+    expect(state.store.requests().map((r) => r.title), ['goal']);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a diary entry shows what Vault did with it', (tester) async {

@@ -185,7 +185,8 @@ class VaultPage {
 
   final String id;
 
-  /// `morning`, `weekly`, `goals` or `projects`.
+  /// `morning`, `weekly`, `goals`, `projects`, `me`, or `request` (something
+  /// the phone asked the laptop to add to the vault).
   final String kind;
 
   /// A date for a morning page, a week (2026-W43) for a weekly one, `all`
