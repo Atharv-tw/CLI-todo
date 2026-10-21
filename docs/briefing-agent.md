@@ -80,6 +80,7 @@ it contains. One entry often holds several things.
 | move, add, drop or shorten something | an **instruction** | do it |
 | "only did one of the two", "finished half" | **partial progress** | tick what was done, carry the rest (below) |
 | "don't do that again", "that's not a task", undoing what you did | a **correction** | follow it, and add it to the vault's `Rules.md` |
+| `Answer to "…": …`, written from the morning page | an **answer** to that item under "Open questions" or "Waiting for your yes" | act on it: a yes is permission to make that change; then drop the item from the next page |
 | something you cannot place | a **question** | ask it in your report |
 
 **Commitments.** Capture every one. There is no limit on how many you record.

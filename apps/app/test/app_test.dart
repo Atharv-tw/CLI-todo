@@ -608,6 +608,46 @@ void main() {
     expect(find.text('Ship Helios', findRichText: true), findsOneWidget);
   });
 
+  testWidgets('the morning page answers its questions straight into the diary', (tester) async {
+    state.store.putPage(
+      'morning',
+      today(),
+      '# Today\n\n## The day\n\n- 07:00–08:00 Workout\n\n'
+          '## Waiting for your yes\n\n- Move **Guitar** to 21:00?\n\n'
+          '## Open questions\n\n- Which internship first?\n- Keep the 27 Oct goal?',
+    );
+    await pump(tester, const Size(390, 800), page: 'Brain');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('brain-morning')));
+    await tester.pumpAndSettle();
+
+    // One item: straight to the answer.
+    await tester.tap(find.byKey(const ValueKey<String>('answer-waiting for your yes')));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byKey(const ValueKey('diary-reply-to')), matching: find.text('Move Guitar to 21:00?')),
+        findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'Yes');
+    await tester.tap(find.byKey(const ValueKey('diary-save')));
+    await tester.pumpAndSettle();
+
+    // Several: pick one first.
+    final open = find.byKey(const ValueKey<String>('answer-open questions'));
+    await tester.scrollUntilVisible(open, 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('answer-item-1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('diary-draft')), 'No, drop it');
+    await tester.tap(find.byKey(const ValueKey('diary-save')));
+    await tester.pumpAndSettle();
+
+    expect(state.store.diary().map((e) => e.body), [
+      'Answer to "Move Guitar to 21:00?": Yes',
+      'Answer to "Keep the 27 Oct goal?": No, drop it',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a diary entry shows what Vault did with it', (tester) async {
     final e = state.store.addDiary('I have to finish Helios');
     state.store.setDiaryOutcome(e.id, '1 commitment captured (Finish Helios).');
