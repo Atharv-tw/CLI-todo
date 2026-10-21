@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:sqlite3/sqlite3.dart';
@@ -81,6 +82,25 @@ class Store {
     );
     return rows.isEmpty ? null : VaultPage.fromRow(rows.first);
   }
+
+  /// Asks for something to be added to the vault, which only the laptop can
+  /// write: a `goal` or a `project`, with its `text` (and a project's `what`).
+  /// `myvault sync` files it and removes the request.
+  void addRequest(String kind, Map<String, Object?> data) => _insert('pages', {
+    'id': newId(),
+    'kind': 'request',
+    'key': newId(),
+    'title': kind,
+    'body': jsonEncode(data),
+  });
+
+  /// Requests the laptop has not filed yet, oldest first.
+  List<VaultPage> requests() => [
+    for (final r in db.select("SELECT * FROM pages WHERE deleted_at IS NULL AND kind = 'request' ORDER BY updated_at"))
+      VaultPage.fromRow(r),
+  ];
+
+  void deletePage(String id) => _update('pages', id, {'deleted_at': nowUtc()});
 
   /// Every page of [kind], newest key first, one per key.
   List<VaultPage> pages(String kind) {
